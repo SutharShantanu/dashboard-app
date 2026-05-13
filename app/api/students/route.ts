@@ -12,7 +12,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data, columns } = await getStudents();
+    const url = new URL(request.url);
+    const sheet = url.searchParams.get("sheet") || undefined;
+
+    const { data, columns } = await getStudents(sheet);
 
     // Map allowed columns for UI edit locks
     let allowedCols: string[] = [];
@@ -57,7 +60,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { ID, Name, Email, Phone, Course, Batch, Status, Score, Remarks, Grade, Comments, Notes } = body;
+    const { ID, Name, Email, Phone, Course, Batch, Status, Score, Remarks, Grade, Comments, Notes, sheet } = body;
 
     if (!ID || !Name || !Email) {
       return NextResponse.json(
@@ -90,7 +93,8 @@ export async function POST(request: Request) {
       session.user.username,
       session.user.displayName,
       session.user.role,
-      ip
+      ip,
+      sheet
     );
 
     return NextResponse.json({ success: true, student: newStudent });
@@ -113,7 +117,7 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { id, column, value } = body;
+    const { id, column, value, sheet } = body;
 
     if (!id || !column) {
       return NextResponse.json(
@@ -132,8 +136,6 @@ export async function PATCH(request: Request) {
 
     // Role-based permission check
     if (session.user.role !== "admin") {
-      // Sub-admin column permissions
-      // 1. Column J (index 9) is 'Grade'. Any column <= Grade (ID, Name, Email, Phone, Course, Batch, Status, Score, Remarks, Grade) is locked
       const forbiddenCols = [
         "Name",
         "Email",
@@ -153,7 +155,6 @@ export async function PATCH(request: Request) {
         );
       }
 
-      // 2. Must be listed in their explicit allowedColumns list
       const allowedList = session.user.allowedColumns
         ? session.user.allowedColumns.split(",").map((c) => c.trim())
         : [];
@@ -175,7 +176,8 @@ export async function PATCH(request: Request) {
       session.user.username,
       session.user.displayName,
       session.user.role,
-      ip
+      ip,
+      sheet
     );
 
     return NextResponse.json({ success: true });

@@ -126,6 +126,7 @@ export async function initSheets(): Promise<void> {
     // Check if Users and AuditLogs exist
     const hasUsers = sheetNames.includes("Users");
     const hasLogs = sheetNames.includes("AuditLogs");
+    const hasConnectedSheets = sheetNames.includes("ConnectedSpreadsheets");
 
     const requests: any[] = [];
     if (!hasUsers) {
@@ -139,6 +140,13 @@ export async function initSheets(): Promise<void> {
       requests.push({
         addSheet: {
           properties: { title: "AuditLogs" },
+        },
+      });
+    }
+    if (!hasConnectedSheets) {
+      requests.push({
+        addSheet: {
+          properties: { title: "ConnectedSpreadsheets" },
         },
       });
     }
@@ -213,6 +221,35 @@ export async function initSheets(): Promise<void> {
       console.log("[Sheets DB] Seeded AuditLogs headers.");
     }
 
+    // Seed default ConnectedSpreadsheets if we had to create it
+    if (!hasConnectedSheets) {
+      const headers = [
+        "spreadsheetId",
+        "title",
+        "sheetName",
+        "url",
+        "addedBy",
+        "createdAt",
+      ];
+      const primarySheetRow = [
+        sheetId,
+        "Primary Student DB",
+        studentSheetName,
+        `https://docs.google.com/spreadsheets/d/${sheetId}/edit`,
+        "system",
+        new Date().toISOString(),
+      ];
+      await sheetsClient.spreadsheets.values.update({
+        spreadsheetId: sheetId,
+        range: "ConnectedSpreadsheets!A1:F2",
+        valueInputOption: "RAW",
+        requestBody: {
+          values: [headers, primarySheetRow],
+        },
+      });
+      console.log("[Sheets DB] Seeded default primary sheet in ConnectedSpreadsheets.");
+    }
+
     isInitialized = true;
   } catch (err) {
     console.error("[Sheets DB] Failed to initialize Google Sheets:", err);
@@ -230,18 +267,242 @@ export function getDbMode() {
 }
 
 // ------------------------------------------
-// 1. STUDENTS
+// MULTI-SHEET TAB MANAGEMENT
 // ------------------------------------------
-export async function getStudents(): Promise<{ data: Student[]; columns: string[] }> {
+
+export interface ConnectedSheet {
+  spreadsheetId: string;
+  title: string;
+  sheetName: string;
+  url: string;
+  addedBy: string;
+  createdAt: string;
+}
+
+export async function getConnectedSheets(): Promise<ConnectedSheet[]> {
   if (!hasGoogleCreds || !sheetsClient) {
-    return { data: [], columns: [] };
+    return [
+      {
+        spreadsheetId: sheetId,
+        title: "Primary Student DB",
+        sheetName: studentSheetName,
+        url: `https://docs.google.com/spreadsheets/d/${sheetId}/edit`,
+        addedBy: "system",
+        createdAt: new Date().toISOString(),
+      },
+    ];
   }
 
   try {
     await initSheets();
     const response = await sheetsClient.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: `${studentSheetName}!A1:Z1000`,
+      range: "ConnectedSpreadsheets!A1:F100",
+    });
+    const rows = response.data.values;
+    if (!rows || rows.length < 2) {
+      return [
+        {
+          spreadsheetId: sheetId,
+          title: "Primary Student DB",
+          sheetName: studentSheetName,
+          url: `https://docs.google.com/spreadsheets/d/${sheetId}/edit`,
+          addedBy: "system",
+          createdAt: new Date().toISOString(),
+        },
+      ];
+    }
+
+    const result: ConnectedSheet[] = [];
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      result.push({
+        spreadsheetId: r[0] || "",
+        title: r[1] || "",
+        sheetName: r[2] || "",
+        url: r[3] || "",
+        addedBy: r[4] || "",
+        createdAt: r[5] || "",
+      });
+    }
+    return result;
+  } catch (error) {
+    console.error("[Sheets DB] getConnectedSheets error:", error);
+    return [
+      {
+        spreadsheetId: sheetId,
+        title: "Primary Student DB",
+        sheetName: studentSheetName,
+        url: `https://docs.google.com/spreadsheets/d/${sheetId}/edit`,
+        addedBy: "system",
+        createdAt: new Date().toISOString(),
+      },
+    ];
+  }
+}
+
+export async function addConnectedSheet(url: string, title: string, addedBy: string): Promise<ConnectedSheet> {
+  if (!hasGoogleCreds || !sheetsClient) {
+    throw new Error("Cannot connect external sheet: No Google Sheet configured.");
+  }
+
+  let targetSpreadsheetId = "";
+  try {
+    const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    if (match && match[1]) {
+      targetSpreadsheetId = match[1];
+    } else {
+      throw new Error("Invalid Google Sheet URL. Could not extract spreadsheet ID.");
+    }
+  } catch {
+    throw new Error("Invalid Google Sheet URL structure.");
+  }
+
+  try {
+    await initSheets();
+    const existing = await getConnectedSheets();
+    if (existing.some((s) => s.spreadsheetId === targetSpreadsheetId)) {
+      throw new Error(`Google Sheet is already connected.`);
+    }
+
+    // Verify access and get sheet metadata
+    const response = await sheetsClient.spreadsheets.get({
+      spreadsheetId: targetSpreadsheetId,
+    });
+
+    const sheets = response.data.sheets || [];
+    if (sheets.length === 0) {
+      throw new Error("Google Sheet has no visible tabs.");
+    }
+
+    const sheetName = sheets[0].properties?.title || "Sheet1";
+    const finalTitle = title.trim() || response.data.properties?.title || "Connected Sheet";
+    const createdAt = new Date().toISOString();
+
+    const rowValues = [
+      targetSpreadsheetId,
+      finalTitle,
+      sheetName,
+      url.trim(),
+      addedBy,
+      createdAt,
+    ];
+
+    await sheetsClient.spreadsheets.values.append({
+      spreadsheetId: sheetId,
+      range: "ConnectedSpreadsheets!A1",
+      valueInputOption: "RAW",
+      requestBody: { values: [rowValues] },
+    });
+
+    console.log(`[Sheets DB] Connected new external sheet: ${finalTitle}`);
+
+    return {
+      spreadsheetId: targetSpreadsheetId,
+      title: finalTitle,
+      sheetName,
+      url: url.trim(),
+      addedBy,
+      createdAt,
+    };
+  } catch (error: any) {
+    console.error("[Sheets DB] addConnectedSheet error:", error);
+    throw new Error(error.message || "Failed to verify or connect external Google Sheet. Ensure the service account email has Viewer or Editor permissions on the sheet.");
+  }
+}
+
+export async function getSheetNames(): Promise<string[]> {
+  if (!hasGoogleCreds || !sheetsClient) {
+    return ["Students"];
+  }
+  try {
+    await initSheets();
+    const response = await sheetsClient.spreadsheets.get({
+      spreadsheetId: sheetId,
+    });
+    const sheets = response.data.sheets || [];
+    const names = sheets
+      .map((s: any) => s.properties?.title || "")
+      .filter((n: string) => n && n !== "Users" && n !== "AuditLogs" && n !== "ConnectedSpreadsheets");
+    return names.length > 0 ? names : ["Students"];
+  } catch (error) {
+    console.error("[Sheets DB] getSheetNames error:", error);
+    return ["Students"];
+  }
+}
+
+export async function addSheetTab(title: string): Promise<void> {
+  if (!hasGoogleCreds || !sheetsClient) {
+    throw new Error("Cannot add sheet: No Google Sheet configured.");
+  }
+  try {
+    await initSheets();
+    const existing = await getSheetNames();
+    if (existing.some((n) => n.toLowerCase() === title.toLowerCase())) {
+      throw new Error(`Sheet tab "${title}" already exists.`);
+    }
+
+    await sheetsClient.spreadsheets.batchUpdate({
+      spreadsheetId: sheetId,
+      requestBody: {
+        requests: [
+          {
+            addSheet: {
+              properties: { title },
+            },
+          },
+        ],
+      },
+    });
+
+    const headers = [
+      "ID",
+      "Name",
+      "Email",
+      "Phone",
+      "Course",
+      "Batch",
+      "Status",
+      "Score",
+      "Remarks",
+      "Grade",
+      "Comments",
+      "Notes",
+      "LastModifiedBy",
+      "LastModifiedAt",
+    ];
+
+    await sheetsClient.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range: `${title}!A1:N1`,
+      valueInputOption: "RAW",
+      requestBody: {
+        values: [headers],
+      },
+    });
+
+    console.log(`[Sheets DB] Added new sheet tab: ${title} with headers.`);
+  } catch (error) {
+    console.error("[Sheets DB] addSheetTab error:", error);
+    throw error;
+  }
+}
+
+// ------------------------------------------
+// 1. STUDENTS
+// ------------------------------------------
+export async function getStudents(targetSheet?: string, targetSpreadsheetId?: string): Promise<{ data: Student[]; columns: string[] }> {
+  if (!hasGoogleCreds || !sheetsClient) {
+    return { data: [], columns: [] };
+  }
+
+  try {
+    await initSheets();
+    const activeSpreadsheetId = targetSpreadsheetId || sheetId;
+    const sheetToFetch = targetSheet || (targetSpreadsheetId ? "Sheet1" : studentSheetName);
+    const response = await sheetsClient.spreadsheets.values.get({
+      spreadsheetId: activeSpreadsheetId,
+      range: `${sheetToFetch}!A1:Z1000`,
     });
     const rows = response.data.values;
     if (!rows || rows.length === 0) {
@@ -274,7 +535,9 @@ export async function updateStudentCell(
   actor: string,
   actorDisplayName: string,
   actorRole: string,
-  ip: string = "127.0.0.1"
+  ip: string = "127.0.0.1",
+  targetSheet?: string,
+  targetSpreadsheetId?: string
 ): Promise<void> {
   if (!hasGoogleCreds || !sheetsClient) {
     throw new Error("Cannot modify records: No Google Sheet configured.");
@@ -283,10 +546,11 @@ export async function updateStudentCell(
 
   try {
     await initSheets();
-    // 1. Get current rows to find column index and row index of target ID
+    const activeSpreadsheetId = targetSpreadsheetId || sheetId;
+    const sheetToFetch = targetSheet || (targetSpreadsheetId ? "Sheet1" : studentSheetName);
     const response = await sheetsClient.spreadsheets.values.get({
-      spreadsheetId: sheetId,
-      range: `${studentSheetName}!A1:Z1000`,
+      spreadsheetId: activeSpreadsheetId,
+      range: `${sheetToFetch}!A1:Z1000`,
     });
     const rows = response.data.values;
     if (!rows || rows.length === 0) {
@@ -318,12 +582,11 @@ export async function updateStudentCell(
       throw new Error(`Student with ID ${id} not found.`);
     }
 
-    // 2. Perform updates: target column, LastModifiedBy, LastModifiedAt
     const targetCellLetter = getColumnLetter(colIndex);
-    const range = `${studentSheetName}!${targetCellLetter}${targetRowIndex}`;
+    const range = `${sheetToFetch}!${targetCellLetter}${targetRowIndex}`;
 
     await sheetsClient.spreadsheets.values.update({
-      spreadsheetId: sheetId,
+      spreadsheetId: activeSpreadsheetId,
       range,
       valueInputOption: "RAW",
       requestBody: { values: [[newValue]] },
@@ -332,8 +595,8 @@ export async function updateStudentCell(
     if (lastModifiedByColIndex !== -1) {
       const byCellLetter = getColumnLetter(lastModifiedByColIndex);
       await sheetsClient.spreadsheets.values.update({
-        spreadsheetId: sheetId,
-        range: `${studentSheetName}!${byCellLetter}${targetRowIndex}`,
+        spreadsheetId: activeSpreadsheetId,
+        range: `${sheetToFetch}!${byCellLetter}${targetRowIndex}`,
         valueInputOption: "RAW",
         requestBody: { values: [[actor]] },
       });
@@ -342,21 +605,21 @@ export async function updateStudentCell(
     if (lastModifiedAtColIndex !== -1) {
       const atCellLetter = getColumnLetter(lastModifiedAtColIndex);
       await sheetsClient.spreadsheets.values.update({
-        spreadsheetId: sheetId,
-        range: `${studentSheetName}!${atCellLetter}${targetRowIndex}`,
+        spreadsheetId: activeSpreadsheetId,
+        range: `${sheetToFetch}!${atCellLetter}${targetRowIndex}`,
         valueInputOption: "RAW",
         requestBody: { values: [[timestamp]] },
       });
     }
 
-    // 3. Append Audit Log
+    // Append Audit Log
     await appendAuditLog({
       timestamp,
       actor,
       actorDisplayName,
       actorRole,
       action: "WRITE",
-      targetRow: id,
+      targetRow: `${sheetToFetch}:${id}`,
       columnChanged: column,
       oldValue,
       newValue,
@@ -373,7 +636,9 @@ export async function createStudent(
   actor: string,
   actorDisplayName: string,
   actorRole: string,
-  ip: string = "127.0.0.1"
+  ip: string = "127.0.0.1",
+  targetSheet?: string,
+  targetSpreadsheetId?: string
 ): Promise<void> {
   if (!hasGoogleCreds || !sheetsClient) {
     throw new Error("Cannot modify records: No Google Sheet configured.");
@@ -384,14 +649,15 @@ export async function createStudent(
 
   try {
     await initSheets();
+    const activeSpreadsheetId = targetSpreadsheetId || sheetId;
+    const sheetToFetch = targetSheet || (targetSpreadsheetId ? "Sheet1" : studentSheetName);
 
     // Uniqueness check
-    const { data: students, columns: headers } = await getStudents();
+    const { data: students, columns: headers } = await getStudents(sheetToFetch, activeSpreadsheetId);
     if (students.some((s) => s.ID === newStudent.ID)) {
-      throw new Error(`Student ID "${newStudent.ID}" already exists.`);
+      throw new Error(`Student ID "${newStudent.ID}" already exists in sheet ${sheetToFetch}.`);
     }
 
-    // Map newStudent keys to spreadsheet column order
     const rowValues = headers.map((header) => {
       if (header === "LastModifiedBy") return actor;
       if (header === "LastModifiedAt") return timestamp;
@@ -399,8 +665,8 @@ export async function createStudent(
     });
 
     await sheetsClient.spreadsheets.values.append({
-      spreadsheetId: sheetId,
-      range: `${studentSheetName}!A1`,
+      spreadsheetId: activeSpreadsheetId,
+      range: `${sheetToFetch}!A1`,
       valueInputOption: "RAW",
       requestBody: { values: [rowValues] },
     });
@@ -412,7 +678,7 @@ export async function createStudent(
       actorDisplayName,
       actorRole,
       action: "STUDENT_CREATE",
-      targetRow: newStudent.ID,
+      targetRow: `${sheetToFetch}:${newStudent.ID}`,
       columnChanged: "all",
       oldValue: "",
       newValue: `Name=${newStudent.Name}, Email=${newStudent.Email}`,
@@ -476,7 +742,6 @@ export async function createUser(
 
   try {
     await initSheets();
-    // Check uniqueness
     const users = await getUsers();
     if (users.some((u) => u.username === newUser.username)) {
       throw new Error(`Username "${newUser.username}" already exists.`);
@@ -500,7 +765,6 @@ export async function createUser(
       requestBody: { values: [rowValues] },
     });
 
-    // Append Audit Log
     await appendAuditLog({
       timestamp,
       actor,
@@ -534,7 +798,6 @@ export async function updateUser(
 
   try {
     await initSheets();
-    // 1. Find the target row index in sheets
     const response = await sheetsClient.spreadsheets.values.get({
       spreadsheetId: sheetId,
       range: "Users!A1:H100",
@@ -568,7 +831,6 @@ export async function updateUser(
     const oldVals: string[] = [];
     const newVals: string[] = [];
 
-    // 2. Perform cell updates
     for (const key of Object.keys(updates)) {
       const colIdx = headers.indexOf(key);
       if (colIdx !== -1) {

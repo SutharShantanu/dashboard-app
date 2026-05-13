@@ -6,21 +6,23 @@ import { getUsers } from "./sheets";
 
 export const authOptions: NextAuthOptions = {
   providers: [
-    Auth0Provider({
-      clientId: process.env.AUTH0_CLIENT_ID || "demo-auth0-client-id",
-      clientSecret: process.env.AUTH0_CLIENT_SECRET || "demo-auth0-client-secret",
-      issuer: process.env.AUTH0_ISSUER || "https://demo-tenant.auth0.com",
-      profile(profile) {
-        return {
-          id: profile.sub,
-          username: profile.nickname || profile.name || "sso_user",
-          name: profile.name,
-          displayName: profile.name || "SSO Administrator",
-          role: "admin",
-          allowedColumns: "*",
-        };
-      },
-    }),
+    ...(process.env.AUTH0_CLIENT_ID && process.env.AUTH0_ISSUER ? [
+      Auth0Provider({
+        clientId: process.env.AUTH0_CLIENT_ID,
+        clientSecret: process.env.AUTH0_CLIENT_SECRET || "",
+        issuer: process.env.AUTH0_ISSUER,
+        profile(profile) {
+          return {
+            id: profile.sub,
+            username: profile.nickname || profile.name || "sso_user",
+            name: profile.name,
+            displayName: profile.name || "SSO Administrator",
+            role: "admin",
+            allowedColumns: "*",
+          };
+        },
+      })
+    ] : []),
     CredentialsProvider({
       name: "Credentials",
       credentials: {
