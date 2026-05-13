@@ -1,0 +1,12 @@
+[
+  {
+    "username": "admin",
+    "displayName": "Administrator",
+    "passwordHash": "$2b$12$CksCuudcs3zzOoqPxOtA6uoBpsytJ7IdQpfQuxiM1uvZnjqPDdW5S",
+    "role": "admin",
+    "allowedColumns": "ID,Name,Email,Phone,Course,Batch,Status,Score,Remarks,LastModifiedBy,LastModifiedAt",
+    "isActive": "TRUE",
+    "createdAt": "2026-05-11T22:33:42Z",
+    "createdBy": "system"
+  }
+]
