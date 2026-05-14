@@ -21,6 +21,7 @@ export interface Student {
 export interface User {
   username: string;
   displayName: string;
+  email: string;
   passwordHash: string;
   role: "admin" | "sub-admin";
   allowedColumns: string; // Comma-separated list
@@ -168,6 +169,7 @@ export async function initSheets(): Promise<void> {
       const headers = [
         "username",
         "displayName",
+        "email",
         "passwordHash",
         "role",
         "allowedColumns",
@@ -178,6 +180,7 @@ export async function initSheets(): Promise<void> {
       const adminUser = [
         "admin",
         "Administrator",
+        "admin@domain.com",
         "$2b$12$CksCuudcs3zzOoqPxOtA6uoBpsytJ7IdQpfQuxiM1uvZnjqPDdW5S", // pre-hashed admin1234
         "admin",
         "ID,Name,Email,Phone,Course,Batch,Status,Score,Remarks,LastModifiedBy,LastModifiedAt",
@@ -187,7 +190,7 @@ export async function initSheets(): Promise<void> {
       ];
       await sheetsClient.spreadsheets.values.update({
         spreadsheetId: sheetId,
-        range: "Users!A1:H2",
+        range: "Users!A1:I2",
         valueInputOption: "RAW",
         requestBody: {
           values: [headers, adminUser],
@@ -749,7 +752,7 @@ export async function getUsers(): Promise<User[]> {
     await initSheets();
     const response = await sheetsClient.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: "Users!A1:H100",
+      range: "Users!A1:I100",
     });
     const rows = response.data.values;
     if (!rows || rows.length === 0) {
@@ -797,6 +800,7 @@ export async function createUser(
     const rowValues = [
       newUser.username,
       newUser.displayName,
+      newUser.email,
       newUser.passwordHash,
       newUser.role,
       newUser.allowedColumns,
@@ -847,7 +851,7 @@ export async function updateUser(
     await initSheets();
     const response = await sheetsClient.spreadsheets.values.get({
       spreadsheetId: sheetId,
-      range: "Users!A1:H100",
+      range: "Users!A1:I100",
     });
     const rows = response.data.values;
     if (!rows || rows.length === 0) {

@@ -1,12 +1,13 @@
-"use client";
+"use client"
 
-import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import React, { useState, useEffect } from "react"
+import Link from "next/link"
+import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import {
   Sparkles,
   GraduationCap,
   Users,
+  UserPlus,
   History,
   Plus,
   Loader2,
@@ -14,7 +15,7 @@ import {
   ExternalLink,
   RefreshCw,
   Trash2,
-} from "lucide-react";
+} from "lucide-react"
 import {
   Sidebar,
   SidebarHeader,
@@ -27,15 +28,21 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   SidebarRail,
-} from "@/components/ui/sidebar";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+} from "@/components/ui/sidebar"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import {
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
-} from "@/components/ui/context-menu";
+} from "@/components/ui/context-menu"
 import {
   AlertDialog,
   AlertDialogContent,
@@ -44,109 +51,128 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogCancel,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
-import { NavUser } from "@/components/nav-user";
-import { TooltipProvider } from "@/components/ui/tooltip";
+} from "@/components/ui/alert-dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { toast } from "sonner"
+import { NavUser } from "@/components/nav-user"
+import { TooltipProvider } from "@/components/ui/tooltip"
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   user: {
-    displayName?: string | null;
-    role: string;
-    username: string;
-  };
-  initials: string;
-  avatarColor: string;
+    displayName?: string | null
+    role: string
+    username: string
+  }
+  initials: string
+  avatarColor: string
 }
 
-export function AppSidebar({ user, initials, avatarColor, ...props }: AppSidebarProps) {
-  const searchParams = useSearchParams();
-  const tab = searchParams?.get("tab") || "students";
-  const activeSheet = searchParams?.get("sheet") || "Students";
-  const activeSpreadsheetId = searchParams?.get("spreadsheetId") || "";
+export function AppSidebar({
+  user,
+  initials,
+  avatarColor,
+  ...props
+}: AppSidebarProps) {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+  const tab = searchParams?.get("tab") || "students"
+  const activeSheet = searchParams?.get("sheet") || "Students"
+  const activeSpreadsheetId = searchParams?.get("spreadsheetId") || ""
 
-  const [connectedSheets, setConnectedSheets] = useState<any[]>([]);
+  const [connectedSheets, setConnectedSheets] = useState<any[]>([])
 
-  const [isConnectOpen, setIsConnectOpen] = useState(false);
-  const [connectUrl, setConnectUrl] = useState("");
-  const [connectTitle, setConnectTitle] = useState("");
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [isConnectOpen, setIsConnectOpen] = useState(false)
+  const [connectUrl, setConnectUrl] = useState("")
+  const [connectTitle, setConnectTitle] = useState("")
+  const [isConnecting, setIsConnecting] = useState(false)
 
-  const [sheetToDelete, setSheetToDelete] = useState<{ spreadsheetId: string; title: string } | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [sheetToDelete, setSheetToDelete] = useState<{
+    spreadsheetId: string
+    title: string
+  } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     async function loadData() {
       try {
-        const resConnected = await fetch("/api/connected-sheets");
+        const resConnected = await fetch("/api/connected-sheets")
         if (resConnected.ok) {
-          const data = await resConnected.json();
-          if (data.connectedSheets) setConnectedSheets(data.connectedSheets);
+          const data = await resConnected.json()
+          if (data.connectedSheets) setConnectedSheets(data.connectedSheets)
         }
       } catch {}
     }
-    loadData();
+    loadData()
 
     const handleSheetConnected = () => {
-      loadData();
-    };
-    window.addEventListener("sheet_connected", handleSheetConnected);
-    return () => window.removeEventListener("sheet_connected", handleSheetConnected);
-  }, []);
+      loadData()
+    }
+    window.addEventListener("sheet_connected", handleSheetConnected)
+    return () =>
+      window.removeEventListener("sheet_connected", handleSheetConnected)
+  }, [])
 
   const handleConnectSheet = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!connectUrl.trim()) return;
+    e.preventDefault()
+    if (!connectUrl.trim()) return
 
-    setIsConnecting(true);
+    setIsConnecting(true)
     try {
       const res = await fetch("/api/connected-sheets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: connectUrl.trim(), title: connectTitle.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to connect Google Sheet");
+        body: JSON.stringify({
+          url: connectUrl.trim(),
+          title: connectTitle.trim(),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok)
+        throw new Error(data.error || "Failed to connect Google Sheet")
 
-      toast.success(`Google Sheet "${data.newSheet?.title || connectTitle}" connected successfully!`);
-      setConnectedSheets((prev) => [...prev, data.newSheet]);
-      setConnectUrl("");
-      setConnectTitle("");
-      setIsConnectOpen(false);
+      toast.success(
+        `Google Sheet "${data.newSheet?.title || connectTitle}" connected successfully!`
+      )
+      setConnectedSheets((prev) => [...prev, data.newSheet])
+      setConnectUrl("")
+      setConnectTitle("")
+      setIsConnectOpen(false)
     } catch (err: any) {
-      toast.error(err.message || "Failed to connect Google Sheet");
+      toast.error(err.message || "Failed to connect Google Sheet")
     } finally {
-      setIsConnecting(false);
+      setIsConnecting(false)
     }
-  };
+  }
 
   const handleDeleteSheet = (spreadsheetId: string, title: string) => {
-    setSheetToDelete({ spreadsheetId, title });
-  };
+    setSheetToDelete({ spreadsheetId, title })
+  }
 
   const handleConfirmDelete = async () => {
-    if (!sheetToDelete) return;
-    setIsDeleting(true);
+    if (!sheetToDelete) return
+    setIsDeleting(true)
     try {
       const res = await fetch("/api/connected-sheets", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ spreadsheetId: sheetToDelete.spreadsheetId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to remove sheet");
-      toast.success(`Removed "${sheetToDelete.title}" successfully`);
-      setConnectedSheets((prev) => prev.filter((s) => s.spreadsheetId !== sheetToDelete.spreadsheetId));
-      window.dispatchEvent(new Event("sheet_connected"));
-      setSheetToDelete(null);
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to remove sheet")
+      toast.success(`Removed "${sheetToDelete.title}" successfully`)
+      setConnectedSheets((prev) =>
+        prev.filter((s) => s.spreadsheetId !== sheetToDelete.spreadsheetId)
+      )
+      window.dispatchEvent(new Event("sheet_connected"))
+      setSheetToDelete(null)
     } catch (err: any) {
-      toast.error(err.message || "Failed to remove sheet");
+      toast.error(err.message || "Failed to remove sheet")
     } finally {
-      setIsDeleting(false);
+      setIsDeleting(false)
     }
-  };
+  }
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -166,11 +192,17 @@ export function AppSidebar({ user, initials, avatarColor, ...props }: AppSidebar
           {/* CONNECTED EXTERNAL SPREADSHEETS SECTION */}
           <SidebarGroup>
             <div className="flex items-center justify-between px-2 py-1.5 group-data-[collapsible=icon]:hidden">
-              <SidebarGroupLabel className="p-0">Connected Sheets</SidebarGroupLabel>
+              <SidebarGroupLabel className="p-0">
+                Connected Sheets
+              </SidebarGroupLabel>
               {user.role === "admin" && (
                 <Dialog open={isConnectOpen} onOpenChange={setIsConnectOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-5 w-5 hover:bg-muted">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 hover:bg-muted"
+                    >
                       <Plus className="h-3.5 w-3.5" />
                     </Button>
                   </DialogTrigger>
@@ -178,9 +210,14 @@ export function AppSidebar({ user, initials, avatarColor, ...props }: AppSidebar
                     <DialogHeader>
                       <DialogTitle>Connect External Google Sheet</DialogTitle>
                     </DialogHeader>
-                    <form onSubmit={handleConnectSheet} className="space-y-4 pt-4">
+                    <form
+                      onSubmit={handleConnectSheet}
+                      className="space-y-4 pt-4"
+                    >
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Google Sheet URL</label>
+                        <label className="text-sm font-medium">
+                          Google Sheet URL
+                        </label>
                         <Input
                           placeholder="https://docs.google.com/spreadsheets/d/..."
                           value={connectUrl}
@@ -190,7 +227,9 @@ export function AppSidebar({ user, initials, avatarColor, ...props }: AppSidebar
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Title / Alias (Optional)</label>
+                        <label className="text-sm font-medium">
+                          Title / Alias (Optional)
+                        </label>
                         <Input
                           placeholder="e.g., Department Roster"
                           value={connectTitle}
@@ -208,7 +247,11 @@ export function AppSidebar({ user, initials, avatarColor, ...props }: AppSidebar
                           Cancel
                         </Button>
                         <Button type="submit" disabled={isConnecting}>
-                          {isConnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Connect"}
+                          {isConnecting ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Connect"
+                          )}
                         </Button>
                       </div>
                     </form>
@@ -225,10 +268,16 @@ export function AppSidebar({ user, initials, avatarColor, ...props }: AppSidebar
                       <SidebarMenuItem>
                         <SidebarMenuButton
                           asChild
-                          isActive={tab === "students" && (activeSpreadsheetId === s.spreadsheetId || (!activeSpreadsheetId && index === 0))}
+                          isActive={
+                            tab === "students" &&
+                            (activeSpreadsheetId === s.spreadsheetId ||
+                              (!activeSpreadsheetId && index === 0))
+                          }
                           tooltip={s.title}
                         >
-                          <Link href={`/dashboard?tab=students&sheet=${encodeURIComponent(s.sheetName || "Students")}${index === 0 ? "" : `&spreadsheetId=${encodeURIComponent(s.spreadsheetId)}`}`}>
+                          <Link
+                            href={`/dashboard?tab=students&sheet=${encodeURIComponent(s.sheetName || "Students")}${index === 0 ? "" : `&spreadsheetId=${encodeURIComponent(s.spreadsheetId)}`}`}
+                          >
                             <Database className="h-4 w-4" />
                             <span>{s.title}</span>
                           </Link>
@@ -237,18 +286,23 @@ export function AppSidebar({ user, initials, avatarColor, ...props }: AppSidebar
                     </ContextMenuTrigger>
                     <ContextMenuContent className="w-56">
                       <ContextMenuItem
-                        onClick={() => window.open(`https://docs.google.com/spreadsheets/d/${s.spreadsheetId}/edit`, "_blank")}
+                        onClick={() =>
+                          window.open(
+                            `https://docs.google.com/spreadsheets/d/${s.spreadsheetId}/edit`,
+                            "_blank"
+                          )
+                        }
                       >
-                        <ExternalLink className="mr-2 h-4 w-4" />
+                        <ExternalLink className="h-4 w-4" />
                         <span>Open in Google Sheets</span>
                       </ContextMenuItem>
                       <ContextMenuItem
                         onClick={() => {
-                          window.dispatchEvent(new Event("sheet_connected"));
-                          toast.success(`Refreshed "${s.title}" data`);
+                          window.dispatchEvent(new Event("sheet_connected"))
+                          toast.success(`Refreshed "${s.title}" data`)
                         }}
                       >
-                        <RefreshCw className="mr-2 h-4 w-4" />
+                        <RefreshCw className="h-4 w-4" />
                         <span>Reload / Sync Data</span>
                       </ContextMenuItem>
                       {user.role === "admin" && (
@@ -256,9 +310,11 @@ export function AppSidebar({ user, initials, avatarColor, ...props }: AppSidebar
                           <ContextMenuSeparator />
                           <ContextMenuItem
                             variant="destructive"
-                            onClick={() => handleDeleteSheet(s.spreadsheetId, s.title)}
+                            onClick={() =>
+                              handleDeleteSheet(s.spreadsheetId, s.title)
+                            }
                           >
-                            <Trash2 className="mr-2 h-4 w-4" />
+                            <Trash2 className="h-4 w-4" />
                             <span>Remove Sheet</span>
                           </ContextMenuItem>
                         </>
@@ -267,12 +323,11 @@ export function AppSidebar({ user, initials, avatarColor, ...props }: AppSidebar
                   </ContextMenu>
                 ))}
 
-
                 {user.role === "admin" && (
                   <Dialog open={isConnectOpen} onOpenChange={setIsConnectOpen}>
                     <SidebarMenuItem>
                       <DialogTrigger asChild>
-                        <SidebarMenuButton className="text-muted-foreground hover:text-foreground font-medium">
+                        <SidebarMenuButton className="font-medium text-muted-foreground hover:text-foreground">
                           <Plus className="h-4 w-4" />
                           <span>Connect Sheet URL</span>
                         </SidebarMenuButton>
@@ -282,9 +337,14 @@ export function AppSidebar({ user, initials, avatarColor, ...props }: AppSidebar
                       <DialogHeader>
                         <DialogTitle>Connect External Google Sheet</DialogTitle>
                       </DialogHeader>
-                      <form onSubmit={handleConnectSheet} className="space-y-4 pt-4">
+                      <form
+                        onSubmit={handleConnectSheet}
+                        className="space-y-4 pt-4"
+                      >
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Google Sheet URL</label>
+                          <label className="text-sm font-medium">
+                            Google Sheet URL
+                          </label>
                           <Input
                             placeholder="https://docs.google.com/spreadsheets/d/..."
                             value={connectUrl}
@@ -294,7 +354,9 @@ export function AppSidebar({ user, initials, avatarColor, ...props }: AppSidebar
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Title / Alias (Optional)</label>
+                          <label className="text-sm font-medium">
+                            Title / Alias (Optional)
+                          </label>
                           <Input
                             placeholder="e.g., Department Roster"
                             value={connectTitle}
@@ -312,7 +374,11 @@ export function AppSidebar({ user, initials, avatarColor, ...props }: AppSidebar
                             Cancel
                           </Button>
                           <Button type="submit" disabled={isConnecting}>
-                            {isConnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Connect"}
+                            {isConnecting ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              "Connect"
+                            )}
                           </Button>
                         </div>
                       </form>
@@ -331,10 +397,12 @@ export function AppSidebar({ user, initials, avatarColor, ...props }: AppSidebar
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
-                    isActive={tab === "students"}
+                    isActive={tab === "students" && pathname !== "/dashboard/users"}
                     tooltip="Student Records Overview"
                   >
-                    <Link href={`/dashboard?tab=students&sheet=${encodeURIComponent(activeSheet)}${activeSpreadsheetId ? `&spreadsheetId=${encodeURIComponent(activeSpreadsheetId)}` : ""}`}>
+                    <Link
+                      href={`/dashboard?tab=students&sheet=${encodeURIComponent(activeSheet)}${activeSpreadsheetId ? `&spreadsheetId=${encodeURIComponent(activeSpreadsheetId)}` : ""}`}
+                    >
                       <GraduationCap />
                       <span>Student Records</span>
                     </Link>
@@ -346,10 +414,12 @@ export function AppSidebar({ user, initials, avatarColor, ...props }: AppSidebar
                     <SidebarMenuItem>
                       <SidebarMenuButton
                         asChild
-                        isActive={tab === "users"}
+                        isActive={pathname === "/dashboard/users" || tab === "users"}
                         tooltip="Sub-Admins Directory"
                       >
-                        <Link href={`/dashboard?tab=users${activeSpreadsheetId ? `&spreadsheetId=${encodeURIComponent(activeSpreadsheetId)}` : ""}`}>
+                        <Link
+                          href={`/dashboard/users${activeSpreadsheetId ? `?spreadsheetId=${encodeURIComponent(activeSpreadsheetId)}` : ""}`}
+                        >
                           <Users />
                           <span>Sub-Admins Directory</span>
                         </Link>
@@ -358,11 +428,33 @@ export function AppSidebar({ user, initials, avatarColor, ...props }: AppSidebar
 
                     <SidebarMenuItem>
                       <SidebarMenuButton
+                        onClick={() => {
+                          router.push(
+                            `/dashboard/users${activeSpreadsheetId ? `?spreadsheetId=${encodeURIComponent(activeSpreadsheetId)}` : ""}`
+                          )
+                          setTimeout(() => {
+                            window.dispatchEvent(
+                              new Event("open_add_user_modal")
+                            )
+                          }, 50)
+                        }}
+                        tooltip="Create New Admin / Sub-Admin"
+                        className="text-primary hover:text-primary"
+                      >
+                        <UserPlus />
+                        <span>Create Account</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
                         asChild
-                        isActive={tab === "logs"}
+                        isActive={tab === "logs" && pathname !== "/dashboard/users"}
                         tooltip="Audit Logs"
                       >
-                        <Link href={`/dashboard?tab=logs${activeSpreadsheetId ? `&spreadsheetId=${encodeURIComponent(activeSpreadsheetId)}` : ""}`}>
+                        <Link
+                          href={`/dashboard?tab=logs${activeSpreadsheetId ? `&spreadsheetId=${encodeURIComponent(activeSpreadsheetId)}` : ""}`}
+                        >
                           <History />
                           <span>Audit Logs</span>
                         </Link>
@@ -389,12 +481,21 @@ export function AppSidebar({ user, initials, avatarColor, ...props }: AppSidebar
         <SidebarRail />
       </Sidebar>
 
-      <AlertDialog open={sheetToDelete !== null} onOpenChange={(open) => { if (!open && !isDeleting) setSheetToDelete(null); }}>
+      <AlertDialog
+        open={sheetToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) setSheetToDelete(null)
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure you want to remove &quot;{sheetToDelete?.title}&quot;?</AlertDialogTitle>
+            <AlertDialogTitle>
+              Are you sure you want to remove &quot;{sheetToDelete?.title}
+              &quot;?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This action will unbind the Google Sheet from the dashboard. Your underlying spreadsheet data in Google Sheets will remain intact.
+              This action will unbind the Google Sheet from the dashboard. Your
+              underlying spreadsheet data in Google Sheets will remain intact.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -406,12 +507,12 @@ export function AppSidebar({ user, initials, avatarColor, ...props }: AppSidebar
             >
               {isDeleting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Removing...
                 </>
               ) : (
                 <>
-                  <Trash2 className="mr-2 h-4 w-4" />
+                  <Trash2 className="h-4 w-4" />
                   Remove
                 </>
               )}
@@ -420,5 +521,5 @@ export function AppSidebar({ user, initials, avatarColor, ...props }: AppSidebar
         </AlertDialogContent>
       </AlertDialog>
     </TooltipProvider>
-  );
+  )
 }

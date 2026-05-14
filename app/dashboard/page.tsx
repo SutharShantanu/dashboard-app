@@ -30,16 +30,46 @@ import {
 
 // shadcn/ui components
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
-
 
 interface Student {
   ID: string
@@ -61,6 +91,7 @@ interface Student {
 interface User {
   username: string
   displayName: string
+  email: string
   role: string
   allowedColumns: string
   isActive: string
@@ -94,13 +125,18 @@ function DashboardPageContent() {
   const { data: session, status: sessionStatus } = useSession()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const tabParam = searchParams.get("tab") as "students" | "users" | "logs" | null
+  const tabParam = searchParams.get("tab") as
+    | "students"
+    | "logs"
+    | null
   const activeTab = tabParam || "students"
   const sheetParam = searchParams.get("sheet") || "Students"
   const spreadsheetIdParam = searchParams.get("spreadsheetId") || ""
 
   const setActiveTab = (tab: string) => {
-    router.push(`/dashboard?tab=${tab}${spreadsheetIdParam ? `&spreadsheetId=${encodeURIComponent(spreadsheetIdParam)}` : ""}`)
+    router.push(
+      `/dashboard?tab=${tab}${spreadsheetIdParam ? `&spreadsheetId=${encodeURIComponent(spreadsheetIdParam)}` : ""}`
+    )
   }
 
   // Global State
@@ -111,10 +147,6 @@ function DashboardPageContent() {
   const [isConfigured, setIsConfigured] = useState<boolean>(true)
   const [loadingStudents, setLoadingStudents] = useState<boolean>(true)
 
-  // Sub-admins list (Admin only)
-  const [users, setUsers] = useState<User[]>([])
-  const [loadingUsers, setLoadingUsers] = useState<boolean>(false)
-
   // Audit Logs (Admin only)
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [loadingLogs, setLoadingLogs] = useState<boolean>(false)
@@ -124,8 +156,7 @@ function DashboardPageContent() {
   const [statusFilter, setStatusFilter] = useState<string>("All")
   const [batchFilter, setBatchFilter] = useState<string>("All")
 
-  // Sub-admin search & Audit logs search
-  const [userSearchQuery, setUserSearchQuery] = useState<string>("")
+  // Audit logs search
   const [logSearchQuery, setLogSearchQuery] = useState<string>("")
 
   // Saving states for inline cells: studentId_columnName -> boolean
@@ -133,7 +164,9 @@ function DashboardPageContent() {
 
   // Real-Time Collaborative Presence States
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([])
-  const [focusedCells, setFocusedCells] = useState<Record<string, { user: string; color: string }>>({})
+  const [focusedCells, setFocusedCells] = useState<
+    Record<string, { user: string; color: string }>
+  >({})
 
   // Modals & New Record States
   const [isAddStudentOpen, setIsAddStudentOpen] = useState<boolean>(false)
@@ -152,17 +185,6 @@ function DashboardPageContent() {
     Notes: "",
   })
 
-  const [isAddUserOpen, setIsAddUserOpen] = useState<boolean>(false)
-  const [newUser, setNewUser] = useState({
-    username: "",
-    displayName: "",
-    password: "",
-    allowedColumns: "Comments,Notes",
-  })
-
-  const [editingAllowedColsUser, setEditingAllowedColsUser] = useState<string | null>(null)
-  const [tempAllowedColsValue, setTempAllowedColsValue] = useState<string>("")
-
   // Auto Refresh & Smart Polling Fallback
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
@@ -172,11 +194,12 @@ function DashboardPageContent() {
     if (sessionStatus === "authenticated") {
       fetchStudents()
       if (session?.user?.role === "admin") {
-        fetchUsers()
         fetchLogs()
       }
     }
   }, [sessionStatus, session, sheetParam, spreadsheetIdParam])
+
+
 
   // Layer 2: Real-time SSE Connection for Push Sync & Collaborative Cursors
   useEffect(() => {
@@ -189,7 +212,15 @@ function DashboardPageContent() {
     for (let i = 0; i < username.length; i++) {
       hash = username.charCodeAt(i) + ((hash << 5) - hash)
     }
-    const colors = ["#ef4444", "#f97316", "#10b981", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899"]
+    const colors = [
+      "#ef4444",
+      "#f97316",
+      "#10b981",
+      "#06b6d4",
+      "#3b82f6",
+      "#8b5cf6",
+      "#ec4899",
+    ]
     const color = colors[Math.abs(hash) % colors.length]
 
     const sseUrl = `/api/stream?username=${encodeURIComponent(username)}&displayName=${encodeURIComponent(
@@ -216,7 +247,10 @@ function DashboardPageContent() {
             delete next[key]
             return next
           })
-        } else if (data.type === "cell_update" || data.type === "full_sync_required") {
+        } else if (
+          data.type === "cell_update" ||
+          data.type === "full_sync_required"
+        ) {
           // Push update received -> Refresh data instantly
           fetchStudents(false)
           if (session?.user?.role === "admin") {
@@ -240,7 +274,10 @@ function DashboardPageContent() {
         const res = await fetch("/api/sheet-health")
         if (res.ok) {
           const data = await res.json()
-          if (lastHealthTimestampRef.current && lastHealthTimestampRef.current !== data.lastModified) {
+          if (
+            lastHealthTimestampRef.current &&
+            lastHealthTimestampRef.current !== data.lastModified
+          ) {
             // Timestamp differed -> trigger background refresh
             fetchStudents(false)
           }
@@ -274,20 +311,6 @@ function DashboardPageContent() {
     }
   }
 
-  const fetchUsers = async () => {
-    setLoadingUsers(true)
-    try {
-      const res = await fetch("/api/users")
-      if (!res.ok) throw new Error("Failed to load users")
-      const data = await res.json()
-      setUsers(data.users || [])
-    } catch (err: any) {
-      toast.error(err.message || "Failed to fetch users list.")
-    } finally {
-      setLoadingUsers(false)
-    }
-  }
-
   const fetchLogs = async () => {
     setLoadingLogs(true)
     try {
@@ -304,7 +327,8 @@ function DashboardPageContent() {
 
   // Check if a cell is editable by the current logged-in user
   const isCellEditable = (columnName: string) => {
-    if (["ID", "LastModifiedBy", "LastModifiedAt"].includes(columnName)) return false
+    if (["ID", "LastModifiedBy", "LastModifiedAt"].includes(columnName))
+      return false
 
     const gradeIndex = columns.indexOf("Grade")
     const colIndex = columns.indexOf(columnName)
@@ -330,7 +354,15 @@ function DashboardPageContent() {
     for (let i = 0; i < username.length; i++) {
       hash = username.charCodeAt(i) + ((hash << 5) - hash)
     }
-    const colors = ["#ef4444", "#f97316", "#10b981", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899"]
+    const colors = [
+      "#ef4444",
+      "#f97316",
+      "#10b981",
+      "#06b6d4",
+      "#3b82f6",
+      "#8b5cf6",
+      "#ec4899",
+    ]
     const color = colors[Math.abs(hash) % colors.length]
 
     try {
@@ -345,7 +377,8 @@ function DashboardPageContent() {
   // Handles presence blur broadcast
   const handleCellFocusBlur = async (studentId: string, col: string) => {
     if (!session?.user) return
-    const displayName = session.user.displayName || session.user.username || "Anonymous"
+    const displayName =
+      session.user.displayName || session.user.username || "Anonymous"
     try {
       await fetch("/api/presence/blur", {
         method: "POST",
@@ -356,11 +389,18 @@ function DashboardPageContent() {
   }
 
   // Handles inline cell modifications
-  const handleCellBlur = async (studentId: string, columnName: string, oldValue: string, newValue: string) => {
+  const handleCellBlur = async (
+    studentId: string,
+    columnName: string,
+    oldValue: string,
+    newValue: string
+  ) => {
     if (oldValue === newValue) return // No change
 
     if (!isCellEditable(columnName)) {
-      toast.warning(`🔒 Lock: You do not have permission to edit the '${columnName}' column.`)
+      toast.warning(
+        `🔒 Lock: You do not have permission to edit the '${columnName}' column.`
+      )
       return
     }
 
@@ -413,7 +453,11 @@ function DashboardPageContent() {
       const res = await fetch("/api/students", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...newStudent, sheet: sheetParam, spreadsheetId: spreadsheetIdParam }),
+        body: JSON.stringify({
+          ...newStudent,
+          sheet: sheetParam,
+          spreadsheetId: spreadsheetIdParam,
+        }),
       })
 
       const result = await res.json()
@@ -442,130 +486,32 @@ function DashboardPageContent() {
     }
   }
 
-  // Handles creating a new sub-admin user account (Admin only)
-  const handleCreateUserSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newUser.username || !newUser.displayName || !newUser.password) {
-      toast.error("All user account fields are required.")
-      return
-    }
-
-    try {
-      const res = await fetch("/api/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newUser),
-      })
-
-      const result = await res.json()
-      if (!res.ok) throw new Error(result.error || "Failed to register sub-admin.")
-
-      toast.success(`Successfully registered sub-admin user: ${newUser.username}`)
-      setIsAddUserOpen(false)
-      setNewUser({
-        username: "",
-        displayName: "",
-        password: "",
-        allowedColumns: "Comments,Notes",
-      })
-      fetchUsers()
-      fetchLogs()
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save sub-admin.")
-    }
-  }
-
-  // Toggle user activation status (Admin only)
-  const handleToggleUserActive = async (username: string, currentActive: string) => {
-    const nextActive = currentActive === "TRUE" ? "FALSE" : "TRUE"
-    try {
-      const res = await fetch(`/api/users/${username}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: nextActive }),
-      })
-
-      const result = await res.json()
-      if (!res.ok) throw new Error(result.error || "Failed to change user status.")
-
-      toast.success(`User '${username}' activation updated successfully.`)
-      fetchUsers()
-      fetchLogs()
-    } catch (err: any) {
-      toast.error(err.message || "Failed to toggle user status.")
-    }
-  }
-
-  // Saves updated allowed columns for a sub-admin (Admin only)
-  const handleSaveAllowedCols = async (username: string) => {
-    try {
-      const res = await fetch(`/api/users/${username}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ allowedColumns: tempAllowedColsValue }),
-      })
-
-      const result = await res.json()
-      if (!res.ok) throw new Error(result.error || "Failed to update columns.")
-
-      toast.success(`Permissions updated successfully for user ${username}.`)
-      setEditingAllowedColsUser(null)
-      fetchUsers()
-      fetchLogs()
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save user columns.")
-    }
-  }
-
-  // Reset Sub-admin Password
-  const handleResetPassword = async (username: string) => {
-    const newPass = prompt(`Enter a new secure password for sub-admin '${username}':`)
-    if (newPass === null) return
-    if (newPass.trim().length < 4) {
-      toast.error("Password must be at least 4 characters long.")
-      return
-    }
-
-    try {
-      const res = await fetch(`/api/users/${username}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: newPass.trim() }),
-      })
-
-      const result = await res.json()
-      if (!res.ok) throw new Error(result.error || "Failed to reset password.")
-
-      toast.success(`Password has been reset successfully for user '${username}'.`)
-      fetchLogs()
-    } catch (err: any) {
-      toast.error(err.message || "Failed to reset password.")
-    }
-  }
-
   // Student Batches & Status options dynamically compiled for filter lists
-  const batchOptions = ["All", ...Array.from(new Set(students.map((s) => s.Batch).filter(Boolean)))]
-  const statusOptions = ["All", ...Array.from(new Set(students.map((s) => s.Status).filter(Boolean)))]
+  const batchOptions = [
+    "All",
+    ...Array.from(new Set(students.map((s) => s.Batch).filter(Boolean))),
+  ]
+  const statusOptions = [
+    "All",
+    ...Array.from(new Set(students.map((s) => s.Status).filter(Boolean))),
+  ]
 
   // Filter students based on query, status, and batch
   const filteredStudents = students.filter((s) => {
     const query = searchQuery.toLowerCase()
-    const matchesSearch = !query || Object.values(s).some((val) => 
-      String(val || "").toLowerCase().includes(query)
-    )
+    const matchesSearch =
+      !query ||
+      Object.values(s).some((val) =>
+        String(val || "")
+          .toLowerCase()
+          .includes(query)
+      )
 
     const matchesStatus = statusFilter === "All" || s.Status === statusFilter
     const matchesBatch = batchFilter === "All" || s.Batch === batchFilter
 
     return matchesSearch && matchesStatus && matchesBatch
   })
-
-  // Filter users based on query
-  const filteredUsers = users.filter(
-    (u) =>
-      u.username.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-      u.displayName.toLowerCase().includes(userSearchQuery.toLowerCase())
-  )
 
   // Filter audit logs based on query
   const filteredLogs = logs.filter(
@@ -582,22 +528,24 @@ function DashboardPageContent() {
       <div className="flex min-h-svh items-center justify-center bg-background text-foreground">
         <div className="flex flex-col items-center gap-4">
           <RefreshCw className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-sm font-medium tracking-wide text-muted-foreground">Loading your session...</p>
+          <p className="text-sm font-medium tracking-wide text-muted-foreground">
+            Loading your session...
+          </p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-svh bg-background text-foreground p-6 w-full max-w-full overflow-x-hidden">
-      <div className="mx-auto max-w-[1600px] w-full space-y-8">
+    <div className="min-h-svh w-full max-w-full overflow-x-hidden bg-background p-6 text-foreground">
+      <div className="mx-auto w-full max-w-[1600px] space-y-8">
         {/* Header Dashboard Banner */}
         <Card>
           <CardHeader>
             <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+                  <span className="flex h-2 w-2 animate-pulse rounded-full bg-primary" />
                   <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                     Secured Sheet Database
                   </span>
@@ -606,8 +554,15 @@ function DashboardPageContent() {
                   Spreadsheet Portal Dashboard
                 </CardTitle>
                 <CardDescription className="max-w-xl">
-                  Logged in as <span className="font-semibold text-foreground">{session?.user?.displayName || session?.user?.username}</span> (
-                  <span className="capitalize font-medium text-primary">{session?.user?.role}</span>). Perform atomic inline cell edits instantly below.
+                  Logged in as{" "}
+                  <span className="font-semibold text-foreground">
+                    {session?.user?.displayName || session?.user?.username}
+                  </span>{" "}
+                  (
+                  <span className="font-medium text-primary capitalize">
+                    {session?.user?.role}
+                  </span>
+                  ). Perform atomic inline cell edits instantly below.
                 </CardDescription>
               </div>
             </div>
@@ -622,7 +577,7 @@ function DashboardPageContent() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
               </div>
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <span className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
                 Collaborative Presence ({activeUsers.length} active)
               </span>
             </div>
@@ -630,11 +585,17 @@ function DashboardPageContent() {
               {activeUsers.map((u) => (
                 <div
                   key={u.username}
-                  className="group/avatar relative flex items-center gap-2 rounded-full border border-border bg-muted/50 py-1 pl-1 pr-3 transition-all hover:bg-muted"
+                  className="group/avatar relative flex items-center gap-2 rounded-full border border-border bg-muted/50 py-1 pr-3 pl-1 transition-all hover:bg-muted"
                 >
-                  <img src={u.avatar} alt={u.displayName} className="h-6 w-6 rounded-full bg-background" />
-                  <span className="text-xs font-semibold text-foreground">{u.displayName}</span>
-                  <span className="absolute bottom-full left-1/2 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2 py-1 text-[10px] text-background group-hover/avatar:block z-30">
+                  <img
+                    src={u.avatar}
+                    alt={u.displayName}
+                    className="h-6 w-6 rounded-full bg-background"
+                  />
+                  <span className="text-xs font-semibold text-foreground">
+                    {u.displayName}
+                  </span>
+                  <span className="absolute bottom-full left-1/2 z-30 mb-1 hidden -translate-x-1/2 rounded bg-foreground px-2 py-1 text-[10px] whitespace-nowrap text-background group-hover/avatar:block">
                     {u.lastAction || "Active now"}
                   </span>
                 </div>
@@ -644,23 +605,22 @@ function DashboardPageContent() {
         )}
 
         {/* Tab Selection Navigation using shadcn/ui Tabs */}
-        <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="w-full">
+        <Tabs
+          value={activeTab}
+          onValueChange={(val: any) => setActiveTab(val)}
+          className="w-full"
+        >
           <div className="mb-6 border-b border-border pb-2">
             <TabsList>
               <TabsTrigger value="students" className="px-4 py-2 text-sm">
-                <Clock className="h-4 w-4 mr-2" />
+                <Clock className="h-4 w-4" />
                 Student Records
               </TabsTrigger>
 
               {session?.user?.role === "admin" && (
                 <>
-                  <TabsTrigger value="users" className="px-4 py-2 text-sm">
-                    <Users className="h-4 w-4 mr-2" />
-                    Sub-Admin Accounts
-                  </TabsTrigger>
-
                   <TabsTrigger value="logs" className="px-4 py-2 text-sm">
-                    <FileText className="h-4 w-4 mr-2" />
+                    <FileText className="h-4 w-4" />
                     System Audit Logs
                   </TabsTrigger>
                 </>
@@ -681,43 +641,63 @@ function DashboardPageContent() {
                   placeholder="Search student ID, name, email..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 h-10 w-full"
+                  className="h-10 w-full pl-9"
                 />
               </div>
 
               <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
-                <Select value={batchFilter} onValueChange={(val) => setBatchFilter(val)}>
+                <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <Select
+                  value={batchFilter}
+                  onValueChange={(val) => setBatchFilter(val)}
+                >
                   <SelectTrigger className="h-10 w-full">
                     <SelectValue placeholder="All Batches" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="All">All Batches</SelectItem>
-                    {batchOptions.map((b) => b !== "All" && <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                    {batchOptions.map(
+                      (b) =>
+                        b !== "All" && (
+                          <SelectItem key={b} value={b}>
+                            {b}
+                          </SelectItem>
+                        )
+                    )}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-muted-foreground shrink-0" />
-                <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val)}>
+                <Sparkles className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <Select
+                  value={statusFilter}
+                  onValueChange={(val) => setStatusFilter(val)}
+                >
                   <SelectTrigger className="h-10 w-full">
                     <SelectValue placeholder="All Statuses" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="All">All Statuses</SelectItem>
-                    {statusOptions.map((s) => s !== "All" && <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    {statusOptions.map(
+                      (s) =>
+                        s !== "All" && (
+                          <SelectItem key={s} value={s}>
+                            {s}
+                          </SelectItem>
+                        )
+                    )}
                   </SelectContent>
                 </Select>
               </div>
 
               {session?.user?.role === "admin" && (
-                <div className="flex justify-end items-center">
+                <div className="flex items-center justify-end">
                   <Button
                     onClick={() => setIsAddStudentOpen(true)}
                     className="h-10 w-full"
                   >
-                    <Plus className="h-4 w-4 mr-2" />
+                    <Plus className="h-4 w-4" />
                     Add Student
                   </Button>
                 </div>
@@ -725,17 +705,29 @@ function DashboardPageContent() {
             </div>
 
             {/* Spreadsheet Table Grid Wrapper */}
-            <div className="relative overflow-hidden rounded-xl border border-border bg-card w-full max-w-full">
+            <div className="relative w-full max-w-full overflow-hidden rounded-xl border border-border bg-card">
               {!isConfigured ? (
                 <div className="py-20">
-                  <Empty className="p-12 max-w-xl mx-auto">
-                    <EmptyMedia variant="icon" className="size-14 mb-4">
+                  <Empty className="mx-auto max-w-xl p-12">
+                    <EmptyMedia variant="icon" className="mb-4 size-14">
                       <Database className="size-7 animate-pulse text-primary" />
                     </EmptyMedia>
                     <EmptyHeader>
-                      <EmptyTitle className="text-xl font-bold">Google Sheets Unconfigured</EmptyTitle>
-                      <EmptyDescription className="max-w-md mx-auto">
-                        Please set your <code className="font-mono text-primary">GOOGLE_CLIENT_EMAIL</code> and <code className="font-mono text-primary">GOOGLE_PRIVATE_KEY</code> environment variables in your deployment or local <code className="font-mono text-primary">.env</code> to connect to a live spreadsheet.
+                      <EmptyTitle className="text-xl font-bold">
+                        Google Sheets Unconfigured
+                      </EmptyTitle>
+                      <EmptyDescription className="mx-auto max-w-md">
+                        Please set your{" "}
+                        <code className="font-mono text-primary">
+                          GOOGLE_CLIENT_EMAIL
+                        </code>{" "}
+                        and{" "}
+                        <code className="font-mono text-primary">
+                          GOOGLE_PRIVATE_KEY
+                        </code>{" "}
+                        environment variables in your deployment or local{" "}
+                        <code className="font-mono text-primary">.env</code> to
+                        connect to a live spreadsheet.
                       </EmptyDescription>
                     </EmptyHeader>
                     <EmptyContent>
@@ -743,25 +735,29 @@ function DashboardPageContent() {
                         onClick={() => fetchStudents(true)}
                         className="mt-4"
                       >
-                        <RefreshCw className="mr-2 h-4 w-4" />
+                        <RefreshCw className="h-4 w-4" />
                         Retry Connection
                       </Button>
                     </EmptyContent>
                   </Empty>
                 </div>
               ) : loadingStudents && students.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 gap-3">
+                <div className="flex flex-col items-center justify-center gap-3 py-20">
                   <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-                  <p className="text-xs font-medium text-muted-foreground">Retrieving sheet records...</p>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Retrieving sheet records...
+                  </p>
                 </div>
               ) : filteredStudents.length === 0 ? (
                 <div className="py-20">
-                  <Empty className="p-12 max-w-md mx-auto">
-                    <EmptyMedia variant="icon" className="size-12 mb-4">
+                  <Empty className="mx-auto max-w-md p-12">
+                    <EmptyMedia variant="icon" className="mb-4 size-12">
                       <Search className="size-6 text-muted-foreground" />
                     </EmptyMedia>
                     <EmptyHeader>
-                      <EmptyTitle className="text-lg font-bold">No records match your filters</EmptyTitle>
+                      <EmptyTitle className="text-lg font-bold">
+                        No records match your filters
+                      </EmptyTitle>
                       <EmptyDescription>
                         Try adjusting your search queries or category toggles.
                       </EmptyDescription>
@@ -776,11 +772,23 @@ function DashboardPageContent() {
                         {columns.map((col) => {
                           const editable = isCellEditable(col)
                           return (
-                            <TableHead key={col} className="px-4 py-3.5 font-semibold tracking-wider whitespace-nowrap">
-                              <div className="flex items-center gap-2 justify-between">
+                            <TableHead
+                              key={col}
+                              className="px-4 py-3.5 font-semibold tracking-wider whitespace-nowrap"
+                            >
+                              <div className="flex items-center justify-between gap-2">
                                 <span>{col}</span>
-                                {["ID", "LastModifiedBy", "LastModifiedAt"].includes(col) ? (
-                                  <Badge variant="outline" className="text-[9px] px-1.5 uppercase">SYS</Badge>
+                                {[
+                                  "ID",
+                                  "LastModifiedBy",
+                                  "LastModifiedAt",
+                                ].includes(col) ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="px-1.5 text-[9px] uppercase"
+                                  >
+                                    SYS
+                                  </Badge>
                                 ) : editable ? (
                                   <Unlock className="h-3.5 w-3.5 text-primary" />
                                 ) : (
@@ -794,7 +802,10 @@ function DashboardPageContent() {
                     </TableHeader>
                     <TableBody>
                       {filteredStudents.map((stu) => (
-                        <TableRow key={stu.ID} className="group transition-all duration-150">
+                        <TableRow
+                          key={stu.ID}
+                          className="group transition-all duration-150"
+                        >
                           {columns.map((col) => {
                             const val = stu[col as keyof Student] || ""
                             const editable = isCellEditable(col)
@@ -803,15 +814,18 @@ function DashboardPageContent() {
                             const focusInfo = focusedCells[cellKey]
 
                             return (
-                              <TableCell key={col} className="p-1 relative align-middle">
+                              <TableCell
+                                key={col}
+                                className="relative p-1 align-middle"
+                              >
                                 {isSaving && (
-                                  <div className="absolute inset-0 flex items-center justify-center bg-background/60 z-10 rounded">
+                                  <div className="absolute inset-0 z-10 flex items-center justify-center rounded bg-background/60">
                                     <RefreshCw className="h-4 w-4 animate-spin text-primary" />
                                   </div>
                                 )}
                                 {focusInfo && (
                                   <div
-                                    className="absolute -top-3 left-1 z-20 flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm pointer-events-none"
+                                    className="pointer-events-none absolute -top-3 left-1 z-20 flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm"
                                     style={{ backgroundColor: focusInfo.color }}
                                   >
                                     <span>👤 {focusInfo.user}</span>
@@ -824,7 +838,12 @@ function DashboardPageContent() {
                                   onFocus={() => handleCellFocus(stu.ID, col)}
                                   onBlur={(e) => {
                                     handleCellFocusBlur(stu.ID, col)
-                                    handleCellBlur(stu.ID, col, val, e.target.value)
+                                    handleCellBlur(
+                                      stu.ID,
+                                      col,
+                                      val,
+                                      e.target.value
+                                    )
                                   }}
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter") {
@@ -833,13 +852,17 @@ function DashboardPageContent() {
                                   }}
                                   style={
                                     focusInfo
-                                      ? { borderColor: focusInfo.color, borderWidth: 2, backgroundColor: `${focusInfo.color}15` }
+                                      ? {
+                                          borderColor: focusInfo.color,
+                                          borderWidth: 2,
+                                          backgroundColor: `${focusInfo.color}15`,
+                                        }
                                       : {}
                                   }
-                                  className={`w-full px-3 py-2 h-8 rounded-md bg-transparent border-transparent transition-all text-xs font-medium focus-visible:border-input focus-visible:bg-background shadow-none ${
+                                  className={`h-8 w-full rounded-md border-transparent bg-transparent px-3 py-2 text-xs font-medium shadow-none transition-all focus-visible:border-input focus-visible:bg-background ${
                                     editable
-                                      ? "text-foreground group-hover:bg-muted/50 cursor-text"
-                                      : "text-muted-foreground bg-muted/20 cursor-not-allowed select-none"
+                                      ? "cursor-text text-foreground group-hover:bg-muted/50"
+                                      : "cursor-not-allowed bg-muted/20 text-muted-foreground select-none"
                                   }`}
                                   placeholder={editable ? "Empty" : "Locked"}
                                 />
@@ -856,149 +879,7 @@ function DashboardPageContent() {
             </div>
           </TabsContent>
 
-          {/* =========================================================================
-              TAB 2: SUB-ADMIN USERS LIST & MANAGEMENT (ADMIN ONLY)
-              ========================================================================= */}
-          <TabsContent value="users" className="space-y-6">
-            {session?.user?.role === "admin" && (
-              <>
-                {/* User Filter & Controls */}
-                <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="relative max-w-sm w-full flex items-center">
-                    <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="text"
-                      placeholder="Search sub-admin accounts..."
-                      value={userSearchQuery}
-                      onChange={(e) => setUserSearchQuery(e.target.value)}
-                      className="pl-9 h-10 w-full"
-                    />
-                  </div>
 
-                  <Button
-                    onClick={() => setIsAddUserOpen(true)}
-                    className="h-10"
-                  >
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    New Sub-Admin
-                  </Button>
-                </div>
-
-                {/* Users grid table */}
-                <div className="overflow-hidden rounded-xl border border-border bg-card">
-                  {loadingUsers ? (
-                    <div className="flex flex-col items-center justify-center py-12 gap-3">
-                      <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-                      <p className="text-xs font-medium text-muted-foreground">Loading user list...</p>
-                    </div>
-                  ) : filteredUsers.length === 0 ? (
-                    <div className="py-20">
-                      <Empty className="p-12 max-w-md mx-auto">
-                        <EmptyMedia variant="icon" className="size-12 mb-4">
-                          <Users className="size-6 text-muted-foreground" />
-                        </EmptyMedia>
-                        <EmptyHeader>
-                          <EmptyTitle className="text-lg font-bold">No sub-admin accounts found</EmptyTitle>
-                        </EmptyHeader>
-                      </Empty>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="px-6 py-4">Username</TableHead>
-                            <TableHead className="px-6 py-4">Display Name</TableHead>
-                            <TableHead className="px-6 py-4">Allowed Edit Columns (Comma Separated)</TableHead>
-                            <TableHead className="px-6 py-4">Status</TableHead>
-                            <TableHead className="px-6 py-4 text-right">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {filteredUsers.map((user) => (
-                            <TableRow key={user.username}>
-                              <TableCell className="px-6 py-4 font-bold whitespace-nowrap">
-                                {user.username}
-                              </TableCell>
-                              <TableCell className="px-6 py-4 font-medium whitespace-nowrap">
-                                {user.displayName}
-                              </TableCell>
-                              <TableCell className="px-6 py-4">
-                                {editingAllowedColsUser === user.username ? (
-                                  <div className="flex items-center gap-2">
-                                    <Input
-                                      type="text"
-                                      value={tempAllowedColsValue}
-                                      onChange={(e) => setTempAllowedColsValue(e.target.value)}
-                                      className="h-8 w-64 text-xs"
-                                    />
-                                    <Button
-                                      size="icon-xs"
-                                      onClick={() => handleSaveAllowedCols(user.username)}
-                                      title="Save Columns"
-                                    >
-                                      <Check className="h-3.5 w-3.5" />
-                                    </Button>
-                                    <Button
-                                      variant="outline"
-                                      size="icon-xs"
-                                      onClick={() => setEditingAllowedColsUser(null)}
-                                      title="Cancel"
-                                    >
-                                      <X className="h-3.5 w-3.5" />
-                                    </Button>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant="outline" className="px-2.5 py-1 text-xs">
-                                      {user.allowedColumns || "None"}
-                                    </Badge>
-                                    <Button
-                                      variant="ghost"
-                                      size="xs"
-                                      onClick={() => {
-                                        setEditingAllowedColsUser(user.username)
-                                        setTempAllowedColsValue(user.allowedColumns)
-                                      }}
-                                    >
-                                      Edit
-                                    </Button>
-                                  </div>
-                                )}
-                              </TableCell>
-                              <TableCell className="px-6 py-4 whitespace-nowrap">
-                                <button
-                                  onClick={() => handleToggleUserActive(user.username, user.isActive)}
-                                  className="transition-all duration-200"
-                                >
-                                  <Badge
-                                    variant={user.isActive === "TRUE" ? "success" : "destructive"}
-                                    className="px-2.5 py-1 font-bold tracking-wider uppercase text-[10px] rounded-full cursor-pointer"
-                                  >
-                                    {user.isActive === "TRUE" ? "Active" : "Suspended"}
-                                  </Badge>
-                                </button>
-                              </TableCell>
-                              <TableCell className="px-6 py-4 text-right whitespace-nowrap">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleResetPassword(user.username)}
-                                >
-                                  <Key className="mr-2 h-4 w-4" />
-                                  Reset Pass
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </TabsContent>
 
           {/* =========================================================================
               TAB 3: SERVER-SIDE SYSTEM AUDIT LOGS (ADMIN ONLY)
@@ -1008,20 +889,25 @@ function DashboardPageContent() {
               <>
                 {/* Audit Log Filters */}
                 <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="relative max-w-sm w-full flex items-center">
+                  <div className="relative flex w-full max-w-sm items-center">
                     <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
                     <Input
                       type="text"
                       placeholder="Search audit log actor, action, target..."
                       value={logSearchQuery}
                       onChange={(e) => setLogSearchQuery(e.target.value)}
-                      className="pl-9 h-10 w-full"
+                      className="h-10 w-full pl-9"
                     />
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-muted-foreground">Total logs:</span>
-                    <Badge variant="outline" className="text-xs font-bold px-2 py-1">
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      Total logs:
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className="px-2 py-1 text-xs font-bold"
+                    >
                       {filteredLogs.length}
                     </Badge>
                   </div>
@@ -1030,18 +916,22 @@ function DashboardPageContent() {
                 {/* Logs list table */}
                 <div className="overflow-hidden rounded-xl border border-border bg-card">
                   {loadingLogs ? (
-                    <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <div className="flex flex-col items-center justify-center gap-3 py-12">
                       <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-                      <p className="text-xs font-medium text-muted-foreground">Loading system audit records...</p>
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Loading system audit records...
+                      </p>
                     </div>
                   ) : filteredLogs.length === 0 ? (
                     <div className="py-20">
-                      <Empty className="p-12 max-w-md mx-auto">
-                        <EmptyMedia variant="icon" className="size-12 mb-4">
+                      <Empty className="mx-auto max-w-md p-12">
+                        <EmptyMedia variant="icon" className="mb-4 size-12">
                           <FileText className="size-6 text-muted-foreground" />
                         </EmptyMedia>
                         <EmptyHeader>
-                          <EmptyTitle className="text-lg font-bold">No audit logs found</EmptyTitle>
+                          <EmptyTitle className="text-lg font-bold">
+                            No audit logs found
+                          </EmptyTitle>
                         </EmptyHeader>
                       </Empty>
                     </div>
@@ -1050,15 +940,29 @@ function DashboardPageContent() {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="px-4 py-3.5">Timestamp</TableHead>
+                            <TableHead className="px-4 py-3.5">
+                              Timestamp
+                            </TableHead>
                             <TableHead className="px-4 py-3.5">Actor</TableHead>
                             <TableHead className="px-4 py-3.5">Role</TableHead>
-                            <TableHead className="px-4 py-3.5">Action</TableHead>
-                            <TableHead className="px-4 py-3.5">Target Student/User</TableHead>
-                            <TableHead className="px-4 py-3.5">Column Affected</TableHead>
-                            <TableHead className="px-4 py-3.5">Old Value</TableHead>
-                            <TableHead className="px-4 py-3.5">New Value</TableHead>
-                            <TableHead className="px-4 py-3.5">IP Address</TableHead>
+                            <TableHead className="px-4 py-3.5">
+                              Action
+                            </TableHead>
+                            <TableHead className="px-4 py-3.5">
+                              Target Student/User
+                            </TableHead>
+                            <TableHead className="px-4 py-3.5">
+                              Column Affected
+                            </TableHead>
+                            <TableHead className="px-4 py-3.5">
+                              Old Value
+                            </TableHead>
+                            <TableHead className="px-4 py-3.5">
+                              New Value
+                            </TableHead>
+                            <TableHead className="px-4 py-3.5">
+                              IP Address
+                            </TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -1074,7 +978,10 @@ function DashboardPageContent() {
                                 {log.actorRole}
                               </TableCell>
                               <TableCell className="px-4 py-3.5">
-                                <Badge variant="outline" className="px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase">
+                                <Badge
+                                  variant="outline"
+                                  className="px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase"
+                                >
                                   {log.action}
                                 </Badge>
                               </TableCell>
@@ -1084,13 +991,27 @@ function DashboardPageContent() {
                               <TableCell className="px-4 py-3.5 font-semibold whitespace-nowrap">
                                 {log.columnChanged}
                               </TableCell>
-                              <TableCell className="px-4 py-3.5 max-w-[150px] truncate font-medium" title={log.oldValue}>
-                                {log.oldValue || <span className="text-muted-foreground italic">None</span>}
+                              <TableCell
+                                className="max-w-[150px] truncate px-4 py-3.5 font-medium"
+                                title={log.oldValue}
+                              >
+                                {log.oldValue || (
+                                  <span className="text-muted-foreground italic">
+                                    None
+                                  </span>
+                                )}
                               </TableCell>
-                              <TableCell className="px-4 py-3.5 max-w-[150px] truncate font-semibold" title={log.newValue}>
-                                {log.newValue || <span className="text-muted-foreground italic">None</span>}
+                              <TableCell
+                                className="max-w-[150px] truncate px-4 py-3.5 font-semibold"
+                                title={log.newValue}
+                              >
+                                {log.newValue || (
+                                  <span className="text-muted-foreground italic">
+                                    None
+                                  </span>
+                                )}
                               </TableCell>
-                              <TableCell className="px-4 py-3.5 font-medium text-muted-foreground font-mono">
+                              <TableCell className="px-4 py-3.5 font-mono font-medium text-muted-foreground">
                                 {log.ip}
                               </TableCell>
                             </TableRow>
@@ -1109,83 +1030,137 @@ function DashboardPageContent() {
             MODAL 1: ADD STUDENT (ADMIN ONLY) - using shadcn/ui Dialog
             ========================================================================= */}
         <Dialog open={isAddStudentOpen} onOpenChange={setIsAddStudentOpen}>
-          <DialogContent className="max-w-2xl p-6 sm:p-8 rounded-3xl">
+          <DialogContent className="max-w-2xl rounded-3xl p-6 sm:p-8">
             <DialogHeader>
-              <DialogTitle className="text-xl font-extrabold">Add New Student Record</DialogTitle>
-              <p className="text-xs text-muted-foreground">Enter high-fidelity student information into Google Sheets database.</p>
+              <DialogTitle className="text-xl font-extrabold">
+                Add New Student Record
+              </DialogTitle>
+              <p className="text-xs text-muted-foreground">
+                Enter high-fidelity student information into Google Sheets
+                database.
+              </p>
             </DialogHeader>
 
-            <form onSubmit={handleCreateStudentSubmit} className="mt-6 space-y-4">
+            <form
+              onSubmit={handleCreateStudentSubmit}
+              className="mt-6 space-y-4"
+            >
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Student ID *</label>
+                  <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                    Student ID *
+                  </label>
                   <Input
                     type="text"
                     placeholder="e.g. STU100"
                     value={newStudent.ID}
-                    onChange={(e) => setNewStudent((prev) => ({ ...prev, ID: e.target.value }))}
+                    onChange={(e) =>
+                      setNewStudent((prev) => ({ ...prev, ID: e.target.value }))
+                    }
                     className="h-10"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Full Name *</label>
+                  <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                    Full Name *
+                  </label>
                   <Input
                     type="text"
                     placeholder="e.g. Rahul Sharma"
                     value={newStudent.Name}
-                    onChange={(e) => setNewStudent((prev) => ({ ...prev, Name: e.target.value }))}
+                    onChange={(e) =>
+                      setNewStudent((prev) => ({
+                        ...prev,
+                        Name: e.target.value,
+                      }))
+                    }
                     className="h-10"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Email Address *</label>
+                  <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                    Email Address *
+                  </label>
                   <Input
                     type="email"
                     placeholder="e.g. rahul@example.com"
                     value={newStudent.Email}
-                    onChange={(e) => setNewStudent((prev) => ({ ...prev, Email: e.target.value }))}
+                    onChange={(e) =>
+                      setNewStudent((prev) => ({
+                        ...prev,
+                        Email: e.target.value,
+                      }))
+                    }
                     className="h-10"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Phone Number</label>
+                  <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                    Phone Number
+                  </label>
                   <Input
                     type="text"
                     placeholder="e.g. 9876543210"
                     value={newStudent.Phone}
-                    onChange={(e) => setNewStudent((prev) => ({ ...prev, Phone: e.target.value }))}
+                    onChange={(e) =>
+                      setNewStudent((prev) => ({
+                        ...prev,
+                        Phone: e.target.value,
+                      }))
+                    }
                     className="h-10"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Course Name</label>
+                  <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                    Course Name
+                  </label>
                   <Input
                     type="text"
                     placeholder="e.g. Full Stack Web Development"
                     value={newStudent.Course}
-                    onChange={(e) => setNewStudent((prev) => ({ ...prev, Course: e.target.value }))}
+                    onChange={(e) =>
+                      setNewStudent((prev) => ({
+                        ...prev,
+                        Course: e.target.value,
+                      }))
+                    }
                     className="h-10"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Batch</label>
+                  <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                    Batch
+                  </label>
                   <Input
                     type="text"
                     placeholder="e.g. Batch A - 2026"
                     value={newStudent.Batch}
-                    onChange={(e) => setNewStudent((prev) => ({ ...prev, Batch: e.target.value }))}
+                    onChange={(e) =>
+                      setNewStudent((prev) => ({
+                        ...prev,
+                        Batch: e.target.value,
+                      }))
+                    }
                     className="h-10"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</label>
-                  <Select value={newStudent.Status} onValueChange={(val) => setNewStudent((prev) => ({ ...prev, Status: val }))}>
+                  <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                    Status
+                  </label>
+                  <Select
+                    value={newStudent.Status}
+                    onValueChange={(val) =>
+                      setNewStudent((prev) => ({ ...prev, Status: val }))
+                    }
+                  >
                     <SelectTrigger className="h-10">
                       <SelectValue placeholder="Active" />
                     </SelectTrigger>
@@ -1197,28 +1172,42 @@ function DashboardPageContent() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Grade (or Score)</label>
+                  <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                    Grade (or Score)
+                  </label>
                   <Input
                     type="text"
                     placeholder="e.g. A+"
                     value={newStudent.Grade}
-                    onChange={(e) => setNewStudent((prev) => ({ ...prev, Grade: e.target.value }))}
+                    onChange={(e) =>
+                      setNewStudent((prev) => ({
+                        ...prev,
+                        Grade: e.target.value,
+                      }))
+                    }
                     className="h-10"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Internal Remarks</label>
+                <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                  Internal Remarks
+                </label>
                 <textarea
                   placeholder="Provide performance feedback..."
                   value={newStudent.Remarks}
-                  onChange={(e) => setNewStudent((prev) => ({ ...prev, Remarks: e.target.value }))}
-                  className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs focus:border-ring focus:outline-none min-h-[80px]"
+                  onChange={(e) =>
+                    setNewStudent((prev) => ({
+                      ...prev,
+                      Remarks: e.target.value,
+                    }))
+                  }
+                  className="min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-xs focus:border-ring focus:outline-none"
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <div className="flex justify-end gap-3 border-t border-border pt-4">
                 <Button
                   variant="outline"
                   type="button"
@@ -1226,85 +1215,13 @@ function DashboardPageContent() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">
-                  Save Student
-                </Button>
+                <Button type="submit">Save Student</Button>
               </div>
             </form>
           </DialogContent>
         </Dialog>
 
-        {/* =========================================================================
-            MODAL 2: REGISTER SUB-ADMIN USER (ADMIN ONLY) - using shadcn/ui Dialog
-            ========================================================================= */}
-        <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
-          <DialogContent className="max-w-md p-6 sm:p-8 rounded-3xl">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-extrabold">Create Sub-Admin Account</DialogTitle>
-              <p className="text-xs text-muted-foreground">Admins can create sub-admins with uniquely assigned columns.</p>
-            </DialogHeader>
 
-            <form onSubmit={handleCreateUserSubmit} className="mt-6 space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Unique Username *</label>
-                <Input
-                  type="text"
-                  placeholder="e.g. rahul_sub"
-                  value={newUser.username}
-                  onChange={(e) => setNewUser((prev) => ({ ...prev, username: e.target.value }))}
-                  className="h-10"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Display Name *</label>
-                <Input
-                  type="text"
-                  placeholder="e.g. Rahul Sharma (Advisor)"
-                  value={newUser.displayName}
-                  onChange={(e) => setNewUser((prev) => ({ ...prev, displayName: e.target.value }))}
-                  className="h-10"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Login Password *</label>
-                <Input
-                  type="password"
-                  placeholder="Create secure password"
-                  value={newUser.password}
-                  onChange={(e) => setNewUser((prev) => ({ ...prev, password: e.target.value }))}
-                  className="h-10"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Allowed Columns (Comma Separated)</label>
-                <Input
-                  type="text"
-                  placeholder="e.g. Comments,Notes"
-                  value={newUser.allowedColumns}
-                  onChange={(e) => setNewUser((prev) => ({ ...prev, allowedColumns: e.target.value }))}
-                  className="h-10"
-                />
-                <p className="text-[10px] text-muted-foreground">Allowed Columns specify what columns to the right of Grade they are allowed to modify.</p>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-border">
-                <Button
-                  variant="outline"
-                  type="button"
-                  onClick={() => setIsAddUserOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  Create Account
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
       </div>
     </div>
   )
@@ -1312,14 +1229,18 @@ function DashboardPageContent() {
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={
-      <div className="flex min-h-svh items-center justify-center bg-background text-foreground">
-        <div className="flex flex-col items-center gap-4">
-          <RefreshCw className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-sm font-medium tracking-wide text-muted-foreground animate-pulse">Loading dashboard elements...</p>
+    <Suspense
+      fallback={
+        <div className="flex min-h-svh items-center justify-center bg-background text-foreground">
+          <div className="flex flex-col items-center gap-4">
+            <RefreshCw className="h-10 w-10 animate-spin text-primary" />
+            <p className="animate-pulse text-sm font-medium tracking-wide text-muted-foreground">
+              Loading dashboard elements...
+            </p>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <DashboardPageContent />
     </Suspense>
   )

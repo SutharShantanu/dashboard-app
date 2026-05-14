@@ -42,6 +42,7 @@ describe("Users API & Sub-Admin Directory Security", () => {
         username: "target_sub",
         role: "sub-admin",
         displayName: "Target Sub",
+        email: "target@sub.com",
         passwordHash: "hash",
         allowedColumns: "Comments,Notes",
         isActive: "TRUE",
@@ -81,6 +82,7 @@ describe("Users API & Sub-Admin Directory Security", () => {
         {
           username: "admin",
           displayName: "Admin",
+          email: "admin@domain.com",
           passwordHash: "hash",
           role: "admin",
           allowedColumns: "all",
@@ -139,6 +141,7 @@ describe("Users API & Sub-Admin Directory Security", () => {
         expect.objectContaining({
           username: "new_sub",
           displayName: "New Sub Admin",
+          email: "",
           passwordHash: "hashed_pwd_abc",
           role: "sub-admin",
           allowedColumns: "Comments,Notes",

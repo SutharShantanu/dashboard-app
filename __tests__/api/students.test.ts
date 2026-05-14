@@ -12,6 +12,7 @@ vi.mock("next-auth/next", () => ({
 vi.mock("../../lib/sheets", () => ({
   getStudents: vi.fn(),
   updateStudentCell: vi.fn(),
+  getDbMode: vi.fn().mockReturnValue({ isSimulated: false, isConfigured: true }),
 }));
 
 describe("Students API Gating & Security", () => {
@@ -21,6 +22,7 @@ describe("Students API Gating & Security", () => {
       columns: ["ID", "Name", "Status", "Grade", "Extra1", "Extra2"],
       data: [],
     });
+    vi.mocked(sheets.getDbMode).mockReturnValue({ isSimulated: false, isConfigured: true });
   });
 
   describe("GET /api/students", () => {

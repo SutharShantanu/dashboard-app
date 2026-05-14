@@ -46,6 +46,7 @@ export const authOptions: NextAuthOptions = {
             user = {
               username: credentials.username.toLowerCase() === "sabaadmin" ? "SabaAdmin" : "admin",
               displayName: credentials.username.toLowerCase() === "sabaadmin" ? "Saba Administrator" : "Administrator",
+              email: "admin@domain.com",
               passwordHash: "$2b$12$CksCuudcs3zzOoqPxOtA6uoBpsytJ7IdQpfQuxiM1uvZnjqPDdW5S",
               role: "admin",
               allowedColumns: "*",
@@ -61,6 +62,7 @@ export const authOptions: NextAuthOptions = {
             user = {
               username: "subadmin",
               displayName: "Sub Administrator",
+              email: "subadmin@domain.com",
               passwordHash: "$2b$12$CksCuudcs3zzOoqPxOtA6uoBpsytJ7IdQpfQuxiM1uvZnjqPDdW5S",
               role: "sub-admin",
               allowedColumns: "Comments,Notes",
@@ -82,7 +84,9 @@ export const authOptions: NextAuthOptions = {
         const isPasswordValid =
           user.passwordHash === "$2b$12$CksCuudcs3zzOoqPxOtA6uoBpsytJ7IdQpfQuxiM1uvZnjqPDdW5S"
             ? true
-            : await bcrypt.compare(credentials.password, user.passwordHash);
+            : user.passwordHash.startsWith("$2")
+            ? await bcrypt.compare(credentials.password, user.passwordHash)
+            : credentials.password === user.passwordHash;
 
         if (!isPasswordValid) {
           throw new Error("Invalid username or password");

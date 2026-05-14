@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { username, displayName, password, role, allowedColumns } = body;
+    const { username, displayName, email, password, role, allowedColumns } = body;
 
     if (!username || !displayName || !password || !role) {
       return NextResponse.json(
@@ -85,6 +85,7 @@ export async function POST(request: Request) {
     const newUser: User = {
       username: username.trim().toLowerCase(),
       displayName: displayName.trim(),
+      email: email ? email.trim() : "",
       passwordHash,
       role: role === "admin" ? "admin" : "sub-admin",
       allowedColumns: allowedColumns || "",
