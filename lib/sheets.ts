@@ -407,7 +407,50 @@ export async function addConnectedSheet(url: string, title: string, addedBy: str
     };
   } catch (error: any) {
     console.error("[Sheets DB] addConnectedSheet error:", error);
-    throw new Error(error.message || "Failed to verify or connect external Google Sheet. Ensure the service account email has Viewer or Editor permissions on the sheet.");
+    const msg = error.message || "";
+    if (msg.includes("Office file") || msg.includes("not supported for this document")) {
+      throw new Error("Google Sheets API v4 does not support direct manipulation of Excel (.xlsx) binary files. To connect this file, please open it in Google Sheets and click 'File > Save as Google Sheets', then paste the new URL here!");
+    }
+    throw new Error(msg || "Failed to verify or connect external Google Sheet. Ensure the service account email has Viewer or Editor permissions on the sheet.");
+  }
+}
+
+export async function removeConnectedSheet(targetSpreadsheetId: string): Promise<void> {
+  if (!hasGoogleCreds || !sheetsClient) {
+    throw new Error("Cannot remove sheet: No Google Sheet configured.");
+  }
+  if (targetSpreadsheetId === sheetId) {
+    throw new Error("Cannot remove the primary student database.");
+  }
+
+  try {
+    await initSheets();
+    const response = await sheetsClient.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: "ConnectedSpreadsheets!A1:F100",
+    });
+    const rows = response.data.values;
+    if (!rows || rows.length < 2) return;
+
+    const headers = rows[0];
+    const remainingRows = rows.slice(1).filter((r: any) => r[0] !== targetSpreadsheetId);
+
+    await sheetsClient.spreadsheets.values.clear({
+      spreadsheetId: sheetId,
+      range: "ConnectedSpreadsheets!A1:F100",
+    });
+
+    await sheetsClient.spreadsheets.values.update({
+      spreadsheetId: sheetId,
+      range: "ConnectedSpreadsheets!A1",
+      valueInputOption: "RAW",
+      requestBody: { values: [headers, ...remainingRows] },
+    });
+
+    console.log(`[Sheets DB] Removed connected sheet: ${targetSpreadsheetId}`);
+  } catch (error) {
+    console.error("[Sheets DB] removeConnectedSheet error:", error);
+    throw new Error("Failed to remove connected sheet.");
   }
 }
 
@@ -518,6 +561,9 @@ export async function getStudents(targetSheet?: string, targetSpreadsheetId?: st
       headers.forEach((header, colIndex) => {
         student[header] = row[colIndex] !== undefined ? String(row[colIndex]) : "";
       });
+      if (!student.ID) {
+        student.ID = `row_${i + 1}`;
+      }
       data.push(student as Student);
     }
 
@@ -563,15 +609,16 @@ export async function updateStudentCell(
     const lastModifiedByColIndex = headers.indexOf("LastModifiedBy");
     const lastModifiedAtColIndex = headers.indexOf("LastModifiedAt");
 
-    if (colIndex === -1 || idColIndex === -1) {
-      throw new Error(`Column ${column} or ID column not found.`);
+    if (colIndex === -1) {
+      throw new Error(`Column ${column} not found.`);
     }
 
     let targetRowIndex = -1;
     let oldValue = "";
 
     for (let i = 1; i < rows.length; i++) {
-      if (rows[i][idColIndex] === id) {
+      const rowId = idColIndex !== -1 && rows[i][idColIndex] ? String(rows[i][idColIndex]) : `row_${i + 1}`;
+      if (rowId === id) {
         targetRowIndex = i + 1; // 1-based, plus header offset
         oldValue = rows[i][colIndex] !== undefined ? String(rows[i][colIndex]) : "";
         break;

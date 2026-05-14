@@ -14,17 +14,28 @@ export async function GET(request: Request) {
 
     const url = new URL(request.url);
     const sheet = url.searchParams.get("sheet") || undefined;
+    const spreadsheetId = url.searchParams.get("spreadsheetId") || undefined;
 
-    const { data, columns } = await getStudents(sheet);
+    const { data, columns } = await getStudents(sheet, spreadsheetId);
 
     // Map allowed columns for UI edit locks
     let allowedCols: string[] = [];
+    const gradeIndex = columns.indexOf("Grade");
+
     if (session.user.role === "admin") {
-      allowedCols = [...columns];
+      if (gradeIndex !== -1) {
+        allowedCols = columns.filter((_, idx) => idx <= gradeIndex);
+      } else {
+        allowedCols = [...columns];
+      }
     } else {
-      allowedCols = session.user.allowedColumns
-        ? session.user.allowedColumns.split(",").map((c) => c.trim())
-        : [];
+      if (gradeIndex !== -1) {
+        allowedCols = columns.filter((_, idx) => idx > gradeIndex);
+      } else {
+        allowedCols = session.user.allowedColumns
+          ? session.user.allowedColumns.split(",").map((c) => c.trim())
+          : [];
+      }
     }
 
     return NextResponse.json({
@@ -60,7 +71,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { ID, Name, Email, Phone, Course, Batch, Status, Score, Remarks, Grade, Comments, Notes, sheet } = body;
+    const { ID, Name, Email, Phone, Course, Batch, Status, Score, Remarks, Grade, Comments, Notes, sheet, spreadsheetId } = body;
 
     if (!ID || !Name || !Email) {
       return NextResponse.json(
@@ -94,7 +105,8 @@ export async function POST(request: Request) {
       session.user.displayName,
       session.user.role,
       ip,
-      sheet
+      sheet,
+      spreadsheetId
     );
 
     return NextResponse.json({ success: true, student: newStudent });
@@ -117,7 +129,7 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { id, column, value, sheet } = body;
+    const { id, column, value, sheet, spreadsheetId } = body;
 
     if (!id || !column) {
       return NextResponse.json(
@@ -135,35 +147,38 @@ export async function PATCH(request: Request) {
     }
 
     // Role-based permission check
-    if (session.user.role !== "admin") {
-      const forbiddenCols = [
-        "Name",
-        "Email",
-        "Phone",
-        "Course",
-        "Batch",
-        "Status",
-        "Score",
-        "Remarks",
-        "Grade",
-      ];
+    const { columns } = await getStudents(sheet, spreadsheetId);
+    const gradeIndex = columns.indexOf("Grade");
+    const colIndex = columns.indexOf(column);
 
-      if (forbiddenCols.includes(column)) {
-        return NextResponse.json(
-          { error: `🔒 Lock: Columns up to 'Grade' can only be edited by Admins.` },
-          { status: 403 }
-        );
+    if (gradeIndex !== -1 && colIndex !== -1) {
+      if (session.user.role === "admin") {
+        if (colIndex > gradeIndex) {
+          return NextResponse.json(
+            { error: "🔒 Lock: Admins can only edit columns up to 'Grade'. Columns after 'Grade' are managed by Sub-admins." },
+            { status: 403 }
+          );
+        }
+      } else {
+        if (colIndex <= gradeIndex) {
+          return NextResponse.json(
+            { error: "🔒 Lock: Columns up to 'Grade' can only be edited by Admins." },
+            { status: 403 }
+          );
+        }
       }
+    } else {
+      if (session.user.role !== "admin") {
+        const allowedList = session.user.allowedColumns
+          ? session.user.allowedColumns.split(",").map((c) => c.trim())
+          : [];
 
-      const allowedList = session.user.allowedColumns
-        ? session.user.allowedColumns.split(",").map((c) => c.trim())
-        : [];
-
-      if (!allowedList.includes(column)) {
-        return NextResponse.json(
-          { error: `🔒 Lock: You do not have permission to edit the '${column}' column.` },
-          { status: 403 }
-        );
+        if (!allowedList.includes(column)) {
+          return NextResponse.json(
+            { error: `🔒 Lock: You do not have permission to edit the '${column}' column.` },
+            { status: 403 }
+          );
+        }
       }
     }
 
@@ -177,7 +192,8 @@ export async function PATCH(request: Request) {
       session.user.displayName,
       session.user.role,
       ip,
-      sheet
+      sheet,
+      spreadsheetId
     );
 
     return NextResponse.json({ success: true });

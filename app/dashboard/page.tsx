@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, Suspense } from "react"
+import React, { useState, useEffect, Suspense, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -25,6 +25,7 @@ import {
   Check,
   Eye,
   EyeOff,
+  Key,
 } from "lucide-react"
 
 // shadcn/ui components
@@ -37,6 +38,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
+
 
 interface Student {
   ID: string
@@ -76,6 +79,15 @@ interface AuditLog {
   oldValue: string
   newValue: string
   ip: string
+}
+
+interface ActiveUser {
+  username: string
+  displayName: string
+  avatar: string
+  color: string
+  lastAction: string
+  lastSeen: number
 }
 
 function DashboardPageContent() {
@@ -119,6 +131,10 @@ function DashboardPageContent() {
   // Saving states for inline cells: studentId_columnName -> boolean
   const [savingCells, setSavingCells] = useState<Record<string, boolean>>({})
 
+  // Real-Time Collaborative Presence States
+  const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([])
+  const [focusedCells, setFocusedCells] = useState<Record<string, { user: string; color: string }>>({})
+
   // Modals & New Record States
   const [isAddStudentOpen, setIsAddStudentOpen] = useState<boolean>(false)
   const [newStudent, setNewStudent] = useState<Partial<Student>>({
@@ -147,9 +163,10 @@ function DashboardPageContent() {
   const [editingAllowedColsUser, setEditingAllowedColsUser] = useState<string | null>(null)
   const [tempAllowedColsValue, setTempAllowedColsValue] = useState<string>("")
 
-  // Auto Refresh
+  // Auto Refresh & Smart Polling Fallback
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
+  const lastHealthTimestampRef = useRef<string>("")
 
   useEffect(() => {
     if (sessionStatus === "authenticated") {
@@ -160,6 +177,80 @@ function DashboardPageContent() {
       }
     }
   }, [sessionStatus, session, sheetParam, spreadsheetIdParam])
+
+  // Layer 2: Real-time SSE Connection for Push Sync & Collaborative Cursors
+  useEffect(() => {
+    if (sessionStatus !== "authenticated" || !session?.user) return
+
+    const username = session.user.username || "Anonymous"
+    const displayName = session.user.displayName || username
+    // Assign a unique color based on username hash
+    let hash = 0
+    for (let i = 0; i < username.length; i++) {
+      hash = username.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    const colors = ["#ef4444", "#f97316", "#10b981", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899"]
+    const color = colors[Math.abs(hash) % colors.length]
+
+    const sseUrl = `/api/stream?username=${encodeURIComponent(username)}&displayName=${encodeURIComponent(
+      displayName
+    )}&color=${encodeURIComponent(color)}`
+
+    const eventSource = new EventSource(sseUrl)
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        if (data.type === "presence") {
+          setActiveUsers(data.activeUsers || [])
+        } else if (data.type === "cell_focus") {
+          const key = `${data.studentId}_${data.col}`
+          setFocusedCells((prev) => ({
+            ...prev,
+            [key]: { user: data.user, color: data.color },
+          }))
+        } else if (data.type === "cell_blur") {
+          const key = `${data.studentId}_${data.col}`
+          setFocusedCells((prev) => {
+            const next = { ...prev }
+            delete next[key]
+            return next
+          })
+        } else if (data.type === "cell_update" || data.type === "full_sync_required") {
+          // Push update received -> Refresh data instantly
+          fetchStudents(false)
+          if (session?.user?.role === "admin") {
+            fetchLogs()
+          }
+        }
+      } catch {}
+    }
+
+    return () => {
+      eventSource.close()
+    }
+  }, [sessionStatus, session])
+
+  // Layer 3: Fallback Smart Polling (Checks lightweight health endpoint every 10s)
+  useEffect(() => {
+    if (sessionStatus !== "authenticated") return
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/sheet-health")
+        if (res.ok) {
+          const data = await res.json()
+          if (lastHealthTimestampRef.current && lastHealthTimestampRef.current !== data.lastModified) {
+            // Timestamp differed -> trigger background refresh
+            fetchStudents(false)
+          }
+          lastHealthTimestampRef.current = data.lastModified
+        }
+      } catch {}
+    }, 10000)
+
+    return () => clearInterval(pollInterval)
+  }, [sessionStatus])
 
   const fetchStudents = async (showRefreshIndicator = false) => {
     if (showRefreshIndicator) setIsRefreshing(true)
@@ -213,26 +304,55 @@ function DashboardPageContent() {
 
   // Check if a cell is editable by the current logged-in user
   const isCellEditable = (columnName: string) => {
-    if (session?.user?.role === "admin") return true
     if (["ID", "LastModifiedBy", "LastModifiedAt"].includes(columnName)) return false
 
-    // Sub-admins can't edit ID, Name, Email, Phone, Course, Batch, Status, Score, Remarks, Grade (columns <= M/Grade)
-    const adminOnlyCols = [
-      "Name",
-      "Email",
-      "Phone",
-      "Course",
-      "Batch",
-      "Status",
-      "Score",
-      "Remarks",
-      "Grade",
-    ]
+    const gradeIndex = columns.indexOf("Grade")
+    const colIndex = columns.indexOf(columnName)
 
-    if (adminOnlyCols.includes(columnName)) return false
+    if (gradeIndex !== -1 && colIndex !== -1) {
+      if (session?.user?.role === "admin") {
+        return colIndex <= gradeIndex
+      } else {
+        return colIndex > gradeIndex
+      }
+    }
 
-    // Must be in their list of allowedColumns
+    if (session?.user?.role === "admin") return true
     return allowedColumns.includes(columnName)
+  }
+
+  // Handles presence focus broadcast
+  const handleCellFocus = async (studentId: string, col: string) => {
+    if (!session?.user) return
+    const username = session.user.username || "Anonymous"
+    const displayName = session.user.displayName || username
+    let hash = 0
+    for (let i = 0; i < username.length; i++) {
+      hash = username.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    const colors = ["#ef4444", "#f97316", "#10b981", "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899"]
+    const color = colors[Math.abs(hash) % colors.length]
+
+    try {
+      await fetch("/api/presence/focus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId, col, user: displayName, color }),
+      })
+    } catch {}
+  }
+
+  // Handles presence blur broadcast
+  const handleCellFocusBlur = async (studentId: string, col: string) => {
+    if (!session?.user) return
+    const displayName = session.user.displayName || session.user.username || "Anonymous"
+    try {
+      await fetch("/api/presence/blur", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId, col, user: displayName }),
+      })
+    } catch {}
   }
 
   // Handles inline cell modifications
@@ -429,11 +549,10 @@ function DashboardPageContent() {
 
   // Filter students based on query, status, and batch
   const filteredStudents = students.filter((s) => {
-    const matchesSearch =
-      s.ID.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.Name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.Email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (s.Course || "").toLowerCase().includes(searchQuery.toLowerCase())
+    const query = searchQuery.toLowerCase()
+    const matchesSearch = !query || Object.values(s).some((val) => 
+      String(val || "").toLowerCase().includes(query)
+    )
 
     const matchesStatus = statusFilter === "All" || s.Status === statusFilter
     const matchesBatch = batchFilter === "All" || s.Batch === batchFilter
@@ -470,8 +589,8 @@ function DashboardPageContent() {
   }
 
   return (
-    <div className="min-h-svh bg-background text-foreground p-6">
-      <div className="mx-auto max-w-[1600px] space-y-8">
+    <div className="min-h-svh bg-background text-foreground p-6 w-full max-w-full overflow-x-hidden">
+      <div className="mx-auto max-w-[1600px] w-full space-y-8">
         {/* Header Dashboard Banner */}
         <Card>
           <CardHeader>
@@ -491,33 +610,38 @@ function DashboardPageContent() {
                   <span className="capitalize font-medium text-primary">{session?.user?.role}</span>). Perform atomic inline cell edits instantly below.
                 </CardDescription>
               </div>
-
-              {/* Config & Database Indicator Status */}
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/50 px-4 py-3">
-                  <Database className="h-5 w-5 text-primary animate-pulse" />
-                  <div className="text-left">
-                    <p className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase">Database Mode</p>
-                    <p className="text-xs font-bold text-foreground">
-                      {!isConfigured ? "Unconfigured Sheet" : isSimulated ? "Simulated Backup" : "Live Google Sheets API"}
-                    </p>
-                  </div>
-                </div>
-
-                <Button
-                  onClick={() => fetchStudents(true)}
-                  disabled={isRefreshing}
-                  variant="outline"
-                  size="sm"
-                  className="h-11"
-                >
-                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-                  {isRefreshing ? "Syncing..." : "Sync Sheet"}
-                </Button>
-              </div>
             </div>
           </CardHeader>
         </Card>
+
+        {/* Collaborative Presence Indicator Bar */}
+        {activeUsers.length > 0 && (
+          <div className="flex items-center justify-between rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center gap-3">
+              <div className="relative flex h-3 w-3 items-center justify-center">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+              </div>
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Collaborative Presence ({activeUsers.length} active)
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {activeUsers.map((u) => (
+                <div
+                  key={u.username}
+                  className="group/avatar relative flex items-center gap-2 rounded-full border border-border bg-muted/50 py-1 pl-1 pr-3 transition-all hover:bg-muted"
+                >
+                  <img src={u.avatar} alt={u.displayName} className="h-6 w-6 rounded-full bg-background" />
+                  <span className="text-xs font-semibold text-foreground">{u.displayName}</span>
+                  <span className="absolute bottom-full left-1/2 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2 py-1 text-[10px] text-background group-hover/avatar:block z-30">
+                    {u.lastAction || "Active now"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Tab Selection Navigation using shadcn/ui Tabs */}
         <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="w-full">
@@ -601,7 +725,7 @@ function DashboardPageContent() {
             </div>
 
             {/* Spreadsheet Table Grid Wrapper */}
-            <div className="relative overflow-hidden rounded-xl border border-border bg-card">
+            <div className="relative overflow-hidden rounded-xl border border-border bg-card w-full max-w-full">
               {!isConfigured ? (
                 <div className="py-20">
                   <Empty className="p-12 max-w-xl mx-auto">
@@ -619,6 +743,7 @@ function DashboardPageContent() {
                         onClick={() => fetchStudents(true)}
                         className="mt-4"
                       >
+                        <RefreshCw className="mr-2 h-4 w-4" />
                         Retry Connection
                       </Button>
                     </EmptyContent>
@@ -644,7 +769,7 @@ function DashboardPageContent() {
                   </Empty>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <ScrollArea className="h-[calc(100vh-280px)] w-full max-w-full">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -675,6 +800,7 @@ function DashboardPageContent() {
                             const editable = isCellEditable(col)
                             const cellKey = `${stu.ID}_${col}`
                             const isSaving = savingCells[cellKey]
+                            const focusInfo = focusedCells[cellKey]
 
                             return (
                               <TableCell key={col} className="p-1 relative align-middle">
@@ -683,16 +809,33 @@ function DashboardPageContent() {
                                     <RefreshCw className="h-4 w-4 animate-spin text-primary" />
                                   </div>
                                 )}
+                                {focusInfo && (
+                                  <div
+                                    className="absolute -top-3 left-1 z-20 flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm pointer-events-none"
+                                    style={{ backgroundColor: focusInfo.color }}
+                                  >
+                                    <span>👤 {focusInfo.user}</span>
+                                  </div>
+                                )}
                                 <Input
                                   type="text"
                                   defaultValue={val}
                                   disabled={!editable || isSaving}
-                                  onBlur={(e) => handleCellBlur(stu.ID, col, val, e.target.value)}
+                                  onFocus={() => handleCellFocus(stu.ID, col)}
+                                  onBlur={(e) => {
+                                    handleCellFocusBlur(stu.ID, col)
+                                    handleCellBlur(stu.ID, col, val, e.target.value)
+                                  }}
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter") {
                                       e.currentTarget.blur()
                                     }
                                   }}
+                                  style={
+                                    focusInfo
+                                      ? { borderColor: focusInfo.color, borderWidth: 2, backgroundColor: `${focusInfo.color}15` }
+                                      : {}
+                                  }
                                   className={`w-full px-3 py-2 h-8 rounded-md bg-transparent border-transparent transition-all text-xs font-medium focus-visible:border-input focus-visible:bg-background shadow-none ${
                                     editable
                                       ? "text-foreground group-hover:bg-muted/50 cursor-text"
@@ -707,7 +850,8 @@ function DashboardPageContent() {
                       ))}
                     </TableBody>
                   </Table>
-                </div>
+                  <ScrollBar orientation="horizontal" />
+                </ScrollArea>
               )}
             </div>
           </TabsContent>
@@ -841,6 +985,7 @@ function DashboardPageContent() {
                                   size="sm"
                                   onClick={() => handleResetPassword(user.username)}
                                 >
+                                  <Key className="mr-2 h-4 w-4" />
                                   Reset Pass
                                 </Button>
                               </TableCell>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../../lib/auth";
-import { getConnectedSheets, addConnectedSheet } from "../../../lib/sheets";
+import { getConnectedSheets, addConnectedSheet, removeConnectedSheet } from "../../../lib/sheets";
 
 export async function GET(request: Request) {
   try {
@@ -58,6 +58,43 @@ export async function POST(request: Request) {
     console.error("[POST /api/connected-sheets] Error:", error);
     return NextResponse.json(
       { error: error.message || "Failed to connect Google Sheet." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (session.user.role !== "admin") {
+      return NextResponse.json(
+        { error: "Forbidden: Only admins can remove connected Google Sheets." },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const { spreadsheetId } = body;
+
+    if (!spreadsheetId) {
+      return NextResponse.json(
+        { error: "Spreadsheet ID is required." },
+        { status: 400 }
+      );
+    }
+
+    await removeConnectedSheet(spreadsheetId);
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("[DELETE /api/connected-sheets] Error:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to remove connected Google Sheet." },
       { status: 500 }
     );
   }

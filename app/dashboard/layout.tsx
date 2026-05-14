@@ -4,7 +4,10 @@ import { redirect } from "next/navigation";
 import { ModeToggle } from "@/components/theme-toggle";
 import { SyncIndicator } from "@/components/sync-indicator";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 import { AppSidebar } from "@/components/app-sidebar";
+import { ConnectSheetNavbarButton } from "@/components/connect-sheet-navbar-button";
+import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb";
 
 export default async function DashboardLayout({
   children,
@@ -44,25 +47,39 @@ export default async function DashboardLayout({
   const avatarColor = colors[colorIndex];
 
   return (
-    <SidebarProvider>
+    <SidebarProvider
+      className="h-svh overflow-hidden"
+      style={
+        {
+          "--sidebar-width": "calc(var(--spacing) * 72)",
+          "--header-height": "calc(var(--spacing) * 12)",
+        } as React.CSSProperties
+      }
+    >
       <AppSidebar
         user={{ displayName, role, username }}
         initials={initials}
         avatarColor={avatarColor}
+        variant="inset"
       />
-      <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between border-b border-border bg-background/75 px-8 backdrop-blur-xl transition-colors duration-300">
+      <SidebarInset className="h-full min-h-0">
+        <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between border-b border-border bg-background/75 px-6 md:px-8 backdrop-blur-xl transition-colors duration-300">
           <div className="flex items-center gap-4">
             <SidebarTrigger />
-            <SyncIndicator />
+            <Separator orientation="vertical" className="h-4" />
+            <DashboardBreadcrumb />
           </div>
 
           <div className="flex items-center gap-3.5">
+            <SyncIndicator />
+            <ConnectSheetNavbarButton isAdmin={role === "admin"} />
             <ModeToggle />
           </div>
         </header>
 
-        <main className="flex-1 p-8">{children}</main>
+        <main className="flex min-h-0 max-w-full min-w-0 flex-1 flex-col overflow-y-auto">
+          <div className="min-h-full min-w-0 flex-1">{children}</div>
+        </main>
       </SidebarInset>
     </SidebarProvider>
   );
