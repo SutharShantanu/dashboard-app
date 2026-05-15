@@ -35,7 +35,12 @@ const AuditLogSchema: Schema = new Schema({
   actorRole: { type: String, required: true },
   action: { 
     type: String, 
-    required: true 
+    required: true,
+    enum: [
+      "READ", "WRITE", "USER_CREATE", "USER_UPDATE", "USER_DEACTIVATE", 
+      "USER_ACTIVATE", "STUDENT_CREATE", "STUDENT_UPDATE", "STUDENT_DELETE", 
+      "LOGIN", "LOGOUT", "SHEET_SYNC", "SHEET_CONNECT", "SHEET_DISCONNECT"
+    ]
   },
   targetRow: { type: String, required: true },
   columnChanged: { type: String },

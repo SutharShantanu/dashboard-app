@@ -113,6 +113,7 @@ interface AuditLog {
   oldValue: string
   newValue: string
   ip: string
+  details?: string
 }
 
 interface ActiveUser {
@@ -559,7 +560,8 @@ function DashboardPageContent() {
       l.actorDisplayName.toLowerCase().includes(logSearchQuery.toLowerCase()) ||
       l.action.toLowerCase().includes(logSearchQuery.toLowerCase()) ||
       l.targetRow.toLowerCase().includes(logSearchQuery.toLowerCase()) ||
-      l.columnChanged.toLowerCase().includes(logSearchQuery.toLowerCase())
+      l.columnChanged.toLowerCase().includes(logSearchQuery.toLowerCase()) ||
+      (l.details || "").toLowerCase().includes(logSearchQuery.toLowerCase())
   )
 
   if (sessionStatus === "loading") {
@@ -1043,7 +1045,15 @@ function DashboardPageContent() {
                               <TableCell className="px-4 py-3.5">
                                 <Badge
                                   variant="outline"
-                                  className="px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase"
+                                  className={cn(
+                                    "px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase",
+                                    log.action.includes("CREATE") && "bg-green-500/10 text-green-500 border-green-500/20",
+                                    log.action.includes("UPDATE") && "bg-blue-500/10 text-blue-500 border-blue-500/20",
+                                    log.action.includes("DELETE") && "bg-red-500/10 text-red-500 border-red-500/20",
+                                    log.action === "LOGIN" && "bg-purple-500/10 text-purple-500 border-purple-500/20",
+                                    log.action === "LOGOUT" && "bg-orange-500/10 text-orange-500 border-orange-500/20",
+                                    log.action.includes("CONNECT") && "bg-cyan-500/10 text-cyan-500 border-cyan-500/20"
+                                  )}
                                 >
                                   {log.action}
                                 </Badge>

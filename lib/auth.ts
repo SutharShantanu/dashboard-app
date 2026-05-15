@@ -5,6 +5,7 @@ import GoogleProvider from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import connectToDatabase from "./mongodb";
 import User from "../models/User";
+import { appendAuditLog } from "./sheets";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -99,6 +100,33 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).allowedColumns = token.allowedColumns;
       }
       return session;
+    },
+  },
+  events: {
+    async signIn({ user }) {
+      const timestamp = new Date().toISOString();
+      await appendAuditLog({
+        timestamp,
+        actor: user.username || (user as any).id || "unknown",
+        actorDisplayName: user.name || user.username || "SSO User",
+        actorRole: (user as any).role || "admin",
+        action: "LOGIN",
+        targetRow: "SESSION",
+        ip: "captured-at-login",
+        details: `User ${user.name} logged in via ${user.image ? "OAuth" : "Credentials"}`
+      });
+    },
+    async signOut({ token }) {
+      const timestamp = new Date().toISOString();
+      await appendAuditLog({
+        timestamp,
+        actor: token.username as string || "unknown",
+        actorDisplayName: token.displayName as string || "User",
+        actorRole: token.role as string || "unknown",
+        action: "LOGOUT",
+        targetRow: "SESSION",
+        details: "User logged out"
+      });
     },
   },
   pages: {

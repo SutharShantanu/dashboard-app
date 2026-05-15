@@ -77,6 +77,7 @@ export async function PATCH(
       username.toLowerCase(),
       updates,
       session.user.username,
+      session.user.role,
       ip
     );
 

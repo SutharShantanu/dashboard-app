@@ -101,6 +101,7 @@ export async function POST(request: Request) {
     await createUser(
       newUser,
       session.user.username,
+      session.user.role,
       ip
     );
 
