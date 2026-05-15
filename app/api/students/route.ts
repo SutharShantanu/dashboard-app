@@ -102,8 +102,6 @@ export async function POST(request: Request) {
     await createStudent(
       newStudent,
       session.user.username,
-      session.user.displayName,
-      session.user.role,
       ip,
       sheet,
       spreadsheetId
@@ -189,8 +187,6 @@ export async function PATCH(request: Request) {
       column,
       String(value || ""),
       session.user.username,
-      session.user.displayName,
-      session.user.role,
       ip,
       sheet,
       spreadsheetId

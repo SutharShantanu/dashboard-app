@@ -1,29 +1,47 @@
-import { NextResponse } from "next/server";
-import { broadcastSSE } from "@/lib/sse";
+import { NextRequest, NextResponse } from "next/server";
+import { getStudents, updateStudentCell } from "../../../lib/sheets";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const secret = req.headers.get("x-webhook-secret");
-    // Verify webhook secret if configured
-    if (process.env.WEBHOOK_SECRET && secret !== process.env.WEBHOOK_SECRET) {
-      return NextResponse.json({ error: "Unauthorized webhook access" }, { status: 401 });
+    const authHeader = req.headers.get("authorization");
+    
+    // In a real application, you would compare this against a strong secret from process.env
+    // e.g. process.env.SHEET_WEBHOOK_SECRET
+    if (authHeader !== `Bearer ${process.env.SHEET_WEBHOOK_SECRET || "default_secret"}`) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const payload = await req.json();
-    const { range, sheetName, oldValue, newValue, row, col, timestamp, studentId, colName } = payload;
+    const body = await req.json();
+    const { sheetName, row, col, oldValue, newValue } = body;
 
-    // Broadcast cell update via SSE to all dashboard clients
-    broadcastSSE({
-      type: "cell_update",
-      studentId: studentId || `row_${row}`,
-      col: colName || `Col_${col}`,
-      value: newValue ?? "",
-      by: "Google Sheets Apps Script",
-      sheet: sheetName,
-    });
+    // Google Sheets apps script will send 1-indexed row and col
+    // We need to map this back to our schema (ID, column name)
+    const { data, columns } = await getStudents(sheetName);
 
-    return NextResponse.json({ success: true, broadcasted: true });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Failed to process webhook" }, { status: 500 });
+    // Row 1 is headers. So row 2 corresponds to data[0].
+    const student = data[row - 2]; 
+    if (!student) {
+       return NextResponse.json({ error: "Student row not found" }, { status: 404 });
+    }
+
+    // Col 1 is columns[0]
+    const columnName = columns[col - 1];
+    if (!columnName) {
+       return NextResponse.json({ error: "Column not found" }, { status: 404 });
+    }
+
+    // Update in MongoDB and broadcast to SSE (via updateStudentCell)
+    await updateStudentCell(
+      student.ID,
+      columnName,
+      String(newValue || ""),
+      "google-sheets-sync", // actor
+      "webhook" // ip
+    );
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("[POST /api/sheet-webhook] Error:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

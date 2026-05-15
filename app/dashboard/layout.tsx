@@ -64,13 +64,15 @@ export default async function DashboardLayout({
       />
       <SidebarInset className="h-full min-h-0">
         <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between border-b border-border bg-background/75 px-6 md:px-8 backdrop-blur-xl transition-colors duration-300">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 min-w-0 flex-1 overflow-hidden">
             <SidebarTrigger />
             <Separator orientation="vertical" className="h-4" />
-            <DashboardBreadcrumb />
+            <div className="overflow-hidden truncate">
+              <DashboardBreadcrumb />
+            </div>
           </div>
 
-          <div className="flex items-center gap-3.5">
+          <div className="flex items-center gap-3.5 shrink-0 min-w-[300px] justify-end">
             <SyncIndicator />
             <ConnectSheetNavbarButton isAdmin={role === "admin"} />
             <ModeToggle />

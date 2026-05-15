@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import {
   BadgeCheck,
   Bell,
@@ -7,8 +8,10 @@ import {
   CreditCard,
   LogOut,
   Sparkles,
+  Settings
 } from "lucide-react"
 import { signOut } from "next-auth/react"
+import { useRouter } from "next/navigation"
 
 import {
   Avatar,
@@ -42,6 +45,7 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const router = useRouter()
 
   return (
     <SidebarMenu>
@@ -50,6 +54,7 @@ export function NavUser({
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
+              variant="outline"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg">
@@ -94,17 +99,9 @@ export function NavUser({
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <BadgeCheck />
-                <span>Account</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <CreditCard />
-                <span>Billing</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Bell />
-                <span>Notifications</span>
+              <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>
+                <Settings />
+                <span>Profile & Settings</span>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

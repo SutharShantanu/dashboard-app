@@ -1,10 +1,11 @@
-import { google } from "googleapis";
+import fs from 'fs';
+
+const content = `import { google } from "googleapis";
 import connectToDatabase from "./mongodb";
 import User, { IUser } from "../models/User";
 import AuditLog from "../models/AuditLog";
 import SheetRow from "../models/SheetRow";
 import ConnectedSheet from "../models/ConnectedSheet";
-import { sseManager } from "./sse";
 
 export interface Student {
   ID: string;
@@ -62,49 +63,19 @@ export interface ConnectedSheet {
   createdAt: string;
 }
 
+const hasGoogleCreds = !!process.env.GOOGLE_SERVICE_ACCOUNT_JSON && !!process.env.GOOGLE_SHEET_ID;
 let sheetsClient: any = null;
-
-function getSheetsClient() {
-  if (sheetsClient) return sheetsClient;
-  
-  const hasGoogleCreds = !!process.env.GOOGLE_SERVICE_ACCOUNT_JSON && !!process.env.GOOGLE_SHEET_ID;
-  if (!hasGoogleCreds) return null;
-
+if (hasGoogleCreds) {
   try {
     const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!);
     const auth = new google.auth.GoogleAuth({
       credentials: creds,
-      scopes: [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive.readonly"
-      ],
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     });
     sheetsClient = google.sheets({ version: "v4", auth });
-    return sheetsClient;
   } catch (err) {
     console.error("[Sheets DB] Failed to load Google credentials:", err);
-    return null;
   }
-}
-
-export async function listDriveFiles(folderId?: string) {
-  const auth = new google.auth.GoogleAuth({
-    credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!),
-    scopes: ["https://www.googleapis.com/auth/drive.readonly"],
-  });
-  const drive = google.drive({ version: "v3", auth });
-
-  const query = folderId 
-    ? `'${folderId}' in parents and (mimeType = 'application/vnd.google-apps.spreadsheet' or mimeType = 'application/vnd.google-apps.folder') and trashed = false`
-    : `(mimeType = 'application/vnd.google-apps.spreadsheet' or mimeType = 'application/vnd.google-apps.folder') and trashed = false`;
-
-  const response = await drive.files.list({
-    q: query,
-    fields: "files(id, name, mimeType, webViewLink, iconLink)",
-    orderBy: "folder,name",
-  });
-
-  return response.data.files || [];
 }
 
 const sheetId = process.env.GOOGLE_SHEET_ID || "";
@@ -181,31 +152,6 @@ export async function addSheetTab(title: string): Promise<void> {
   // Deprecated in mongo mode
 }
 
-export async function fetchRawGoogleSheetsData(spreadsheetId: string, sheetName: string): Promise<{ data: Student[]; columns: string[] }> {
-  if (!sheetsClient) throw new Error("Google Sheets client not initialized. Check credentials.");
-
-  const response = await sheetsClient.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${sheetName}!A1:Z1000`,
-  });
-
-  const rows = response.data.values;
-  if (!rows || rows.length === 0) {
-    return { data: [], columns: [] };
-  }
-
-  const columns = rows[0];
-  const data = rows.slice(1).map((row: any) => {
-    const student: any = {};
-    columns.forEach((col: string, idx: number) => {
-      student[col] = row[idx] || "";
-    });
-    return student as Student;
-  });
-
-  return { data, columns };
-}
-
 export async function getStudents(targetSheet?: string, targetSpreadsheetId?: string): Promise<{ data: Student[]; columns: string[] }> {
   await connectToDatabase();
   const actualSpreadsheetId = targetSpreadsheetId || sheetId;
@@ -213,14 +159,6 @@ export async function getStudents(targetSheet?: string, targetSpreadsheetId?: st
   
   const data = rows.map(r => r.data as Student);
   const allKeys = new Set<string>();
-  // Default columns if no data
-  if (data.length === 0) {
-    return { 
-      data: [], 
-      columns: ["ID", "Name", "Email", "Phone", "Course", "Batch", "Status", "Score", "Remarks", "Grade", "Comments", "Notes", "LastModifiedBy", "LastModifiedAt"] 
-    };
-  }
-  
   data.forEach(row => Object.keys(row).forEach(k => allKeys.add(k)));
   const columns = Array.from(allKeys);
   return { data, columns };
@@ -230,8 +168,8 @@ export async function updateStudentCell(
   studentId: string,
   column: string,
   value: string,
-  actor: string = "system",
-  ip: string = "unknown",
+  actor: string,
+  ip: string,
   targetSheet?: string,
   targetSpreadsheetId?: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -261,24 +199,13 @@ export async function updateStudentCell(
     ip
   });
 
-  // Broadcast the update to connected clients
-  sseManager.broadcast({
-    type: "cell_update",
-    payload: {
-      studentId,
-      column,
-      value,
-      actor,
-    }
-  });
-
   return { success: true };
 }
 
 export async function createStudent(
   studentData: Partial<Student>,
-  actor: string = "system",
-  ip: string = "unknown",
+  actor: string,
+  ip: string,
   targetSheet?: string,
   targetSpreadsheetId?: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -287,7 +214,7 @@ export async function createStudent(
   
   const newRow = await SheetRow.create({
     sheetId: actualSpreadsheetId,
-    rowId: studentData.ID || `USR-${Date.now()}`,
+    rowId: studentData.ID || \`USR-\${Date.now()}\`,
     data: {
       ...studentData,
       LastModifiedBy: actor,
@@ -331,8 +258,8 @@ export async function getUsers(): Promise<User[]> {
 
 export async function createUser(
   userData: Partial<User>,
-  actor: string = "system",
-  ip: string = "unknown"
+  actor: string,
+  ip: string
 ): Promise<{ success: boolean; error?: string }> {
   await connectToDatabase();
   const existing = await User.findOne({ username: userData.username });
@@ -369,8 +296,8 @@ export async function createUser(
 export async function updateUser(
   username: string,
   updates: Partial<User>,
-  actor: string = "system",
-  ip: string = "unknown"
+  actor: string,
+  ip: string
 ): Promise<{ success: boolean; error?: string }> {
   await connectToDatabase();
   const user = await User.findOne({ username });
@@ -429,11 +356,14 @@ export async function appendAuditLog(log: AuditLog): Promise<void> {
     actorRole: log.actorRole,
     action: log.action,
     targetRow: log.targetRow,
-    details: `Column: ${log.columnChanged}, Old: ${log.oldValue}, New: ${log.newValue}, IP: ${log.ip}`,
+    details: \`Column: \${log.columnChanged}, Old: \${log.oldValue}, New: \${log.newValue}, IP: \${log.ip}\`,
   });
 }
 
 function extractSpreadsheetId(url: string): string | null {
-  const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  const match = url.match(/\\/d\\/([a-zA-Z0-9-_]+)/);
   return match ? match[1] : null;
 }
+`
+
+fs.writeFileSync('lib/sheets.ts', content);

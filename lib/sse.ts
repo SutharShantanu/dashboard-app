@@ -1,61 +1,71 @@
-export interface ActiveUser {
+export type EventType = "cell_update" | "presence" | "cell_focus" | "cell_blur";
+
+export interface SseEvent {
+  type: EventType;
+  payload: any;
+}
+
+export interface ClientConnection {
+  id: string;
   username: string;
-  displayName: string;
-  avatar: string;
-  color: string;
-  lastAction: string;
-  lastSeen: number;
+  controller: ReadableStreamDefaultController;
 }
 
-export type SSEEvent =
-  | { type: "cell_update"; studentId: string; col: string; value: string; by: string; sheet?: string; spreadsheetId?: string }
-  | { type: "presence"; activeUsers: ActiveUser[] }
-  | { type: "cell_focus"; studentId: string; col: string; user: string; color: string }
-  | { type: "cell_blur"; studentId: string; col: string; user: string };
+class SseManager {
+  private clients: Set<ClientConnection> = new Set();
+  
+  // Real-time presence state: username -> { lastSeen: Date, focusedCell: string | null }
+  private presence: Map<string, { lastSeen: Date, focusedCell: string | null, active: boolean }> = new Map();
 
-const globalAny = globalThis as any;
+  addClient(client: ClientConnection) {
+    this.clients.add(client);
+    this.broadcastPresence();
+  }
 
-if (!globalAny.sseClients) {
-  globalAny.sseClients = new Set<ReadableStreamDefaultController>();
-}
-if (!globalAny.activeUsers) {
-  globalAny.activeUsers = new Map<string, ActiveUser>();
-}
+  removeClient(client: ClientConnection) {
+    this.clients.delete(client);
+    const userPresence = this.presence.get(client.username);
+    if (userPresence) {
+      userPresence.active = false;
+    }
+    this.broadcastPresence();
+  }
 
-export const sseClients: Set<ReadableStreamDefaultController> = globalAny.sseClients;
-export const activeUsers: Map<string, ActiveUser> = globalAny.activeUsers;
-
-export function broadcastSSE(event: SSEEvent) {
-  const payload = `data: ${JSON.stringify(event)}\n\n`;
-  const encoder = new TextEncoder();
-  const encoded = encoder.encode(payload);
-
-  for (const client of sseClients) {
-    try {
-      client.enqueue(encoded);
-    } catch (err) {
-      sseClients.delete(client);
+  broadcast(event: SseEvent) {
+    const dataToSend = { type: event.type, ...event.payload };
+    const data = `data: ${JSON.stringify(dataToSend)}\n\n`;
+    for (const client of this.clients) {
+      try {
+        client.controller.enqueue(new TextEncoder().encode(data));
+      } catch (err) {
+        // Stream closed or error
+        this.removeClient(client);
+      }
     }
   }
+
+  updatePresence(username: string, focusedCell: string | null) {
+    this.presence.set(username, {
+      lastSeen: new Date(),
+      focusedCell,
+      active: true,
+    });
+    this.broadcastPresence();
+  }
+
+  private broadcastPresence() {
+    const activeUsers = Array.from(this.presence.entries())
+      .filter(([_, state]) => state.active && (Date.now() - state.lastSeen.getTime() < 60000)) // 1 min timeout
+      .map(([username, state]) => ({ username, focusedCell: state.focusedCell }));
+
+    this.broadcast({
+      type: "presence",
+      payload: { activeUsers },
+    });
+  }
 }
 
-export function updatePresence(user: ActiveUser) {
-  activeUsers.set(user.username, { ...user, lastSeen: Date.now() });
-  
-  // Clean up inactive users older than 2 minutes
-  const now = Date.now();
-  for (const [username, activeUser] of activeUsers.entries()) {
-    if (now - activeUser.lastSeen > 120000) {
-      activeUsers.delete(username);
-    }
-  }
-  
-  broadcastSSE({ type: "presence", activeUsers: Array.from(activeUsers.values()) });
-}
-
-export function removePresence(username: string) {
-  if (activeUsers.has(username)) {
-    activeUsers.delete(username);
-    broadcastSSE({ type: "presence", activeUsers: Array.from(activeUsers.values()) });
-  }
-}
+// Global instance to persist across HMR in development
+const globalForSse = global as unknown as { sseManager: SseManager };
+export const sseManager = globalForSse.sseManager || new SseManager();
+if (process.env.NODE_ENV !== "production") globalForSse.sseManager = sseManager;

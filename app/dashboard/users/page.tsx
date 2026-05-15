@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import { format } from "date-fns"
 import { toast } from "sonner"
 import {
   Search,
@@ -295,7 +296,7 @@ function UsersDirectoryContent() {
 
   return (
     <div className="min-h-svh w-full max-w-full overflow-x-hidden bg-background p-6 text-foreground">
-      <div className="mx-auto w-full max-w-[1600px] space-y-8">
+      <div className="mx-auto w-full max-w-7xl space-y-8">
         {/* Header Dashboard Banner */}
         <PageHeader
           subtitle="System Administration"
@@ -376,7 +377,10 @@ function UsersDirectoryContent() {
                       Role
                     </TableHead>
                     <TableHead className="px-6 py-4 font-semibold">
-                      Allowed Edit Columns (Comma Separated)
+                      Permissions
+                    </TableHead>
+                    <TableHead className="px-6 py-4 font-semibold">
+                      Created At
                     </TableHead>
                     <TableHead className="px-6 py-4 font-semibold">
                       Status
@@ -464,6 +468,9 @@ function UsersDirectoryContent() {
                           </div>
                         )}
                       </TableCell>
+                      <TableCell className="px-6 py-4 whitespace-nowrap text-muted-foreground text-sm">
+                        {user.createdAt ? format(new Date(user.createdAt), "MMM d, yyyy HH:mm") : "-"}
+                      </TableCell>
                       <TableCell className="px-6 py-4 whitespace-nowrap">
                         <button
                           onClick={() =>
@@ -499,7 +506,8 @@ function UsersDirectoryContent() {
                 </TableBody>
               </Table>
             </div>
-          )}
+          )
+}
         </div>
 
         {/* Modal Dialog for User Creation */}

@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     }
 
     const users = await getUsers();
-    return NextResponse.json(users);
+    return NextResponse.json({ users });
   } catch (error: any) {
     console.error("[GET /api/users] Error:", error);
     return NextResponse.json(
@@ -101,8 +101,6 @@ export async function POST(request: Request) {
     await createUser(
       newUser,
       session.user.username,
-      session.user.displayName,
-      session.user.role,
       ip
     );
 

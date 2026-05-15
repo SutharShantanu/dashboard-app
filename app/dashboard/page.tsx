@@ -61,6 +61,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { format, formatDistanceToNow } from "date-fns"
 import {
   Empty,
   EmptyContent,
@@ -633,8 +634,8 @@ function DashboardPageContent() {
               ========================================================================= */}
           <TabsContent value="students" className="space-y-6">
             {/* Filter Section */}
-            <div className="grid grid-cols-1 gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-4">
-              <div className="relative flex items-center">
+            <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 lg:flex-row lg:items-center">
+              <div className="relative flex flex-1 items-center min-w-[200px] lg:flex-[2]">
                 <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
@@ -645,7 +646,7 @@ function DashboardPageContent() {
                 />
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-1 items-center gap-2 min-w-[150px]">
                 <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <Select
                   value={batchFilter}
@@ -668,7 +669,7 @@ function DashboardPageContent() {
                 </Select>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-1 items-center gap-2 min-w-[150px]">
                 <Sparkles className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <Select
                   value={statusFilter}
@@ -691,11 +692,22 @@ function DashboardPageContent() {
                 </Select>
               </div>
 
+              <div className="flex items-center gap-4 px-2">
+                 <div className="flex flex-col items-end">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                      Sync Status
+                    </span>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {isRefreshing ? "Refreshing..." : `Updated ${formatDistanceToNow(lastRefreshed, { addSuffix: true })}`}
+                    </span>
+                 </div>
+              </div>
+
               {session?.user?.role === "admin" && (
-                <div className="flex items-center justify-end">
+                <div className="flex shrink-0 items-center justify-end">
                   <Button
                     onClick={() => setIsAddStudentOpen(true)}
-                    className="h-10 w-full"
+                    className="h-10 w-full lg:w-auto"
                   >
                     <Plus className="h-4 w-4" />
                     Add Student
@@ -969,7 +981,10 @@ function DashboardPageContent() {
                           {filteredLogs.map((log, index) => (
                             <TableRow key={index}>
                               <TableCell className="px-4 py-3.5 font-medium whitespace-nowrap text-muted-foreground">
-                                {new Date(log.timestamp).toLocaleString()}
+                                <div className="flex flex-col">
+                                  <span>{formatDistanceToNow(new Date(log.timestamp), { addSuffix: true })}</span>
+                                  <span className="text-[10px] opacity-70">{format(new Date(log.timestamp), "MMM d, HH:mm")}</span>
+                                </div>
                               </TableCell>
                               <TableCell className="px-4 py-3.5 font-bold whitespace-nowrap">
                                 {log.actorDisplayName} ({log.actor})

@@ -1,68 +1,51 @@
-import { sseClients, updatePresence, removePresence, activeUsers } from "@/lib/sse";
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../../../lib/auth";
+import { sseManager, ClientConnection } from "../../../lib/sse";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const username = url.searchParams.get("username") || "Anonymous";
-  const displayName = url.searchParams.get("displayName") || username;
-  const color = url.searchParams.get("color") || "#3b82f6";
-  const avatar = url.searchParams.get("avatar") || `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`;
+export async function GET(req: NextRequest) {
+  const session = await getServerSession(authOptions);
 
-  let clientController: ReadableStreamDefaultController | null = null;
+  if (!session || !session.user) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+
+  const clientId = crypto.randomUUID();
+
+  let clientController: ReadableStreamDefaultController;
 
   const stream = new ReadableStream({
     start(controller) {
       clientController = controller;
-      sseClients.add(controller);
+      
+      const client: ClientConnection = {
+        id: clientId,
+        username: session.user.username,
+        controller,
+      };
 
-      updatePresence({
-        username,
-        displayName,
-        avatar,
-        color,
-        lastAction: "Connected to dashboard",
-        lastSeen: Date.now(),
-      });
+      sseManager.addClient(client);
 
-      // Send initial presence immediately
-      const initialEvent = JSON.stringify({ type: "presence", activeUsers: Array.from(activeUsers.values()) });
-      controller.enqueue(new TextEncoder().encode(`data: ${initialEvent}\n\n`));
+      // Send initial connection event
+      controller.enqueue(
+        new TextEncoder().encode(`data: ${JSON.stringify({ type: "connected", id: clientId })}\n\n`)
+      );
 
-      // Keep alive ping every 25 seconds
-      const ping = setInterval(() => {
-        try {
-          updatePresence({
-            username,
-            displayName,
-            avatar,
-            color,
-            lastAction: "Viewing dashboard",
-            lastSeen: Date.now(),
-          });
-          controller.enqueue(new TextEncoder().encode(": ping\n\n"));
-        } catch (err) {
-          clearInterval(ping);
-          sseClients.delete(controller);
-          removePresence(username);
-        }
-      }, 25000);
-
+      // Handle client disconnect
       req.signal.addEventListener("abort", () => {
-        clearInterval(ping);
-        sseClients.delete(controller);
-        removePresence(username);
+        sseManager.removeClient(client);
       });
     },
     cancel() {
-      if (clientController) {
-        sseClients.delete(clientController);
-      }
-      removePresence(username);
-    },
+      // In case cancel is called instead of abort
+      const client = { id: clientId, username: session.user.username, controller: clientController };
+      sseManager.removeClient(client);
+    }
   });
 
-  return new Response(stream, {
+  return new NextResponse(stream, {
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",

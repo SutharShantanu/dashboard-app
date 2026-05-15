@@ -3,6 +3,7 @@
 import { useQueryClient, useIsFetching } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { RefreshCw, Database } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,19 +40,12 @@ export function SyncIndicator() {
   useEffect(() => {
     if (!lastSynced) return;
 
-    const interval = setInterval(() => {
-      const diffMs = new Date().getTime() - lastSynced.getTime();
-      const diffSecs = Math.floor(diffMs / 1000);
+    const updateLabel = () => {
+      setSyncLabel(`Synced ${formatDistanceToNow(lastSynced, { addSuffix: true })}`);
+    };
 
-      if (diffSecs < 10) {
-        setSyncLabel("Just synced");
-      } else if (diffSecs < 60) {
-        setSyncLabel(`Synced ${diffSecs}s ago`);
-      } else {
-        const mins = Math.floor(diffSecs / 60);
-        setSyncLabel(`Synced ${mins}m ago`);
-      }
-    }, 5000);
+    updateLabel();
+    const interval = setInterval(updateLabel, 30000); // Update every 30s
 
     return () => clearInterval(interval);
   }, [lastSynced]);

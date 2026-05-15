@@ -1,23 +1,27 @@
-import { NextResponse } from "next/server";
-import { broadcastSSE } from "@/lib/sse";
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../../../../lib/auth";
+import { sseManager } from "../../../../lib/sse";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const { studentId, col, user } = await req.json();
+    const session = await getServerSession(authOptions);
 
-    if (!studentId || !col || !user) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    broadcastSSE({
+    const { studentId, col, user } = await req.json();
+
+    // Broadcast cell blur event
+    sseManager.broadcast({
       type: "cell_blur",
-      studentId,
-      col,
-      user,
+      payload: { studentId, col, user }
     });
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (error: any) {
+    console.error("[POST /api/presence/blur] Error:", error);
+    return NextResponse.json({ error: "Failed to broadcast blur" }, { status: 500 });
   }
 }
