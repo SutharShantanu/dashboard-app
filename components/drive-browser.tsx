@@ -8,12 +8,14 @@ import {
   ChevronLeft, 
   Loader2,
   ExternalLink,
-  Search
+  Search,
+  AlertCircle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 interface DriveFile {
   id: string
@@ -34,6 +36,7 @@ export function DriveBrowser({ onSelect, onClose }: DriveBrowserProps) {
   const [currentFolderId, setCurrentFolderId] = useState<string | undefined>(undefined)
   const [history, setHistory] = useState<string[]>([])
   const [search, setSearch] = useState("")
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchFiles(currentFolderId)
@@ -41,13 +44,15 @@ export function DriveBrowser({ onSelect, onClose }: DriveBrowserProps) {
 
   const fetchFiles = async (folderId?: string) => {
     setLoading(true)
+    setError(null)
     try {
       const url = folderId ? `/api/drive/list?folderId=${folderId}` : "/api/drive/list"
       const res = await fetch(url)
-      if (!res.ok) throw new Error("Failed to fetch files")
       const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to fetch files")
       setFiles(data.files || [])
-    } catch (err) {
+    } catch (err: any) {
+      setError("The account isn't connected to Google. Kindly connect and then you can choose the sheet.")
       toast.error("Could not load Google Drive files")
     } finally {
       setLoading(false)
@@ -101,6 +106,16 @@ export function DriveBrowser({ onSelect, onClose }: DriveBrowserProps) {
           <div className="flex flex-col items-center justify-center h-full gap-2 py-10">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">Loading files...</p>
+          </div>
+        ) : error ? (
+          <div className="p-4">
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Connection Required</AlertTitle>
+              <AlertDescription>
+                {error}
+              </AlertDescription>
+            </Alert>
           </div>
         ) : filteredFiles.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-10">

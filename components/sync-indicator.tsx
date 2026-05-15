@@ -1,6 +1,6 @@
 "use client";
 
-import { useQueryClient, useIsFetching } from "@tanstack/react-query";
+import { useQueryClient, useIsFetching, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { RefreshCw, Database } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -13,21 +13,18 @@ export function SyncIndicator() {
   const isFetching = useIsFetching();
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [syncLabel, setSyncLabel] = useState("Just synced");
-  const [dbMode, setDbMode] = useState<"Simulated" | "Google Sheets" | null>(null);
+  const { data: dbModeData } = useQuery({
+    queryKey: ["dbMode"],
+    queryFn: async () => {
+      const res = await fetch("/api/students");
+      if (!res.ok) throw new Error("Failed to fetch DB mode");
+      const json = await res.json();
+      return json.simulated ? "Simulated" : "Google Sheets";
+    },
+    staleTime: 60000, // 1 minute
+  });
 
-  // Poll for database mode
-  useEffect(() => {
-    async function fetchDbMode() {
-      try {
-        const res = await fetch("/api/students");
-        if (res.ok) {
-          const json = await res.json();
-          setDbMode(json.simulated ? "Simulated" : "Google Sheets");
-        }
-      } catch {}
-    }
-    fetchDbMode();
-  }, [isFetching]);
+  const dbMode = dbModeData || null;
 
   // Set initial sync time on query success
   useEffect(() => {

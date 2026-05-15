@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Trash2,
   Globe,
+  Settings2,
 } from "lucide-react"
 import {
   Sidebar,
@@ -84,11 +85,6 @@ export function AppSidebar({
 
   const [connectedSheets, setConnectedSheets] = useState<any[]>([])
 
-  const [isConnectOpen, setIsConnectOpen] = useState(false)
-  const [connectUrl, setConnectUrl] = useState("")
-  const [connectTitle, setConnectTitle] = useState("")
-  const [isConnecting, setIsConnecting] = useState(false)
-
   const [sheetToDelete, setSheetToDelete] = useState<{
     spreadsheetId: string
     title: string
@@ -115,37 +111,6 @@ export function AppSidebar({
       window.removeEventListener("sheet_connected", handleSheetConnected)
   }, [])
 
-  const handleConnectSheet = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!connectUrl.trim()) return
-
-    setIsConnecting(true)
-    try {
-      const res = await fetch("/api/connected-sheets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url: connectUrl.trim(),
-          title: connectTitle.trim(),
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok)
-        throw new Error(data.error || "Failed to connect Google Sheet")
-
-      toast.success(
-        `Google Sheet "${data.newSheet?.title || connectTitle}" connected successfully!`
-      )
-      setConnectedSheets((prev) => [...prev, data.newSheet])
-      setConnectUrl("")
-      setConnectTitle("")
-      setIsConnectOpen(false)
-    } catch (err: any) {
-      toast.error(err.message || "Failed to connect Google Sheet")
-    } finally {
-      setIsConnecting(false)
-    }
-  }
 
   const handleDeleteSheet = (spreadsheetId: string, title: string) => {
     setSheetToDelete({ spreadsheetId, title })
@@ -201,7 +166,7 @@ export function AppSidebar({
                   variant="ghost"
                   size="icon"
                   className="h-6 w-6 rounded-md hover:bg-muted"
-                  onClick={() => setIsConnectOpen(true)}
+                  onClick={() => window.dispatchEvent(new Event("open_connect_sheet_dialog"))}
                   title="Connect New Sheet"
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -273,20 +238,21 @@ export function AppSidebar({
                       </ContextMenuContent>
                     </ContextMenu>
                   ))
-                ) : (
-                  <div className="px-4 py-6 text-center group-data-[collapsible=icon]:hidden">
-                    <Database className="mx-auto h-8 w-8 text-muted-foreground/20 mb-2" />
-                    <p className="text-[10px] text-muted-foreground font-medium">No sheets connected</p>
-                    {user.role === "admin" && (
-                      <Button 
-                        variant="link" 
-                        className="h-auto p-0 text-[10px] text-primary"
-                        onClick={() => setIsConnectOpen(true)}
-                      >
-                        Connect one now
-                      </Button>
-                    )}
-                  </div>
+                ) : null}
+                {user.role === "admin" && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === "/dashboard/sheets" && tab === "connections"}
+                      tooltip="Manage All Sheets"
+                      className="text-primary hover:text-primary/80"
+                    >
+                      <Link href="/dashboard/sheets?tab=connections">
+                        <Settings2 className="h-4 w-4" />
+                        <span>Manage All Sheets</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 )}
               </SidebarMenu>
             </SidebarGroupContent>

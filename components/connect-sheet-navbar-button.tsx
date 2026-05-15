@@ -29,6 +29,12 @@ export function ConnectSheetNavbarButton({ isAdmin }: { isAdmin: boolean }) {
   const [connectTitle, setConnectTitle] = useState("")
   const [isConnecting, setIsConnecting] = useState(false)
 
+  React.useEffect(() => {
+    const handleOpen = () => setIsOpen(true)
+    window.addEventListener("open_connect_sheet_dialog", handleOpen)
+    return () => window.removeEventListener("open_connect_sheet_dialog", handleOpen)
+  }, [])
+
   if (!isAdmin) return null
 
   const handleConnectSheet = async (e?: React.FormEvent, customData?: { url: string, title: string }) => {

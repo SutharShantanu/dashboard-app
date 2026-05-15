@@ -9,11 +9,13 @@ import {
   Search,
   UserPlus,
   Users,
-  RefreshCw,
+  Loader2,
   Check,
   X,
   Key,
   ShieldAlert,
+  Eye,
+  EyeOff,
 } from "lucide-react"
 
 // shadcn/ui components
@@ -54,6 +56,13 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { PageHeader } from "@/components/page-header"
+import { PasswordStrength, isStrongPassword } from "@/components/password-strength"
+import {
+  InputGroup,
+  InputGroupInput,
+  InputGroupAddon,
+  InputGroupButton,
+} from "@/components/ui/input-group"
 
 interface User {
   username: string
@@ -76,6 +85,7 @@ function UsersDirectoryContent() {
 
   // Add User Modal State
   const [isAddUserOpen, setIsAddUserOpen] = useState<boolean>(false)
+  const [showPassword, setShowPassword] = useState<boolean>(false)
   const [newUser, setNewUser] = useState({
     username: "",
     displayName: "",
@@ -127,6 +137,9 @@ function UsersDirectoryContent() {
     }
   }
 
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [activeActionId, setActiveActionId] = useState<string | null>(null)
+
   // Handles creating a new user account
   const handleCreateUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -140,7 +153,8 @@ function UsersDirectoryContent() {
       return
     }
 
-    try {
+    setIsSubmitting(true)
+    const promise = async () => {
       const payload = {
         ...newUser,
         allowedColumns:
@@ -157,10 +171,7 @@ function UsersDirectoryContent() {
 
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || "Failed to register user.")
-
-      toast.success(
-        `Successfully registered ${newUser.role} user: ${newUser.username}`
-      )
+      
       setIsAddUserOpen(false)
       setNewUser({
         username: "",
@@ -171,9 +182,15 @@ function UsersDirectoryContent() {
         allowedColumns: "Comments,Notes",
       })
       fetchUsers()
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save account.")
+      return result
     }
+
+    toast.promise(promise(), {
+      loading: "Creating user account...",
+      success: (data) => `Successfully registered ${newUser.role}: ${newUser.username}`,
+      error: (err) => err.message || "Failed to save account.",
+      finally: () => setIsSubmitting(false)
+    })
   }
 
   // Toggle user activation status
@@ -182,7 +199,9 @@ function UsersDirectoryContent() {
     currentActive: string
   ) => {
     const nextActive = currentActive === "TRUE" ? "FALSE" : "TRUE"
-    try {
+    setActiveActionId(username)
+    
+    const promise = async () => {
       const res = await fetch(`/api/users/${username}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -193,16 +212,22 @@ function UsersDirectoryContent() {
       if (!res.ok)
         throw new Error(result.error || "Failed to change user status.")
 
-      toast.success(`User '${username}' activation updated successfully.`)
       fetchUsers()
-    } catch (err: any) {
-      toast.error(err.message || "Failed to toggle user status.")
+      return result
     }
+
+    toast.promise(promise(), {
+      loading: `Updating status for ${username}...`,
+      success: `User account ${nextActive === "TRUE" ? "activated" : "suspended"} successfully.`,
+      error: (err) => err.message || "Failed to toggle user status.",
+      finally: () => setActiveActionId(null)
+    })
   }
 
   // Saves updated allowed columns for a sub-admin
   const handleSaveAllowedCols = async (username: string) => {
-    try {
+    setActiveActionId(username)
+    const promise = async () => {
       const res = await fetch(`/api/users/${username}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -212,12 +237,17 @@ function UsersDirectoryContent() {
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || "Failed to update columns.")
 
-      toast.success(`Permissions updated successfully for user ${username}.`)
       setEditingAllowedColsUser(null)
       fetchUsers()
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save user columns.")
+      return result
     }
+
+    toast.promise(promise(), {
+      loading: "Saving permission updates...",
+      success: `Permissions updated for user ${username}.`,
+      error: (err) => err.message || "Failed to save user columns.",
+      finally: () => setActiveActionId(null)
+    })
   }
 
   // Reset Sub-admin Password
@@ -226,12 +256,13 @@ function UsersDirectoryContent() {
       `Enter a new secure password for sub-admin '${username}':`
     )
     if (newPass === null) return
-    if (newPass.trim().length < 4) {
-      toast.error("Password must be at least 4 characters long.")
+    if (newPass.trim().length < 8) {
+      toast.error("Password must be at least 8 characters long.")
       return
     }
 
-    try {
+    setActiveActionId(username)
+    const promise = async () => {
       const res = await fetch(`/api/users/${username}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -240,13 +271,15 @@ function UsersDirectoryContent() {
 
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || "Failed to reset password.")
-
-      toast.success(
-        `Password has been reset successfully for user '${username}'.`
-      )
-    } catch (err: any) {
-      toast.error(err.message || "Failed to reset password.")
+      return result
     }
+
+    toast.promise(promise(), {
+      loading: "Resetting password...",
+      success: "Password reset successfully.",
+      error: (err) => err.message || "Failed to reset password.",
+      finally: () => setActiveActionId(null)
+    })
   }
 
   const filteredUsers = users.filter(
@@ -260,7 +293,7 @@ function UsersDirectoryContent() {
     return (
       <div className="flex min-h-svh items-center justify-center bg-background text-foreground">
         <div className="flex flex-col items-center gap-4">
-          <RefreshCw className="h-10 w-10 animate-spin text-primary" />
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <p className="text-sm font-medium tracking-wide text-muted-foreground">
             Verifying administrative access...
           </p>
@@ -326,11 +359,17 @@ function UsersDirectoryContent() {
 
           <Button
             variant="outline"
-            onClick={fetchUsers}
+            onClick={() => {
+              toast.promise(fetchUsers(), {
+                loading: "Refreshing user directory...",
+                success: "Directory updated successfully.",
+                error: "Failed to refresh users.",
+              })
+            }}
             disabled={loadingUsers}
             className="h-10 gap-2"
           >
-            <RefreshCw
+            <Loader2
               className={`h-4 w-4 ${loadingUsers ? "animate-spin" : ""}`}
             />
             Refresh Directory
@@ -341,7 +380,7 @@ function UsersDirectoryContent() {
         <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
           {loadingUsers ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16">
-              <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p className="text-xs font-medium text-muted-foreground">
                 Loading administrative accounts...
               </p>
@@ -428,16 +467,22 @@ function UsersDirectoryContent() {
                             />
                             <Button
                               size="icon-xs"
+                              disabled={activeActionId === user.username}
                               onClick={() =>
                                 handleSaveAllowedCols(user.username)
                               }
                               title="Save Columns"
                             >
-                              <Check className="h-3.5 w-3.5" />
+                              {activeActionId === user.username ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Check className="h-3.5 w-3.5" />
+                              )}
                             </Button>
                             <Button
                               variant="outline"
                               size="icon-xs"
+                              disabled={activeActionId === user.username}
                               onClick={() => setEditingAllowedColsUser(null)}
                               title="Cancel"
                             >
@@ -450,7 +495,12 @@ function UsersDirectoryContent() {
                               variant="outline"
                               className="px-2.5 py-1 font-mono text-xs"
                             >
-                              {user.allowedColumns || "None"}
+                              {user.role === "admin" || 
+                               !user.allowedColumns || 
+                               user.allowedColumns === "*" || 
+                               user.allowedColumns.toLowerCase() === "none" 
+                                ? "All" 
+                                : user.allowedColumns}
                             </Badge>
                             {user.role !== "admin" && (
                               <Button
@@ -473,10 +523,11 @@ function UsersDirectoryContent() {
                       </TableCell>
                       <TableCell className="px-6 py-4 whitespace-nowrap">
                         <button
+                          disabled={activeActionId === user.username}
                           onClick={() =>
                             handleToggleUserActive(user.username, user.isActive)
                           }
-                          className="transition-all duration-200 hover:opacity-80"
+                          className="transition-all duration-200 hover:opacity-80 disabled:opacity-50"
                         >
                           <Badge
                             variant={
@@ -486,6 +537,9 @@ function UsersDirectoryContent() {
                             }
                             className="cursor-pointer rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase"
                           >
+                            {activeActionId === user.username ? (
+                              <Loader2 className="h-2 w-2 animate-spin mr-1" />
+                            ) : null}
                             {user.isActive === "TRUE" ? "Active" : "Suspended"}
                           </Badge>
                         </button>
@@ -494,10 +548,15 @@ function UsersDirectoryContent() {
                         <Button
                           variant="outline"
                           size="sm"
+                          disabled={activeActionId === user.username}
                           onClick={() => handleResetPassword(user.username)}
                           className="h-8 gap-1.5 text-xs"
                         >
-                          <Key className="h-3.5 w-3.5" />
+                          {activeActionId === user.username ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Key className="h-3.5 w-3.5" />
+                          )}
                           Reset Pass
                         </Button>
                       </TableCell>
@@ -581,18 +640,33 @@ function UsersDirectoryContent() {
                 <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
                   Login Password *
                 </label>
-                <Input
-                  type="password"
-                  placeholder="Create secure password"
-                  value={newUser.password}
-                  onChange={(e) =>
-                    setNewUser((prev) => ({
-                      ...prev,
-                      password: e.target.value,
-                    }))
-                  }
-                  className="h-10"
-                />
+                <InputGroup className="h-10">
+                  <InputGroupInput
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Create secure password"
+                    value={newUser.password}
+                    onChange={(e) =>
+                      setNewUser((prev) => ({
+                        ...prev,
+                        password: e.target.value,
+                      }))
+                    }
+                  />
+                  <InputGroupAddon align="inline-end">
+                    <InputGroupButton
+                      size="icon-xs"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="size-4" />
+                      ) : (
+                        <Eye className="size-4" />
+                      )}
+                    </InputGroupButton>
+                  </InputGroupAddon>
+                </InputGroup>
+
+                <PasswordStrength password={newUser.password} className="mt-2" />
               </div>
 
               <div className="space-y-1.5">
@@ -649,7 +723,17 @@ function UsersDirectoryContent() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">Create Account</Button>
+                <Button 
+                  type="submit" 
+                  disabled={isSubmitting || !isStrongPassword(newUser.password)}
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <UserPlus className="mr-2 h-4 w-4" />
+                  )}
+                  Create Account
+                </Button>
               </div>
             </form>
           </DialogContent>
@@ -665,7 +749,7 @@ export default function UsersDirectoryPage() {
       fallback={
         <div className="flex min-h-svh items-center justify-center bg-background text-foreground">
           <div className="flex flex-col items-center gap-4">
-            <RefreshCw className="h-10 w-10 animate-spin text-primary" />
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
             <p className="animate-pulse text-sm font-medium tracking-wide text-muted-foreground">
               Loading users directory...
             </p>

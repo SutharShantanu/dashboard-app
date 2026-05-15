@@ -3,7 +3,9 @@
 import React, { useState, useEffect, Suspense, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useSearchParams, useRouter } from "next/navigation"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 import {
   Search,
   Plus,
@@ -140,17 +142,16 @@ function DashboardPageContent() {
     )
   }
 
+  const queryClient = useQueryClient()
+
   // Global State
   const [students, setStudents] = useState<Student[]>([])
   const [columns, setColumns] = useState<string[]>([])
   const [allowedColumns, setAllowedColumns] = useState<string[]>([])
   const [isSimulated, setIsSimulated] = useState<boolean>(true)
   const [isConfigured, setIsConfigured] = useState<boolean>(true)
-  const [loadingStudents, setLoadingStudents] = useState<boolean>(true)
 
-  // Audit Logs (Admin only)
-  const [logs, setLogs] = useState<AuditLog[]>([])
-  const [loadingLogs, setLoadingLogs] = useState<boolean>(false)
+  // Audit Logs handled by useQuery
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState<string>("")
@@ -188,15 +189,55 @@ function DashboardPageContent() {
 
   // Auto Refresh & Smart Polling Fallback
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
   const lastHealthTimestampRef = useRef<string>("")
+  const [isSubmittingStudent, setIsSubmittingStudent] = useState<boolean>(false)
+
+  // Layer 1: Main Data Fetching via React Query
+  const { data: studentData, isFetching: isQueryFetching, isLoading: isQueryLoading, refetch: refetchStudents } = useQuery({
+    queryKey: ["students", sheetParam, spreadsheetIdParam],
+    queryFn: async () => {
+      const url = `/api/students?sheet=${encodeURIComponent(sheetParam)}${spreadsheetIdParam ? `&spreadsheetId=${encodeURIComponent(spreadsheetIdParam)}` : ""}`
+      const res = await fetch(url)
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to load student records.")
+      }
+      return res.json()
+    },
+    enabled: sessionStatus === "authenticated",
+    staleTime: 10000, // 10 seconds
+  })
+
+  // Layer 1.5: Audit Logs Fetching via React Query (Admin only)
+  const { data: logsData, isFetching: isLogsFetching, refetch: refetchLogs } = useQuery({
+    queryKey: ["logs"],
+    queryFn: async () => {
+      const res = await fetch("/api/logs")
+      if (!res.ok) throw new Error("Failed to load system logs")
+      const data = await res.json()
+      return data.logs || []
+    },
+    enabled: sessionStatus === "authenticated" && session?.user?.role === "admin",
+    staleTime: 30000,
+  })
+
+  const logs = logsData || []
+
+  // Synchronize query data with local state
+  useEffect(() => {
+    if (studentData) {
+      setStudents(studentData.data || [])
+      setColumns(studentData.columns || [])
+      setAllowedColumns(studentData.allowedColumns || [])
+      setIsSimulated(studentData.simulated ?? true)
+      setIsConfigured(studentData.configured ?? true)
+      setLastRefreshed(new Date())
+    }
+  }, [studentData])
 
   useEffect(() => {
     if (sessionStatus === "authenticated") {
-      fetchStudents()
-      if (session?.user?.role === "admin") {
-        fetchLogs()
-      }
+      // Data handled by useQuery
     }
   }, [sessionStatus, session, sheetParam, spreadsheetIdParam])
 
@@ -253,10 +294,8 @@ function DashboardPageContent() {
           data.type === "full_sync_required"
         ) {
           // Push update received -> Refresh data instantly
-          fetchStudents(false)
-          if (session?.user?.role === "admin") {
-            fetchLogs()
-          }
+          queryClient.invalidateQueries({ queryKey: ["students"] })
+          queryClient.invalidateQueries({ queryKey: ["logs"] })
         }
       } catch {}
     }
@@ -280,7 +319,7 @@ function DashboardPageContent() {
             lastHealthTimestampRef.current !== data.lastModified
           ) {
             // Timestamp differed -> trigger background refresh
-            fetchStudents(false)
+            queryClient.invalidateQueries({ queryKey: ["students"] })
           }
           lastHealthTimestampRef.current = data.lastModified
         }
@@ -290,41 +329,20 @@ function DashboardPageContent() {
     return () => clearInterval(pollInterval)
   }, [sessionStatus])
 
-  const fetchStudents = async (showRefreshIndicator = false) => {
-    if (showRefreshIndicator) setIsRefreshing(true)
-    setLoadingStudents(true)
-    try {
-      const url = `/api/students?sheet=${encodeURIComponent(sheetParam)}${spreadsheetIdParam ? `&spreadsheetId=${encodeURIComponent(spreadsheetIdParam)}` : ""}`
-      const res = await fetch(url)
-      if (!res.ok) throw new Error("Failed to load students")
-      const data = await res.json()
-      setStudents(data.data || [])
-      setColumns(data.columns || [])
-      setAllowedColumns(data.allowedColumns || [])
-      setIsSimulated(data.simulated ?? true)
-      setIsConfigured(data.configured ?? true)
-      setLastRefreshed(new Date())
-    } catch (err: any) {
-      toast.error(err.message || "Could not sync student records.")
-    } finally {
-      setLoadingStudents(false)
-      if (showRefreshIndicator) setIsRefreshing(false)
-    }
+  // Manual refresh handler for the UI button
+  const handleManualRefresh = async () => {
+    const refreshPromise = Promise.all([
+      refetchStudents(),
+      session?.user?.role === "admin" ? refetchLogs() : Promise.resolve()
+    ])
+
+    toast.promise(refreshPromise, {
+      loading: "Fetching latest records...",
+      success: "Dashboard updated!",
+      error: (err) => err.message || "Failed to sync data",
+    })
   }
 
-  const fetchLogs = async () => {
-    setLoadingLogs(true)
-    try {
-      const res = await fetch("/api/logs")
-      if (!res.ok) throw new Error("Failed to load system logs")
-      const data = await res.json()
-      setLogs(data.logs || [])
-    } catch (err: any) {
-      toast.error(err.message || "Failed to fetch audit records.")
-    } finally {
-      setLoadingLogs(false)
-    }
-  }
 
   // Check if a cell is editable by the current logged-in user
   const isCellEditable = (columnName: string) => {
@@ -408,7 +426,7 @@ function DashboardPageContent() {
     const cellKey = `${studentId}_${columnName}`
     setSavingCells((prev) => ({ ...prev, [cellKey]: true }))
 
-    try {
+    const updatePromise = (async () => {
       const res = await fetch("/api/students", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -426,17 +444,25 @@ function DashboardPageContent() {
         throw new Error(result.error || "Failed to save cell change.")
       }
 
-      toast.success(`Updated '${columnName}' for ${studentId} successfully!`)
-
       // Refresh student grid and audit logs dynamically
-      fetchStudents(false)
+      await queryClient.invalidateQueries({ queryKey: ["students"] })
       if (session?.user?.role === "admin") {
-        fetchLogs()
+        await queryClient.invalidateQueries({ queryKey: ["logs"] })
       }
+      return result
+    })()
+
+    toast.promise(updatePromise, {
+      loading: `Saving change to '${columnName}'...`,
+      success: `Updated '${columnName}' for ${studentId} successfully!`,
+      error: (err) => err.message || "Failed to save inline cell edit.",
+    })
+
+    try {
+      await updatePromise
     } catch (err: any) {
-      toast.error(err.message || "Failed to save inline cell edit.")
-      // Reset local cell to original value by re-fetching
-      fetchStudents(false)
+      // Re-fetch to revert local state if failed
+      await queryClient.invalidateQueries({ queryKey: ["students"] })
     } finally {
       setSavingCells((prev) => ({ ...prev, [cellKey]: false }))
     }
@@ -450,7 +476,8 @@ function DashboardPageContent() {
       return
     }
 
-    try {
+    setIsSubmittingStudent(true)
+    const createPromise = (async () => {
       const res = await fetch("/api/students", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -464,7 +491,6 @@ function DashboardPageContent() {
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || "Failed to add student.")
 
-      toast.success(`Successfully added student ${newStudent.ID}!`)
       setIsAddStudentOpen(false)
       setNewStudent({
         ID: "",
@@ -480,10 +506,22 @@ function DashboardPageContent() {
         Comments: "",
         Notes: "",
       })
-      fetchStudents(false)
-      fetchLogs()
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save student.")
+      await queryClient.invalidateQueries({ queryKey: ["students"] })
+      await queryClient.invalidateQueries({ queryKey: ["logs"] })
+      return result
+    })()
+
+    toast.promise(createPromise, {
+      loading: "Adding student to database...",
+      success: `Successfully added student ${newStudent.ID}!`,
+      error: (err) => err.message || "Failed to save student.",
+    })
+
+    try {
+      await createPromise
+    } catch (err) {
+    } finally {
+      setIsSubmittingStudent(false)
     }
   }
 
@@ -698,9 +736,18 @@ function DashboardPageContent() {
                       Sync Status
                     </span>
                     <span className="text-xs font-medium text-muted-foreground">
-                      {isRefreshing ? "Refreshing..." : `Updated ${formatDistanceToNow(lastRefreshed, { addSuffix: true })}`}
+                      {(isQueryFetching || isLogsFetching) ? "Refreshing..." : `Updated ${formatDistanceToNow(lastRefreshed, { addSuffix: true })}`}
                     </span>
                  </div>
+                 <Button
+                   variant="ghost"
+                   size="icon"
+                   className="h-8 w-8 rounded-full"
+                   onClick={handleManualRefresh}
+                   disabled={isQueryFetching || isLogsFetching}
+                 >
+                   <RefreshCw className={cn("h-4 w-4 text-muted-foreground", (isQueryFetching || isLogsFetching) && "animate-spin")} />
+                 </Button>
               </div>
 
               {session?.user?.role === "admin" && (
@@ -744,16 +791,17 @@ function DashboardPageContent() {
                     </EmptyHeader>
                     <EmptyContent>
                       <Button
-                        onClick={() => fetchStudents(true)}
+                        onClick={handleManualRefresh}
                         className="mt-4"
+                        disabled={isQueryFetching || isLogsFetching}
                       >
-                        <RefreshCw className="h-4 w-4" />
+                        <RefreshCw className={cn("h-4 w-4", (isQueryFetching || isLogsFetching) && "animate-spin")} />
                         Retry Connection
                       </Button>
                     </EmptyContent>
                   </Empty>
                 </div>
-              ) : loadingStudents && students.length === 0 ? (
+              ) : isQueryLoading && students.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-3 py-20">
                   <RefreshCw className="h-8 w-8 animate-spin text-primary" />
                   <p className="text-xs font-medium text-muted-foreground">
@@ -927,7 +975,7 @@ function DashboardPageContent() {
 
                 {/* Logs list table */}
                 <div className="overflow-hidden rounded-xl border border-border bg-card">
-                  {loadingLogs ? (
+                  {isLogsFetching && logs.length === 0 ? (
                     <div className="flex flex-col items-center justify-center gap-3 py-12">
                       <RefreshCw className="h-8 w-8 animate-spin text-primary" />
                       <p className="text-xs font-medium text-muted-foreground">
@@ -983,7 +1031,7 @@ function DashboardPageContent() {
                               <TableCell className="px-4 py-3.5 font-medium whitespace-nowrap text-muted-foreground">
                                 <div className="flex flex-col">
                                   <span>{formatDistanceToNow(new Date(log.timestamp), { addSuffix: true })}</span>
-                                  <span className="text-[10px] opacity-70">{format(new Date(log.timestamp), "MMM d, HH:mm")}</span>
+                                  <span className="text-[10px] opacity-70">{format(new Date(log.timestamp), "MMM d, yyyy HH:mm")}</span>
                                 </div>
                               </TableCell>
                               <TableCell className="px-4 py-3.5 font-bold whitespace-nowrap">
@@ -1230,7 +1278,10 @@ function DashboardPageContent() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">Save Student</Button>
+                <Button type="submit" disabled={isSubmittingStudent}>
+                  {isSubmittingStudent && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Student
+                </Button>
               </div>
             </form>
           </DialogContent>

@@ -7,8 +7,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load .env from project root
-dotenv.config({ path: path.join(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
@@ -31,56 +30,36 @@ const UserSchema = new mongoose.Schema({
 
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
 
-async function seedAdmin() {
+async function seed() {
   try {
-    console.log('Connecting to MongoDB...');
     await mongoose.connect(MONGODB_URI);
-    console.log('Connected successfully.');
+    console.log('Connected to MongoDB');
 
-    const username = 'SabaAdmin';
-    const password = 'Admin@123';
-    const displayName = 'Saba Administrator';
-    const email = 'admin@domain.com';
-    const role = 'admin';
+    const adminUsername = 'SabaAdmin';
+    const existingAdmin = await User.findOne({ username: adminUsername });
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ username });
-    if (existingUser) {
-      console.log(`User ${username} already exists. Updating password...`);
-      const salt = await bcrypt.genSalt(12);
-      const passwordHash = await bcrypt.hash(password, salt);
-      existingUser.passwordHash = passwordHash;
-      existingUser.displayName = displayName;
-      existingUser.role = role;
-      existingUser.isActive = true;
-      await existingUser.save();
-      console.log('User updated successfully.');
+    if (existingAdmin) {
+      console.log('Admin user already exists');
     } else {
-      console.log(`Creating new user: ${username}`);
-      const salt = await bcrypt.genSalt(12);
-      const passwordHash = await bcrypt.hash(password, salt);
-
-      const newUser = new User({
-        username,
-        displayName,
-        email,
+      const passwordHash = await bcrypt.hash('Saba@2024', 12);
+      await User.create({
+        username: adminUsername,
+        displayName: 'Saba Admin',
+        email: 'admin@sababuilders.com',
         passwordHash,
-        role,
+        role: 'admin',
         allowedColumns: '*',
         isActive: true,
-        createdBy: 'system-seed',
+        createdBy: 'system',
       });
-
-      await newUser.save();
-      console.log('User created successfully.');
+      console.log('Admin user created successfully');
     }
-
-    await mongoose.disconnect();
-    console.log('Disconnected from MongoDB.');
   } catch (error) {
-    console.error('Error seeding admin user:', error);
-    process.exit(1);
+    console.error('Error seeding admin:', error);
+  } finally {
+    await mongoose.disconnect();
+    console.log('Disconnected from MongoDB');
   }
 }
 
-seedAdmin();
+seed();

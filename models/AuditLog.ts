@@ -5,8 +5,26 @@ export interface IAuditLog extends Document {
   actor: string;
   actorDisplayName: string;
   actorRole: string;
-  action: "READ" | "WRITE" | "USER_CREATE" | "USER_UPDATE" | "USER_DEACTIVATE" | "USER_ACTIVATE" | "STUDENT_CREATE";
+  action: 
+    | "READ" 
+    | "WRITE" 
+    | "USER_CREATE" 
+    | "USER_UPDATE" 
+    | "USER_DEACTIVATE" 
+    | "USER_ACTIVATE" 
+    | "STUDENT_CREATE"
+    | "STUDENT_UPDATE"
+    | "STUDENT_DELETE"
+    | "LOGIN"
+    | "LOGOUT"
+    | "SHEET_SYNC"
+    | "SHEET_CONNECT"
+    | "SHEET_DISCONNECT";
   targetRow: string;
+  columnChanged?: string;
+  oldValue?: string;
+  newValue?: string;
+  ip?: string;
   details: string;
 }
 
@@ -17,10 +35,13 @@ const AuditLogSchema: Schema = new Schema({
   actorRole: { type: String, required: true },
   action: { 
     type: String, 
-    enum: ["READ", "WRITE", "USER_CREATE", "USER_UPDATE", "USER_DEACTIVATE", "USER_ACTIVATE", "STUDENT_CREATE"],
     required: true 
   },
   targetRow: { type: String, required: true },
+  columnChanged: { type: String },
+  oldValue: { type: String },
+  newValue: { type: String },
+  ip: { type: String },
   details: { type: String, required: true }
 });
 
