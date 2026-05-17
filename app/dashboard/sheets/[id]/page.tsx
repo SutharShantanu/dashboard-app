@@ -107,18 +107,24 @@ export default function SheetDetailPage() {
     }
   };
 
-  const handleSave = async (studentId: string, col: string) => {
-    setEditingCell(null);
+  const handleSave = async (studentId: string, col: string, value: string) => {
     try {
       const res = await fetch('/api/students', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: studentId, field: col, value: editValue }),
+        body: JSON.stringify({ id: studentId, column: col, value }),
       });
       if (!res.ok) throw new Error("Failed to save data");
       queryClient.invalidateQueries({ queryKey: ["sheetData", id] });
     } catch (err) {
       console.error("Failed to save data:", err);
+    }
+  };
+
+  const handleShare = () => {
+    if (typeof window !== 'undefined') {
+      navigator.clipboard.writeText(window.location.href);
+      alert("Link copied to clipboard!");
     }
   };
 
@@ -153,7 +159,8 @@ export default function SheetDetailPage() {
         fallback: (u.displayName || u.username).substring(0, 2).toUpperCase(),
         color: isActive ? "bg-green-500" : "bg-gray-300 dark:bg-gray-700 text-muted-foreground",
         avatar: "",
-        isActive
+        isActive,
+        role: u.role
       };
     });
 
@@ -169,7 +176,8 @@ export default function SheetDetailPage() {
           fallback: (session.user.name || currentUsername).substring(0, 2).toUpperCase(),
           color: "bg-green-500", // Current user is active
           avatar: session.user.image || "",
-          isActive: true
+          isActive: true,
+          role: session.user.role
         });
       } else {
         // If already included, make sure they are marked as active
@@ -190,23 +198,71 @@ export default function SheetDetailPage() {
   const columns = sheetData?.columns || [];
   const data = sheetData?.data || [];
 
+  const allowedColumns = sheetData?.allowedColumns || [];
+
   const tableColumns = useMemo<ColumnDef<any>[]>(() => {
-    return columns.map((col: string) => ({
-      accessorKey: col,
-      header: col,
-      cell: ({ row }) => {
-        const value = row.getValue(col);
-        if (col === "Status") {
+    return columns.map((col: string, index: number) => {
+      const colId = col || `col_${index}`;
+      return {
+        id: colId,
+        accessorFn: (row: any) => row[col],
+        header: col || `Column ${index + 1}`,
+        cell: (info: any) => {
+          const value = info.getValue();
+          const studentId = info.row.original._id;
+          const colName = col; // Use original key for saving!
+          const isSystemColumn = colName === "ID" || colName === "LastModifiedBy" || colName === "LastModifiedAt";
+          const isLocked = !allowedColumns.includes(colName) || isSystemColumn;
+          
+          // Check if another user is focusing this cell
+          const focusingUser = realActiveUsers.find(u => u.focusedCell === `${studentId}:${colName}`);
+          
+          // Find user details for tooltip/color
+          const userDetails = allUsers.find(u => u.username === focusingUser?.username);
+          const userColor = focusingUser 
+            ? userDetails?.role === "admin" 
+              ? "ring-2 ring-red-500" 
+              : "ring-2 ring-blue-500" 
+            : "";
+          
           return (
-            <Badge variant={value === "Active" ? "secondary" : "outline"} className="capitalize">
-              {value}
-            </Badge>
+            <div className="relative group">
+              <Input
+                key={`${studentId}:${colId}:${value}`}
+                defaultValue={value || ""}
+                onBlur={(e) => {
+                  if (!isLocked && e.target.value !== value) {
+                    handleSave(studentId, colName, e.target.value);
+                  }
+                }}
+                onFocus={() => {
+                  if (!isLocked) {
+                    handleFocus(studentId, colName);
+                  }
+                }}
+                disabled={isLocked}
+                className={`h-8 w-full border-transparent bg-transparent hover:border-input focus:border-primary focus:bg-background transition-colors ${userColor} ${isLocked ? 'opacity-70 cursor-not-allowed' : 'cursor-text'}`}
+              />
+              {isLocked && (
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Read-only field</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              )}
+            </div>
           );
         }
-        return value || "-";
-      }
-    }));
-  }, [columns]);
+      };
+    });
+  }, [columns, editingCell, editValue, allowedColumns, realActiveUsers, allUsers]);
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -276,7 +332,7 @@ export default function SheetDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0 max-w-full">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex-1">
           <PageHeader
@@ -304,7 +360,7 @@ export default function SheetDetailPage() {
               {activeUsersToRender.map((user) => (
                 <Tooltip key={user.id}>
                   <TooltipTrigger asChild>
-                    <Avatar className={`h-8 w-8 border-2 border-background ${!user.isActive ? 'opacity-50 grayscale' : ''}`}>
+                    <Avatar className={`h-8 w-8 border-2 border-background ${user.isActive ? 'ring-2 ring-emerald-500' : 'opacity-50 grayscale'}`}>
                       <AvatarImage src={user.avatar} />
                       <AvatarFallback className={`${user.color} text-white text-xs`}>
                         {user.fallback}
@@ -313,7 +369,8 @@ export default function SheetDetailPage() {
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="text-xs font-semibold">{user.name}</p>
-                    <p className="text-[10px] text-muted-foreground">Active now</p>
+                    <p className="text-[10px] text-muted-foreground capitalize">{user.role}</p>
+                    <p className="text-[10px] text-muted-foreground">{user.isActive ? "Active now" : "Offline"}</p>
                   </TooltipContent>
                 </Tooltip>
               ))}
@@ -326,7 +383,7 @@ export default function SheetDetailPage() {
         </div>
       </div>
 
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
@@ -348,7 +405,7 @@ export default function SheetDetailPage() {
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent align="end" className="w-fit">
                   <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setStatusFilter(null)}>
@@ -364,7 +421,7 @@ export default function SheetDetailPage() {
 
               {/* ACTIONS */}
               <ExportDropdown data={filteredAndSortedData} filename={sheetTitle} />
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" onClick={handleShare} >
                 <Share2 className="h-4 w-4" />
                 Share
               </Button>
