@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../../lib/auth";
-import { getConnectedSheets, addConnectedSheet, removeConnectedSheet } from "../../../lib/sheets";
+import { getConnectedSheets, addConnectedSheet, removeConnectedSheet, syncSheetData } from "../../../lib/sheets";
 
 export async function GET(request: Request) {
   try {
@@ -49,9 +49,17 @@ export async function POST(request: Request) {
 
     const newSheet = await addConnectedSheet(
       url.trim(),
-      title || "Connected Sheet",
+      title || "",
       session.user.username
     );
+
+    // Trigger sync immediately
+    try {
+      await syncSheetData(newSheet.spreadsheetId);
+    } catch (syncError) {
+      console.error("[POST /api/connected-sheets] Sync failed:", syncError);
+      // We still return success for connecting the sheet, but warn in logs
+    }
 
     return NextResponse.json({ success: true, newSheet });
   } catch (error: any) {

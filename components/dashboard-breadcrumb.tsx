@@ -49,7 +49,7 @@ function BreadcrumbContent() {
 
 export function DashboardBreadcrumb() {
   return (
-    <Suspense fallback={<div className="h-4 w-24 bg-muted animate-pulse rounded" />}>
+    <Suspense fallback={<div className="h-4 w-24 bg-muted animate-pulse" />}>
       <BreadcrumbContent />
     </Suspense>
   );

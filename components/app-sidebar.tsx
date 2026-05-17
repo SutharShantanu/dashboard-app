@@ -9,6 +9,7 @@ import {
   Users,
   UserPlus,
   History,
+  LayoutDashboard,
   Plus,
   Loader2,
   Database,
@@ -31,6 +32,7 @@ import {
   SidebarFooter,
   SidebarRail,
 } from "@/components/ui/sidebar"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Dialog,
   DialogContent,
@@ -59,6 +61,7 @@ import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { NavUser } from "@/components/nav-user"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { Spinner } from "./ui/spinner"
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   user: {
@@ -84,6 +87,7 @@ export function AppSidebar({
   const activeSpreadsheetId = searchParams?.get("spreadsheetId") || ""
 
   const [connectedSheets, setConnectedSheets] = useState<any[]>([])
+  const [isLoadingSheets, setIsLoadingSheets] = useState(true)
 
   const [sheetToDelete, setSheetToDelete] = useState<{
     spreadsheetId: string
@@ -94,12 +98,16 @@ export function AppSidebar({
   useEffect(() => {
     async function loadData() {
       try {
+        setIsLoadingSheets(true)
         const resConnected = await fetch("/api/connected-sheets")
         if (resConnected.ok) {
           const data = await resConnected.json()
           if (data.connectedSheets) setConnectedSheets(data.connectedSheets)
         }
-      } catch {}
+      } catch {
+      } finally {
+        setIsLoadingSheets(false)
+      }
     }
     loadData()
 
@@ -110,7 +118,6 @@ export function AppSidebar({
     return () =>
       window.removeEventListener("sheet_connected", handleSheetConnected)
   }, [])
-
 
   const handleDeleteSheet = (spreadsheetId: string, title: string) => {
     setSheetToDelete({ spreadsheetId, title })
@@ -158,15 +165,17 @@ export function AppSidebar({
           {/* SHEETS SECTION */}
           <SidebarGroup>
             <div className="flex items-center justify-between px-2 py-1.5 group-data-[collapsible=icon]:hidden">
-              <SidebarGroupLabel className="p-0 text-xs font-bold uppercase tracking-wider text-muted-foreground/70">
+              <SidebarGroupLabel className="p-0 text-xs font-bold tracking-wider text-muted-foreground/70 uppercase">
                 Connected Sheets
               </SidebarGroupLabel>
               {user.role === "admin" && (
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 rounded-md hover:bg-muted"
-                  onClick={() => window.dispatchEvent(new Event("open_connect_sheet_dialog"))}
+                  variant="secondary"
+                  size="icon-sm"
+                  className="h-6 w-6"
+                  onClick={() =>
+                    window.dispatchEvent(new Event("open_connect_sheet_dialog"))
+                  }
                   title="Connect New Sheet"
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -176,84 +185,79 @@ export function AppSidebar({
 
             <SidebarGroupContent>
               <SidebarMenu>
-                {connectedSheets.length > 0 ? (
-                  connectedSheets.map((s: any, index: number) => (
-                    <ContextMenu key={s.spreadsheetId}>
-                      <ContextMenuTrigger asChild>
-                        <SidebarMenuItem>
-                          <SidebarMenuButton
-                            asChild
-                            isActive={
-                              pathname === `/dashboard/sheets/${s.spreadsheetId}` ||
-                              (pathname === "/dashboard" && activeSpreadsheetId === s.spreadsheetId)
-                            }
-                            tooltip={s.title}
-                          >
-                            <Link
-                              href={`/dashboard/sheets/${s.spreadsheetId}`}
-                            >
-                              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-background shadow-sm">
-                                <Database className="h-3.5 w-3.5 text-primary" />
-                              </div>
-                              <span className="truncate">{s.title}</span>
-                            </Link>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      </ContextMenuTrigger>
-                      <ContextMenuContent className="w-56">
-                        <ContextMenuItem
-                          onClick={() =>
-                            window.open(
-                              `https://docs.google.com/spreadsheets/d/${s.spreadsheetId}/edit`,
-                              "_blank"
-                            )
-                          }
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                          <span>Open in Google Sheets</span>
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          onClick={() => {
-                            window.dispatchEvent(new Event("sheet_connected"))
-                            toast.success(`Refreshed "${s.title}" data`)
-                          }}
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                          <span>Reload / Sync Data</span>
-                        </ContextMenuItem>
-                        {user.role === "admin" && (
-                          <>
-                            <ContextMenuSeparator />
-                            <ContextMenuItem
-                              variant="destructive"
-                              onClick={() =>
-                                handleDeleteSheet(s.spreadsheetId, s.title)
-                              }
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              <span>Remove Sheet</span>
-                            </ContextMenuItem>
-                          </>
-                        )}
-                      </ContextMenuContent>
-                    </ContextMenu>
+                {isLoadingSheets ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <SidebarMenuItem key={i}>
+                      <div className="flex items-center gap-2 px-2 py-1.5">
+                        <Skeleton className="h-4 w-4 rounded-full" />
+                        <Skeleton className="h-4 w-24" />
+                      </div>
+                    </SidebarMenuItem>
                   ))
-                ) : null}
-                {user.role === "admin" && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname === "/dashboard/sheets" && tab === "connections"}
-                      tooltip="Manage All Sheets"
-                      className="text-primary hover:text-primary/80"
-                    >
-                      <Link href="/dashboard/sheets?tab=connections">
-                        <Settings2 className="h-4 w-4" />
-                        <span>Manage All Sheets</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
+                ) : connectedSheets.length > 0
+                  ? connectedSheets.map((s: any, index: number) => (
+                      <ContextMenu key={s.spreadsheetId}>
+                        <ContextMenuTrigger asChild>
+                          <SidebarMenuItem>
+                            <SidebarMenuButton
+                              asChild
+                              isActive={
+                                pathname ===
+                                  `/dashboard/sheets/${s.spreadsheetId}` ||
+                                (pathname === "/dashboard" &&
+                                  activeSpreadsheetId === s.spreadsheetId)
+                              }
+                              tooltip={s.title}
+                            >
+                              <Link
+                                href={`/dashboard/sheets/${s.spreadsheetId}`}
+                              >
+                                <Database className="h-3.5 w-3.5 text-primary" />
+                                <span className="truncate">{s.title}</span>
+                              </Link>
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent className="w-fit">
+                          <ContextMenuItem
+                            onClick={() =>
+                              window.open(
+                                `https://docs.google.com/spreadsheets/d/${s.spreadsheetId}/edit`,
+                                "_blank"
+                              )
+                            }
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            <span>Open in Google Sheets</span>
+                          </ContextMenuItem>
+                          <ContextMenuItem
+                            onClick={() => {
+                              window.dispatchEvent(new Event("sheet_connected"))
+                              toast.success(`Refreshed "${s.title}" data`)
+                            }}
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                            <span>Reload / Sync Data</span>
+                          </ContextMenuItem>
+                          {user.role === "admin" && (
+                            <>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem
+                                variant="destructive"
+                                onClick={() =>
+                                  handleDeleteSheet(s.spreadsheetId, s.title)
+                                }
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                <span>Remove Sheet</span>
+                              </ContextMenuItem>
+                            </>
+                          )}
+                        </ContextMenuContent>
+                      </ContextMenu>
+                    ))
+                  : null}
+                {/* Manage Sheets moved to Configuration section */}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -263,12 +267,28 @@ export function AppSidebar({
             <SidebarGroupLabel>Configuration</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === "/dashboard" && !activeSpreadsheetId}
+                    tooltip="Dashboard Home"
+                  >
+                    <Link href="/dashboard">
+                      <LayoutDashboard className="h-4 w-4" />
+                      <span>Dashboard Home</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+
                 {user.role === "admin" && (
                   <>
                     <SidebarMenuItem>
                       <SidebarMenuButton
                         asChild
-                        isActive={pathname === "/dashboard/sheets" && tab === "connections"}
+                        isActive={
+                          pathname === "/dashboard/sheets" &&
+                          (tab === "connections" || !tab)
+                        }
                         tooltip="Manage Sheets"
                       >
                         <Link href="/dashboard/sheets?tab=connections">
@@ -280,7 +300,10 @@ export function AppSidebar({
                     <SidebarMenuItem>
                       <SidebarMenuButton
                         asChild
-                        isActive={pathname === "/dashboard/sheets" && tab === "integrations"}
+                        isActive={
+                          pathname === "/dashboard/sheets" &&
+                          tab === "integrations"
+                        }
                         tooltip="Integrations"
                       >
                         <Link href="/dashboard/sheets?tab=integrations">
@@ -292,19 +315,31 @@ export function AppSidebar({
                     <SidebarMenuItem>
                       <SidebarMenuButton
                         asChild
-                        isActive={pathname === "/dashboard/users" || tab === "users"}
+                        isActive={pathname === "/dashboard/users"}
                         tooltip="Users Directory"
                       >
                         <Link
                           href={`/dashboard/users${activeSpreadsheetId ? `?spreadsheetId=${encodeURIComponent(activeSpreadsheetId)}` : ""}`}
                         >
-                          <Users />
+                          <Users className="h-4 w-4" />
                           <span>Users Directory</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   </>
                 )}
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === "/dashboard/logs"}
+                    tooltip="Activity Logs"
+                  >
+                    <Link href="/dashboard/logs">
+                      <History className="h-4 w-4" />
+                      <span>Activity Logs</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -350,7 +385,7 @@ export function AppSidebar({
             >
               {isDeleting ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner className="h-4 w-4" />
                   Removing...
                 </>
               ) : (

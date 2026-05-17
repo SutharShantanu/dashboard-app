@@ -1,0 +1,380 @@
+"use client"
+
+import { useState, useMemo, useEffect } from "react"
+import { useParams, useRouter } from "next/navigation"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useSession } from "next-auth/react"
+import { 
+  Database, 
+  Search, 
+  ArrowUpDown, 
+  ChevronDown, 
+  Filter, 
+  Download, 
+  Share2, 
+  MoreHorizontal,
+  Loader2,
+  AlertCircle,
+  Users,
+  CheckCircle2,
+  Clock,
+  RefreshCw
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { ExportDropdown } from "@/components/export-dropdown"
+import { DataTable } from "@/components/ui/data-table"
+import type { ColumnDef } from "@tanstack/react-table"
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { PageHeader } from "@/components/page-header"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+
+export default function SheetDetailPage() {
+  const params = useParams()
+  const router = useRouter()
+  const id = params?.id as string
+  const { data: session } = useSession()
+  const [searchQuery, setSearchQuery] = useState("")
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null)
+  const [statusFilter, setStatusFilter] = useState<string | null>(null)
+  const [editingCell, setEditingCell] = useState<{ rowId: string, col: string } | null>(null)
+  const [editValue, setEditValue] = useState("")
+
+  const { data: sheetsList } = useQuery({
+    queryKey: ["connectedSheets"],
+    queryFn: async () => {
+      const res = await fetch("/api/connected-sheets");
+      if (!res.ok) throw new Error("Failed to fetch sheets list");
+      return res.json();
+    },
+  });
+
+  const sheetInfo = sheetsList?.connectedSheets?.find((s: any) => s.spreadsheetId === id);
+  const sheetTitle = sheetInfo?.title || `Sheet: ${id.substring(0, 8)}...`;
+
+  const { data: sheetData, isLoading, error } = useQuery({
+    queryKey: ["sheetData", id],
+    queryFn: async () => {
+      const res = await fetch(`/api/students?spreadsheetId=${id}`);
+      if (!res.ok) throw new Error("Failed to fetch sheet data");
+      return res.json();
+    },
+    enabled: !!id,
+  });
+
+  const queryClient = useQueryClient();
+
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/students?spreadsheetId=${id}`, {
+        method: "PUT",
+      });
+      if (!res.ok) throw new Error("Failed to sync sheet data");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sheetData", id] });
+    },
+  });
+
+  const handleFocus = async (studentId: string, col: string) => {
+    try {
+      await fetch('/api/presence/focus', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ focusedCell: `${studentId}:${col}` }),
+      });
+    } catch (err) {
+      console.error("Failed to send focus event:", err);
+    }
+  };
+
+  const handleSave = async (studentId: string, col: string) => {
+    setEditingCell(null);
+    try {
+      const res = await fetch('/api/students', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: studentId, field: col, value: editValue }),
+      });
+      if (!res.ok) throw new Error("Failed to save data");
+      queryClient.invalidateQueries({ queryKey: ["sheetData", id] });
+    } catch (err) {
+      console.error("Failed to save data:", err);
+    }
+  };
+
+  const [realActiveUsers, setRealActiveUsers] = useState<{username: string, focusedCell: string | null}[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+
+  useEffect(() => {
+    const eventSource = new EventSource('/api/stream');
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'presence') {
+        setRealActiveUsers(data.activeUsers);
+      }
+    };
+
+    fetch('/api/users')
+      .then(res => res.json())
+      .then(data => {
+        if (data.users) setAllUsers(data.users);
+      })
+      .catch(err => console.error("Failed to fetch users:", err));
+
+    return () => eventSource.close();
+  }, []);
+
+  const activeUsersToRender = useMemo(() => {
+    const renderedUsers = allUsers.map((u, index) => {
+      const isActive = realActiveUsers.some(ra => ra.username === u.username);
+      return {
+        id: index,
+        name: u.displayName || u.username,
+        fallback: (u.displayName || u.username).substring(0, 2).toUpperCase(),
+        color: isActive ? "bg-green-500" : "bg-gray-300 dark:bg-gray-700 text-muted-foreground",
+        avatar: "",
+        isActive
+      };
+    });
+
+    // Add current user if not in allUsers
+    if (session?.user?.email) {
+      const currentUsername = session.user.email.split('@')[0];
+      const alreadyIncluded = allUsers.some(u => u.username === currentUsername);
+      
+      if (!alreadyIncluded) {
+        renderedUsers.push({
+          id: renderedUsers.length,
+          name: session.user.name || currentUsername,
+          fallback: (session.user.name || currentUsername).substring(0, 2).toUpperCase(),
+          color: "bg-green-500", // Current user is active
+          avatar: session.user.image || "",
+          isActive: true
+        });
+      } else {
+        // If already included, make sure they are marked as active
+        const userIndex = renderedUsers.findIndex(u => u.name === (session.user.name || currentUsername) || u.name === currentUsername);
+        if (userIndex !== -1) {
+          renderedUsers[userIndex].isActive = true;
+          renderedUsers[userIndex].color = "bg-green-500";
+          if (session.user.image) {
+            renderedUsers[userIndex].avatar = session.user.image;
+          }
+        }
+      }
+    }
+
+    return renderedUsers;
+  }, [allUsers, realActiveUsers, session]);
+
+  const columns = sheetData?.columns || [];
+  const data = sheetData?.data || [];
+
+  const tableColumns = useMemo<ColumnDef<any>[]>(() => {
+    return columns.map((col: string) => ({
+      accessorKey: col,
+      header: col,
+      cell: ({ row }) => {
+        const value = row.getValue(col);
+        if (col === "Status") {
+          return (
+            <Badge variant={value === "Active" ? "secondary" : "outline"} className="capitalize">
+              {value}
+            </Badge>
+          );
+        }
+        return value || "-";
+      }
+    }));
+  }, [columns]);
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const filteredAndSortedData = useMemo(() => {
+    let result = [...data];
+
+
+
+    // Filter by status (assuming "Status" column exists)
+    if (statusFilter) {
+      result = result.filter((row: any) => row.Status === statusFilter);
+    }
+
+    // Sort
+    if (sortConfig) {
+      result.sort((a, b) => {
+        const aVal = a[sortConfig.key];
+        const bVal = b[sortConfig.key];
+        
+        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [data, searchQuery, sortConfig, statusFilter]);
+
+  const uniqueStatuses = useMemo(() => {
+    const statuses = new Set<string>();
+    data.forEach((row: any) => {
+      if (row.Status) statuses.add(row.Status);
+    });
+    return Array.from(statuses);
+  }, [data]);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading sheet content...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+        <div className="flex flex-col items-center gap-2 text-destructive">
+          <AlertCircle className="h-8 w-8" />
+          <p className="text-sm font-semibold">Error loading sheet</p>
+          <p className="text-xs text-muted-foreground">{(error as Error).message}</p>
+          <Button variant="outline" className="mt-4" onClick={() => router.back()}>
+            Go Back
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex-1">
+          <PageHeader
+            subtitle="Connected Sheet"
+            title={sheetTitle}
+            description="View and manage live data from your connected Google Sheet."
+          />
+        </div>
+        
+        {/* ACTIVE USERS */}
+        <div className="flex items-center gap-4">
+          <Button 
+            onClick={() => syncMutation.mutate()} 
+            disabled={syncMutation.isPending} 
+            variant="outline" 
+            size="sm" 
+            className="gap-1.5"
+          >
+            {syncMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Sync Now
+          </Button>
+          
+          <TooltipProvider>
+            <div className="flex -space-x-2">
+              {activeUsersToRender.map((user) => (
+                <Tooltip key={user.id}>
+                  <TooltipTrigger asChild>
+                    <Avatar className={`h-8 w-8 border-2 border-background ${!user.isActive ? 'opacity-50 grayscale' : ''}`}>
+                      <AvatarImage src={user.avatar} />
+                      <AvatarFallback className={`${user.color} text-white text-xs`}>
+                        {user.fallback}
+                      </AvatarFallback>
+                    </Avatar>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs font-semibold">{user.name}</p>
+                    <p className="text-[10px] text-muted-foreground">Active now</p>
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
+          </TooltipProvider>
+          <Badge variant="secondary" className="gap-1 text-xs">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            {activeUsersToRender.length} Active
+          </Badge>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <CardTitle>Sheet Data</CardTitle>
+              <CardDescription>
+                Showing {filteredAndSortedData.length} of {data.length} records
+              </CardDescription>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+
+
+              {/* FILTERS */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                    <Filter className="h-4 w-4" />
+                    Status
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setStatusFilter(null)}>
+                    All Statuses
+                  </DropdownMenuItem>
+                  {uniqueStatuses.map((status) => (
+                    <DropdownMenuItem key={status} onClick={() => setStatusFilter(status)}>
+                      {status}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* ACTIONS */}
+              <ExportDropdown data={filteredAndSortedData} filename={sheetTitle} />
+              <Button variant="outline" className="gap-2">
+                <Share2 className="h-4 w-4" />
+                Share
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <DataTable columns={tableColumns} data={filteredAndSortedData} />
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

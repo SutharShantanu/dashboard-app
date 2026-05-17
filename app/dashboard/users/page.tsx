@@ -336,12 +336,13 @@ function UsersDirectoryContent() {
           title="Admins & Sub-Admins Directory"
           description="Manage administrative accounts, assign role-based column access locks, and oversee account activation status across your workspace."
           actionButton={
-            <Button onClick={() => setIsAddUserOpen(true)}>
-              <UserPlus className="h-4 w-4" />
+            <Button onClick={() => setIsAddUserOpen(true)} className="rounded-xl shadow-lg shadow-primary/20">
+              <UserPlus className="mr-2 h-4 w-4" />
               Create Account
             </Button>
           }
         />
+
 
 
         {/* User Search Bar */}

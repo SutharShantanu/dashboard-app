@@ -18,7 +18,8 @@ export interface Student {
   Remarks: string;
   LastModifiedBy: string;
   LastModifiedAt: string;
-  [key: string]: string;
+  __rowIndex?: number;
+  [key: string]: string | number | undefined;
 }
 
 export interface UserInterface {
@@ -64,6 +65,59 @@ export interface AuditLogInterface {
   newValue?: string;
   ip?: string;
   details?: string;
+}
+
+export async function fetchRawGoogleSheetsData(spreadsheetId: string, range: string = "Students!A:Z"): Promise<{ data: Student[] }> {
+  const client = getSheetsClient();
+  if (!client) throw new Error("Google Sheets client not initialized. Check your credentials.");
+
+  const response = await client.spreadsheets.values.get({
+    spreadsheetId,
+    range,
+  });
+
+  const rows = response.data.values;
+  if (!rows || rows.length === 0) return { data: [] };
+
+  const headers = rows[0];
+  const data = rows.slice(1).map((row: any, index: number) => {
+    const obj: any = {};
+    headers.forEach((header: string, colIndex: number) => {
+      obj[header] = row[colIndex] || "";
+    });
+    obj["__rowIndex"] = index + 2; // Row 2 is the first data row
+    return obj as Student;
+  });
+
+  return { data };
+}
+
+export async function syncSheetData(spreadsheetId: string): Promise<void> {
+  await connectToDatabase();
+  const connectedSheet = await ConnectedSheet.findOne({ spreadsheetId });
+  if (!connectedSheet) throw new Error("Connected sheet not found");
+
+  const { data } = await fetchRawGoogleSheetsData(spreadsheetId, `${connectedSheet.sheetName}!A:Z`);
+  
+  for (const item of data) {
+    const id = item.ID || item.id || item.Id || (item.__rowIndex ? `row_${item.__rowIndex}` : Object.values(item)[0]);
+    if (!id) continue;
+
+    const existing = await SheetRow.findOne({ rowId: id, sheetId: spreadsheetId });
+    if (!existing) {
+       await SheetRow.create({
+          sheetId: spreadsheetId,
+          rowId: id,
+          data: item,
+          lastModifiedBy: "system",
+          lastModifiedAt: new Date()
+       });
+    } else if (existing.lastModifiedBy === "system") {
+       existing.data = item;
+       existing.lastModifiedAt = new Date();
+       await existing.save();
+    }
+  }
 }
 
 export type AuditLog = AuditLogInterface;
@@ -127,10 +181,226 @@ let studentSheetName = "Students";
 
 export async function initSheets(): Promise<void> {
   await connectToDatabase();
+  
+  // Seed initial admin user if none exist
+  const count = await User.countDocuments();
+  if (count === 0) {
+    const bcrypt = await import("bcryptjs");
+    const passwordHash = await bcrypt.default.hash("admin123", 12);
+    await User.create({
+      username: "admin",
+      displayName: "System Administrator",
+      email: "admin@example.com",
+      passwordHash,
+      role: "admin",
+      allowedColumns: "*",
+      isActive: true,
+      createdBy: "system"
+    });
+
+    const subAdminHash = await bcrypt.default.hash("subadmin123", 12);
+    await User.create({
+      username: "subadmin",
+      displayName: "Sub Administrator",
+      email: "subadmin@example.com",
+      passwordHash: subAdminHash,
+      role: "sub-admin",
+      allowedColumns: "Remarks,Grade,Comments,Notes",
+      isActive: true,
+      createdBy: "system"
+    });
+  }
 }
 
 export function getDbMode() {
   return { isSimulated: false, isConfigured: true };
+}
+
+export async function getUsers(): Promise<User[]> {
+  await connectToDatabase();
+  const users = await User.find({});
+  return users.map(u => ({
+    username: u.username,
+    displayName: u.displayName,
+    email: u.email,
+    passwordHash: u.passwordHash,
+    role: u.role,
+    allowedColumns: u.allowedColumns,
+    isActive: u.isActive ? "TRUE" : "FALSE",
+    createdAt: u.createdAt.toISOString(),
+    createdBy: u.createdBy
+  }));
+}
+
+export async function createUser(user: User, actor: string = "system", actorRole: string = "system", ip: string = "127.0.0.1"): Promise<void> {
+  await connectToDatabase();
+  await User.create({
+    ...user,
+    isActive: user.isActive === "TRUE",
+    createdAt: new Date(user.createdAt)
+  });
+
+  await appendAuditLog({
+    timestamp: new Date().toISOString(),
+    actor,
+    actorDisplayName: actor,
+    actorRole,
+    action: "USER_CREATE",
+    targetRow: user.username,
+    ip,
+    details: `Created user account: ${user.username} (${user.role})`
+  });
+}
+
+export async function updateUser(username: string, updates: Partial<User>, actor: string = "system", actorRole: string = "system", ip: string = "127.0.0.1"): Promise<void> {
+  await connectToDatabase();
+  const mongoUpdates: any = { ...updates };
+  if (updates.isActive !== undefined) {
+    mongoUpdates.isActive = updates.isActive === "TRUE";
+  }
+  
+  await User.updateOne({ username }, { $set: mongoUpdates });
+
+  await appendAuditLog({
+    timestamp: new Date().toISOString(),
+    actor,
+    actorDisplayName: actor,
+    actorRole,
+    action: "USER_UPDATE",
+    targetRow: username,
+    ip,
+    details: `Updated user account: ${username}. Changes: ${Object.keys(updates).join(", ")}`
+  });
+}
+
+const DEFAULT_COLUMNS = ["ID", "Name", "Email", "Phone", "Course", "Batch", "Status", "Score", "Remarks", "Grade", "Comments", "Notes", "LastModifiedBy", "LastModifiedAt"];
+
+export async function getStudents(sheetName: string = "Students", spreadsheetId?: string): Promise<{ data: Student[], columns: string[] }> {
+  await connectToDatabase();
+  const targetSheetId = spreadsheetId || "default";
+  let rows = await SheetRow.find({ sheetId: targetSheetId });
+  
+  if (rows.length === 0 && spreadsheetId) {
+    try {
+      await syncSheetData(spreadsheetId);
+      rows = await SheetRow.find({ sheetId: targetSheetId });
+    } catch (e) {
+      console.error("Failed to sync on load:", e);
+    }
+  }
+  
+  const data = rows.map(r => ({
+    ...r.data,
+    ID: r.rowId,
+    LastModifiedBy: r.lastModifiedBy,
+    LastModifiedAt: r.lastModifiedAt.toISOString()
+  })) as Student[];
+
+  return { data, columns: DEFAULT_COLUMNS };
+}
+
+export async function createStudent(student: Student, actor: string = "system", actorRole: string = "system", ip: string = "127.0.0.1", sheetName: string = "Students", spreadsheetId?: string): Promise<void> {
+  await connectToDatabase();
+  const targetSheetId = spreadsheetId || "default";
+  
+  await SheetRow.create({
+    rowId: student.ID,
+    sheetId: targetSheetId,
+    data: student,
+    lastModifiedBy: actor,
+    lastModifiedAt: new Date()
+  });
+
+  await appendAuditLog({
+    timestamp: new Date().toISOString(),
+    actor,
+    actorDisplayName: actor,
+    actorRole,
+    action: "STUDENT_CREATE",
+    targetRow: student.ID,
+    ip,
+    details: `Created student record: ${student.Name} (${student.ID})`
+  });
+
+  sseManager.broadcast({
+    type: "cell_update",
+    payload: { id: student.ID, data: student }
+  });
+}
+
+export async function updateStudentCell(id: string, column: string, newValue: string, actor: string = "system", actorRole: string = "system", ip: string = "127.0.0.1", sheetName: string = "Students", spreadsheetId?: string): Promise<void> {
+  await connectToDatabase();
+  const targetSheetId = spreadsheetId || "default";
+  
+  const row = await SheetRow.findOne({ rowId: id, sheetId: targetSheetId });
+  if (!row) throw new Error("Student record not found");
+
+  const oldValue = row.data[column] || "";
+  row.data[column] = newValue;
+  row.lastModifiedBy = actor;
+  row.lastModifiedAt = new Date();
+  
+  await row.save();
+
+  await appendAuditLog({
+    timestamp: new Date().toISOString(),
+    actor,
+    actorDisplayName: actor,
+    actorRole,
+    action: "STUDENT_UPDATE",
+    targetRow: id,
+    columnChanged: column,
+    oldValue: String(oldValue),
+    newValue: String(newValue),
+    ip,
+    details: `Updated ${column} for student ${id}`
+  });
+
+  sseManager.broadcast({
+    type: "cell_update",
+    payload: { id, column, value: newValue, lastModifiedBy: actor, lastModifiedAt: row.lastModifiedAt.toISOString() }
+  });
+}
+
+export async function getLogs(): Promise<AuditLog[]> {
+  await connectToDatabase();
+  const logs = await AuditLog.find({}).sort({ timestamp: -1 }).limit(500);
+  return logs.map(l => ({
+    timestamp: l.timestamp.toISOString(),
+    actor: l.actor,
+    actorDisplayName: l.actorDisplayName,
+    actorRole: l.actorRole,
+    action: l.action as any,
+    targetRow: l.targetRow,
+    columnChanged: l.columnChanged,
+    oldValue: l.oldValue,
+    newValue: l.newValue,
+    ip: l.ip,
+    details: l.details
+  }));
+}
+
+export async function getSheetNames(): Promise<string[]> {
+  await connectToDatabase();
+  const sheets = await ConnectedSheet.find({});
+  const names = sheets.map(s => s.sheetName);
+  if (!names.includes("Students")) names.unshift("Students");
+  return names;
+}
+
+export async function addSheetTab(title: string): Promise<void> {
+  // In MongoDB mode, we don't necessarily need to "create" a tab,
+  // but we can ensure it's tracked if needed.
+  // For now, we'll just log it.
+  await appendAuditLog({
+    timestamp: new Date().toISOString(),
+    actor: "admin",
+    actorDisplayName: "Admin",
+    actorRole: "admin",
+    action: "SHEET_CONNECT", // Or a new action like SHEET_CREATE
+    targetRow: title,
+    details: `Added new sheet tab: ${title}`
+  });
 }
 
 export async function getConnectedSheets(): Promise<ConnectedSheet[]> {
@@ -169,11 +439,14 @@ export async function addConnectedSheet(url: string, title: string, addedBy: str
   if (!spreadsheetId) throw new Error("Invalid Google Sheets URL");
 
   let sheetName = "Sheet1";
-  if (sheetsClient) {
-     const response = await sheetsClient.spreadsheets.get({ spreadsheetId });
+  let spreadsheetTitle = "Connected Sheet";
+  const client = getSheetsClient();
+  if (client) {
+     const response = await client.spreadsheets.get({ spreadsheetId });
      if (response.data.sheets && response.data.sheets.length > 0) {
        sheetName = response.data.sheets[0].properties?.title || "Sheet1";
      }
+     spreadsheetTitle = response.data.properties?.title || "Connected Sheet";
   }
 
   const existing = await ConnectedSheet.findOne({ spreadsheetId });
@@ -181,7 +454,7 @@ export async function addConnectedSheet(url: string, title: string, addedBy: str
 
   const newSheet = await ConnectedSheet.create({
     spreadsheetId,
-    title,
+    title: title || spreadsheetTitle,
     sheetName,
     url,
     addedBy,
@@ -231,8 +504,8 @@ export async function removeConnectedSheet(targetSpreadsheetId: string, actor: s
   });
 }
 
-
 function extractSpreadsheetId(url: string): string | null {
   const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
   return match ? match[1] : null;
 }
+

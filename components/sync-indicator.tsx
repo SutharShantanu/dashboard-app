@@ -19,7 +19,7 @@ export function SyncIndicator() {
       const res = await fetch("/api/students");
       if (!res.ok) throw new Error("Failed to fetch DB mode");
       const json = await res.json();
-      return json.simulated ? "Simulated" : "Google Sheets";
+      return json.configured ? "Connected" : (json.simulated ? "Simulated" : "Disconnected");
     },
     staleTime: 60000, // 1 minute
   });
@@ -63,7 +63,7 @@ export function SyncIndicator() {
       {/* DB MODE PILL */}
       <Badge variant="secondary" className="text-xs gap-1.5 flex items-center font-bold uppercase tracking-wider">
         <Database className="h-3.5 w-3.5 text-muted-foreground" />
-          DB: {dbMode || "Checking..."}
+          {dbMode || "Checking..."}
       </Badge>
 
       {/* SYNC TIME */}

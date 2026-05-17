@@ -162,12 +162,8 @@ export default function LoginPage() {
                     name="password"
                     render={({ field }) => (
                       <Field data-invalid={!!errors.password}>
-                        <div className="flex items-center justify-between">
-                          <FieldLabel htmlFor="password">Password</FieldLabel>
-                          <Link href="/forgot-password" className="text-sm font-medium text-primary hover:underline">
-                            Forgot password?
-                          </Link>
-                        </div>
+                        {/* 1. Removed "Forgot password?" from here — moved below */}
+                        <FieldLabel htmlFor="password">Password</FieldLabel>
                         <InputGroup>
                           <InputGroupInput
                             id="password"
@@ -203,6 +199,15 @@ export default function LoginPage() {
                       </Field>
                     )}
                   />
+                  {/* 1. "Forgot password?" moved here, below the password field */}
+                  <div className="flex justify-end">
+                    <Link
+                      href="/forgot-password"
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
                 </FieldGroup>
               </FieldSet>
 
@@ -223,6 +228,8 @@ export default function LoginPage() {
                   </>
                 )}
               </Button>
+
+              {/* 2. "Or continue with" divider — commented out for now
               <div className="relative mt-6">
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t" />
@@ -233,6 +240,7 @@ export default function LoginPage() {
                   </span>
                 </div>
               </div>
+              */}
 
               {/* <Button
                 type="button"

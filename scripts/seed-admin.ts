@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
-import User from '../models/User.ts';
+import User from '../models/User';
 import dotenv from 'dotenv';
 import path from 'path';
 

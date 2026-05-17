@@ -19,6 +19,8 @@ export async function POST(req: NextRequest) {
       payload: { studentId, col, user }
     });
 
+    sseManager.updatePresence(session.user.username, null);
+
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("[POST /api/presence/blur] Error:", error);

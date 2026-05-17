@@ -28,7 +28,12 @@ import {
   Eye,
   EyeOff,
   Key,
+  BarChart3,
+  TrendingUp,
 } from "lucide-react"
+
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell } from "recharts"
+import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 
 // shadcn/ui components
 import { Input } from "@/components/ui/input"
@@ -49,6 +54,7 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { PageHeader } from "@/components/page-header"
 import {
   Card,
   CardHeader,
@@ -132,8 +138,9 @@ function DashboardPageContent() {
   const tabParam = searchParams.get("tab") as
     | "students"
     | "logs"
+    | "analytics"
     | null
-  const activeTab = tabParam || "students"
+  const activeTab = tabParam || "analytics"
   const sheetParam = searchParams.get("sheet") || "Students"
   const spreadsheetIdParam = searchParams.get("spreadsheetId") || ""
 
@@ -555,7 +562,7 @@ function DashboardPageContent() {
 
   // Filter audit logs based on query
   const filteredLogs = logs.filter(
-    (l) =>
+    (l: AuditLog) =>
       l.actor.toLowerCase().includes(logSearchQuery.toLowerCase()) ||
       l.actorDisplayName.toLowerCase().includes(logSearchQuery.toLowerCase()) ||
       l.action.toLowerCase().includes(logSearchQuery.toLowerCase()) ||
@@ -563,6 +570,44 @@ function DashboardPageContent() {
       l.columnChanged.toLowerCase().includes(logSearchQuery.toLowerCase()) ||
       (l.details || "").toLowerCase().includes(logSearchQuery.toLowerCase())
   )
+
+  // Analytics Computations
+  const totalStudents = students.length
+  const activeStudentsCount = students.filter((s) => s.Status === "Active").length
+  const averageScore = students.length > 0
+    ? students.reduce((acc, s) => acc + parseFloat(s.Score || "0"), 0) / students.length
+    : 0
+
+  // Group by Batch
+  const batchCounts: Record<string, number> = {}
+  students.forEach((s) => {
+    const batch = s.Batch || "Unknown"
+    batchCounts[batch] = (batchCounts[batch] || 0) + 1
+  })
+  const batchChartData = Object.entries(batchCounts).map(([name, count]) => ({
+    name,
+    count,
+  }))
+
+  // Group by Status
+  const statusCounts: Record<string, number> = {}
+  students.forEach((s) => {
+    const status = s.Status || "Unknown"
+    statusCounts[status] = (statusCounts[status] || 0) + 1
+  })
+  const statusChartData = Object.entries(statusCounts).map(([name, count]) => ({
+    name,
+    count,
+  }))
+
+  const chartConfig = {
+    count: {
+      label: "Students",
+      color: "hsl(var(--primary))",
+    },
+  } satisfies ChartConfig
+
+  const COLORS = ["#2563eb", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"]
 
   if (sessionStatus === "loading") {
     return (
@@ -580,35 +625,21 @@ function DashboardPageContent() {
   return (
     <div className="min-h-svh w-full max-w-full overflow-x-hidden bg-background p-6 text-foreground">
       <div className="mx-auto w-full max-w-[1600px] space-y-8">
-        {/* Header Dashboard Banner */}
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="flex h-2 w-2 animate-pulse rounded-full bg-primary" />
-                  <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                    Secured Sheet Database
-                  </span>
-                </div>
-                <CardTitle className="text-3xl font-extrabold tracking-tight sm:text-4xl">
-                  Spreadsheet Portal Dashboard
-                </CardTitle>
-                <CardDescription className="max-w-xl">
-                  Logged in as{" "}
-                  <span className="font-semibold text-foreground">
-                    {session?.user?.displayName || session?.user?.username}
-                  </span>{" "}
-                  (
-                  <span className="font-medium text-primary capitalize">
-                    {session?.user?.role}
-                  </span>
-                  ). Perform atomic inline cell edits instantly below.
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-        </Card>
+        <PageHeader
+          subtitle="Secured Sheet Database"
+          title="Spreadsheet Portal Dashboard"
+          description={
+            <>
+              Logged in as{" "}
+              <span className="font-semibold text-foreground">
+                {session?.user?.displayName || session?.user?.username}
+              </span>{" "}
+              ({session?.user?.role || "Sub-Admin"}). Accessing real-time
+              database records with enterprise-grade synchronization.
+            </>
+          }
+          pulse={true}
+        />
 
         {/* Collaborative Presence Indicator Bar */}
         {activeUsers.length > 0 && (
@@ -653,6 +684,10 @@ function DashboardPageContent() {
         >
           <div className="mb-6 border-b border-border pb-2">
             <TabsList>
+              <TabsTrigger value="analytics" className="px-4 py-2 text-sm">
+                <BarChart3 className="h-4 w-4" />
+                Analytics Overview
+              </TabsTrigger>
               <TabsTrigger value="students" className="px-4 py-2 text-sm">
                 <Clock className="h-4 w-4" />
                 Student Records
@@ -668,6 +703,141 @@ function DashboardPageContent() {
               )}
             </TabsList>
           </div>
+
+          {/* =========================================================================
+              TAB 0: ANALYTICS OVERVIEW
+              ========================================================================= */}
+          <TabsContent value="analytics" className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Students</CardTitle>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{totalStudents}</div>
+                  <p className="text-xs text-muted-foreground">Across all batches</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Active Students</CardTitle>
+                  <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{activeStudentsCount}</div>
+                  <p className="text-xs text-muted-foreground">Currently enrolled</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Average Score</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{averageScore.toFixed(1)}</div>
+                  <p className="text-xs text-muted-foreground">Mean performance</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Batches</CardTitle>
+                  <Database className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{Object.keys(batchCounts).length}</div>
+                  <p className="text-xs text-muted-foreground">Active cohorts</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Students by Batch</CardTitle>
+                  <CardDescription>Distribution of students across batches</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer config={chartConfig} className="h-[300px]">
+                    <BarChart data={batchChartData}>
+                      <CartesianGrid vertical={false} />
+                      <XAxis
+                        dataKey="name"
+                        tickLine={false}
+                        tickMargin={10}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        tickLine={false}
+                        tickMargin={10}
+                        axisLine={false}
+                      />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="count" fill="hsl(var(--primary))" radius={4} />
+                    </BarChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Status Distribution</CardTitle>
+                  <CardDescription>Breakdown of student statuses</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer config={chartConfig} className="h-[300px]">
+                    <PieChart>
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Pie
+                        data={statusChartData}
+                        dataKey="count"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        label={({ name, percent }) => `${name} ${(percent ? percent * 100 : 0).toFixed(0)}%`}
+                      >
+                        {statusChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Batch Performance Breakdown</CardTitle>
+                <CardDescription>Detailed metrics per batch</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Batch</TableHead>
+                      <TableHead>Total Students</TableHead>
+                      <TableHead>Average Score</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {Object.entries(batchCounts).map(([batch, count]) => {
+                      const batchStudents = students.filter((s) => s.Batch === batch)
+                      const avgScore = batchStudents.reduce((acc, s) => acc + parseFloat(s.Score || "0"), 0) / batchStudents.length
+                      return (
+                        <TableRow key={batch}>
+                          <TableCell className="font-medium">{batch}</TableCell>
+                          <TableCell>{count}</TableCell>
+                          <TableCell>{avgScore.toFixed(1)}</TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* =========================================================================
               TAB 1: STUDENTS GRID (SPREADSHEET PORTAL)
@@ -1028,7 +1198,7 @@ function DashboardPageContent() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {filteredLogs.map((log, index) => (
+                          {filteredLogs.map((log: AuditLog, index: number) => (
                             <TableRow key={index}>
                               <TableCell className="px-4 py-3.5 font-medium whitespace-nowrap text-muted-foreground">
                                 <div className="flex flex-col">

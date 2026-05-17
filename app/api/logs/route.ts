@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../../lib/auth";
 import { getLogs } from "../../../lib/sheets";
 
-// GET: Retrieves system audit logs (Admin Only)
+// GET: Retrieves audit logs
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -12,17 +12,20 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.role !== "admin") {
-      return NextResponse.json(
-        { error: "Forbidden: Only admins can view audit logs." },
-        { status: 403 }
-      );
-    }
+    const { searchParams } = new URL(request.url);
+    const selfOnly = searchParams.get("self") === "true";
 
     const logs = await getLogs();
 
+    let filteredLogs = logs;
+    const userObj = session.user as any;
+    
+    if (userObj.role !== "admin" || selfOnly) {
+      filteredLogs = logs.filter(l => l.actor === userObj.username);
+    }
+
     // Sort logs descending by timestamp to show latest edits first
-    const sortedLogs = [...logs].sort(
+    const sortedLogs = [...filteredLogs].sort(
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
 

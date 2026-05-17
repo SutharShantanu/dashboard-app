@@ -12,15 +12,16 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.role !== "admin") {
+    if (session.user.role !== "admin" && session.user.role !== "sub-admin") {
       return NextResponse.json(
-        { error: "Forbidden: Admins only" },
+        { error: "Forbidden: Admins and Sub-admins only" },
         { status: 403 }
       );
     }
 
     const users = await getUsers();
-    return NextResponse.json({ users });
+    const safeUsers = users.map(({ passwordHash, ...u }) => u);
+    return NextResponse.json({ users: safeUsers });
   } catch (error: any) {
     console.error("[GET /api/users] Error:", error);
     return NextResponse.json(

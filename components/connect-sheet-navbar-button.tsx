@@ -22,24 +22,46 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DriveBrowser } from "@/components/drive-browser"
 import { Label } from "@/components/ui/label"
+import { Progress } from "@/components/ui/progress"
 
 export function ConnectSheetNavbarButton({ isAdmin }: { isAdmin: boolean }) {
   const [isOpen, setIsOpen] = useState(false)
   const [connectUrl, setConnectUrl] = useState("")
   const [connectTitle, setConnectTitle] = useState("")
   const [isConnecting, setIsConnecting] = useState(false)
+  const [progress, setProgress] = useState(0)
+
+  React.useEffect(() => {
+    let interval: NodeJS.Timeout
+    if (isConnecting) {
+      setProgress(10)
+      interval = setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 90) return prev
+          return prev + 5
+        })
+      }, 300)
+    } else {
+      setProgress(0)
+    }
+    return () => clearInterval(interval)
+  }, [isConnecting])
 
   React.useEffect(() => {
     const handleOpen = () => setIsOpen(true)
     window.addEventListener("open_connect_sheet_dialog", handleOpen)
-    return () => window.removeEventListener("open_connect_sheet_dialog", handleOpen)
+    return () =>
+      window.removeEventListener("open_connect_sheet_dialog", handleOpen)
   }, [])
 
   if (!isAdmin) return null
 
-  const handleConnectSheet = async (e?: React.FormEvent, customData?: { url: string, title: string }) => {
+  const handleConnectSheet = async (
+    e?: React.FormEvent,
+    customData?: { url: string; title: string }
+  ) => {
     if (e) e.preventDefault()
-    
+
     const urlToUse = customData?.url || connectUrl
     const titleToUse = customData?.title || connectTitle
 
@@ -86,7 +108,7 @@ export function ConnectSheetNavbarButton({ isAdmin }: { isAdmin: boolean }) {
         <Tooltip>
           <TooltipTrigger asChild>
             <DialogTrigger asChild>
-              <Button variant="outline" size="icon" className="h-9 w-9">
+              <Button variant="outline" size="icon">
                 <Plus className="h-4 w-4" />
                 <span className="sr-only">Connect Sheet</span>
               </Button>
@@ -97,11 +119,11 @@ export function ConnectSheetNavbarButton({ isAdmin }: { isAdmin: boolean }) {
           </TooltipContent>
         </Tooltip>
 
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-">
           <DialogHeader>
             <DialogTitle>Add New Spreadsheet</DialogTitle>
           </DialogHeader>
-          
+
           <Tabs defaultValue="url" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="url" className="gap-2">
@@ -113,8 +135,11 @@ export function ConnectSheetNavbarButton({ isAdmin }: { isAdmin: boolean }) {
                 Browse Drive
               </TabsTrigger>
             </TabsList>
-            
-            <TabsContent value="url" className="space-y-4 pt-4 animate-in fade-in-50 duration-300">
+
+            <TabsContent
+              value="url"
+              className="animate-in space-y-4 pt-4 duration-300 fade-in-50"
+            >
               <form onSubmit={handleConnectSheet} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="sheet-url">Google Sheet URL</Label>
@@ -137,6 +162,15 @@ export function ConnectSheetNavbarButton({ isAdmin }: { isAdmin: boolean }) {
                     disabled={isConnecting}
                   />
                 </div>
+                {isConnecting && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Syncing data to Database...</span>
+                      <span>{progress}%</span>
+                    </div>
+                    <Progress value={progress} className="h-2" />
+                  </div>
+                )}
                 <div className="flex justify-end gap-3 pt-2">
                   <Button
                     type="button"
@@ -157,9 +191,12 @@ export function ConnectSheetNavbarButton({ isAdmin }: { isAdmin: boolean }) {
                 </div>
               </form>
             </TabsContent>
-            
-            <TabsContent value="drive" className="pt-4 animate-in fade-in-50 duration-300">
-              <DriveBrowser 
+
+            <TabsContent
+              value="drive"
+              className="animate-in pt-4 duration-300 fade-in-50"
+            >
+              <DriveBrowser
                 onSelect={handleDriveSelect}
                 onClose={() => setIsOpen(false)}
               />

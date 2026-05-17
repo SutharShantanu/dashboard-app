@@ -1,26 +1,31 @@
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import { ModeToggle } from "@/components/theme-toggle";
-import { SyncIndicator } from "@/components/sync-indicator";
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
-import { AppSidebar } from "@/components/app-sidebar";
-import { ConnectSheetNavbarButton } from "@/components/connect-sheet-navbar-button";
-import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb";
+import { getServerSession } from "next-auth/next"
+import { authOptions } from "@/lib/auth"
+import { redirect } from "next/navigation"
+import { ModeToggle } from "@/components/theme-toggle"
+import { SyncIndicator } from "@/components/sync-indicator"
+import {
+  SidebarProvider,
+  SidebarInset,
+  SidebarTrigger,
+} from "@/components/ui/sidebar"
+import { Separator } from "@/components/ui/separator"
+import { AppSidebar } from "@/components/app-sidebar"
+import { ConnectSheetNavbarButton } from "@/components/connect-sheet-navbar-button"
+import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 export default async function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions)
 
   if (!session || !session.user) {
-    redirect("/login");
+    redirect("/login")
   }
 
-  const { displayName, role, username } = session.user;
+  const { displayName, role, username } = session.user
   const initials = displayName
     ? displayName
         .split(" ")
@@ -28,9 +33,8 @@ export default async function DashboardLayout({
         .join("")
         .slice(0, 2)
         .toUpperCase()
-    : username.slice(0, 2).toUpperCase();
+    : username.slice(0, 2).toUpperCase()
 
-  // Deterministic avatar color based on initials
   const colors = [
     "bg-red-500",
     "bg-orange-500",
@@ -42,9 +46,9 @@ export default async function DashboardLayout({
     "bg-violet-500",
     "bg-fuchsia-500",
     "bg-rose-500",
-  ];
-  const colorIndex = initials.charCodeAt(0) % colors.length;
-  const avatarColor = colors[colorIndex];
+  ]
+  const colorIndex = initials.charCodeAt(0) % colors.length
+  const avatarColor = colors[colorIndex]
 
   return (
     <SidebarProvider
@@ -63,26 +67,28 @@ export default async function DashboardLayout({
         variant="inset"
       />
       <SidebarInset className="h-full min-h-0">
-        <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between border-b border-border bg-background/75 px-6 md:px-8 backdrop-blur-xl transition-colors duration-300">
-          <div className="flex items-center gap-4 min-w-0 flex-1 overflow-hidden">
+        <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between border-b border-border bg-background/75 px-4 backdrop-blur-xl transition-colors duration-300 pl-0px-6">
+          <div className="flex min-w-0 flex-1 items-center gap-4 overflow-hidden">
             <SidebarTrigger />
-            <Separator orientation="vertical" className="h-4" />
-            <div className="overflow-hidden truncate">
+            <Separator orientation="vertical" className="h-8"/>
+            <div className="truncate overflow-hidden">
               <DashboardBreadcrumb />
             </div>
           </div>
 
-          <div className="flex items-center gap-3.5 shrink-0 min-w-[300px] justify-end">
+          <div className="flex min-w-[300px] shrink-0 items-center justify-end gap-3.5">
             <SyncIndicator />
             <ConnectSheetNavbarButton isAdmin={role === "admin"} />
             <ModeToggle />
           </div>
         </header>
 
-        <main className="flex min-h-0 max-w-full min-w-0 flex-1 flex-col overflow-y-auto">
-          <div className="min-h-full min-w-0 flex-1">{children}</div>
-        </main>
+        <ScrollArea className="min-h-0 flex-1">
+          <main className="flex max-w-full min-w-0 flex-col p-4">
+            <div className="min-w-0 flex-1">{children}</div>
+          </main>
+        </ScrollArea>
       </SidebarInset>
     </SidebarProvider>
-  );
+  )
 }

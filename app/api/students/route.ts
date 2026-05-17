@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../../lib/auth";
-import { getStudents, getDbMode, updateStudentCell, createStudent } from "../../../lib/sheets";
+import { getStudents, getDbMode, updateStudentCell, createStudent, syncSheetData } from "../../../lib/sheets";
 
 // GET: Retrieves all student records and the active database configuration (simulation mode status)
 export async function GET(request: Request) {
@@ -199,6 +199,33 @@ export async function PATCH(request: Request) {
     console.error("[PATCH /api/students] Error:", error);
     return NextResponse.json(
       { error: error.message || "Failed to update cell." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session || !session.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const url = new URL(request.url);
+    const spreadsheetId = url.searchParams.get("spreadsheetId");
+
+    if (!spreadsheetId) {
+      return NextResponse.json({ error: "Spreadsheet ID is required." }, { status: 400 });
+    }
+
+    await syncSheetData(spreadsheetId);
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("[PUT /api/students] Error:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to sync sheet data" },
       { status: 500 }
     );
   }

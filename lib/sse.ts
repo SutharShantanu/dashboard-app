@@ -19,7 +19,7 @@ class SseManager {
 
   addClient(client: ClientConnection) {
     this.clients.add(client);
-    this.broadcastPresence();
+    this.updatePresence(client.username, null);
   }
 
   removeClient(client: ClientConnection) {
