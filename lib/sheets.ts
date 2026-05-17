@@ -97,7 +97,7 @@ export async function syncSheetData(spreadsheetId: string): Promise<void> {
   const connectedSheet = await ConnectedSheet.findOne({ spreadsheetId });
   if (!connectedSheet) throw new Error("Connected sheet not found");
 
-  const { data } = await fetchRawGoogleSheetsData(spreadsheetId, `${connectedSheet.sheetName}!A:Z`);
+  const { data } = await fetchRawGoogleSheetsData(spreadsheetId, `${connectedSheet.sheetName}!A:AZ`);
   
   for (const item of data) {
     const id = item.ID || item.id || item.Id || (item.__rowIndex ? `row_${item.__rowIndex}` : Object.values(item)[0]);
@@ -273,7 +273,7 @@ export async function updateUser(username: string, updates: Partial<User>, actor
   });
 }
 
-const DEFAULT_COLUMNS = ["ID", "Name", "Email", "Phone", "Course", "Batch", "Status", "Score", "Remarks", "Grade", "Comments", "Notes", "LastModifiedBy", "LastModifiedAt"];
+const DEFAULT_COLUMNS = ["ID", "Name", "Email", "Phone", "Course", "Batch", "Status", "Score", "Grade", "Comments", "Notes", "LastModifiedBy", "LastModifiedAt", "Remarks"];
 
 export async function getStudents(sheetName: string = "Students", spreadsheetId?: string): Promise<{ data: Student[], columns: string[] }> {
   await connectToDatabase();
@@ -296,7 +296,20 @@ export async function getStudents(sheetName: string = "Students", spreadsheetId?
     LastModifiedAt: r.lastModifiedAt.toISOString()
   })) as Student[];
 
-  return { data, columns: DEFAULT_COLUMNS };
+  // Dynamically determine columns from data by checking all rows
+  const columnsSet = new Set<string>();
+  rows.forEach(r => {
+    if (r.data) {
+      Object.keys(r.data).forEach(k => columnsSet.add(k));
+    }
+  });
+  const columns = columnsSet.size > 0 ? Array.from(columnsSet) : DEFAULT_COLUMNS;
+  const finalColumns = [...columns];
+  if (!finalColumns.includes("ID")) finalColumns.unshift("ID");
+  if (!finalColumns.includes("LastModifiedBy")) finalColumns.push("LastModifiedBy");
+  if (!finalColumns.includes("LastModifiedAt")) finalColumns.push("LastModifiedAt");
+
+  return { data, columns: finalColumns };
 }
 
 export async function createStudent(student: Student, actor: string = "system", actorRole: string = "system", ip: string = "127.0.0.1", sheetName: string = "Students", spreadsheetId?: string): Promise<void> {

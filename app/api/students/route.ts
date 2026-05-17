@@ -23,11 +23,7 @@ export async function GET(request: Request) {
     const gradeIndex = columns.indexOf("Grade");
 
     if (session.user.role === "admin") {
-      if (gradeIndex !== -1) {
-        allowedCols = columns.filter((_, idx) => idx <= gradeIndex);
-      } else {
-        allowedCols = [...columns];
-      }
+      allowedCols = [...columns];
     } else {
       if (gradeIndex !== -1) {
         allowedCols = columns.filter((_, idx) => idx > gradeIndex);
@@ -151,14 +147,7 @@ export async function PATCH(request: Request) {
     const colIndex = columns.indexOf(column);
 
     if (gradeIndex !== -1 && colIndex !== -1) {
-      if (session.user.role === "admin") {
-        if (colIndex > gradeIndex) {
-          return NextResponse.json(
-            { error: "🔒 Lock: Admins can only edit columns up to 'Grade'. Columns after 'Grade' are managed by Sub-admins." },
-            { status: 403 }
-          );
-        }
-      } else {
+      if (session.user.role !== "admin") {
         if (colIndex <= gradeIndex) {
           return NextResponse.json(
             { error: "🔒 Lock: Columns up to 'Grade' can only be edited by Admins." },

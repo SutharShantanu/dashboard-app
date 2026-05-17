@@ -66,7 +66,7 @@ export default async function DashboardLayout({
         avatarColor={avatarColor}
         variant="inset"
       />
-      <SidebarInset className="h-full min-h-0">
+      <SidebarInset className="h-full min-h-0 min-w-0">
         <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between border-b border-border bg-background/75 px-4 backdrop-blur-xl transition-colors duration-300 pl-0px-6">
           <div className="flex min-w-0 flex-1 items-center gap-4 overflow-hidden">
             <SidebarTrigger />
@@ -83,7 +83,7 @@ export default async function DashboardLayout({
           </div>
         </header>
 
-        <ScrollArea className="min-h-0 flex-1">
+        <ScrollArea className="min-h-0 flex-1 min-w-0">
           <main className="flex max-w-full min-w-0 flex-col p-4">
             <div className="min-w-0 flex-1">{children}</div>
           </main>

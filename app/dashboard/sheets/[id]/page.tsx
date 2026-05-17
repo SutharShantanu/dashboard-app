@@ -383,7 +383,7 @@ export default function SheetDetailPage() {
         </div>
       </div>
 
-      <Card className="overflow-hidden">
+      <Card className="max-w-full">
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
@@ -428,7 +428,7 @@ export default function SheetDetailPage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="w-full max-w-full">
           <DataTable columns={tableColumns} data={filteredAndSortedData} />
         </CardContent>
       </Card>

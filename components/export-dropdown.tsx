@@ -62,7 +62,7 @@ export function ExportDropdown({ data, filename = "export" }: ExportDropdownProp
           Export
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent align="end" className="w-fit">
         <DropdownMenuLabel>Export Data</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={exportToJSON}>
