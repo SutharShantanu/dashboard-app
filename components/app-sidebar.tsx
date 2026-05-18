@@ -18,6 +18,7 @@ import {
   Trash2,
   Globe,
   Settings2,
+  Search,
 } from "lucide-react"
 import {
   Sidebar,
@@ -33,6 +34,16 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import { Card } from "@/components/ui/card"
+import { Kbd } from "@/components/ui/kbd"
 import {
   Dialog,
   DialogContent,
@@ -62,6 +73,7 @@ import { toast } from "sonner"
 import { NavUser } from "@/components/nav-user"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Spinner } from "./ui/spinner"
+import { Separator } from "./ui/separator"
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   user: {
@@ -94,6 +106,62 @@ export function AppSidebar({
     title: string
   } | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  const [searchTerm, setSearchTerm] = useState("")
+  const [debouncedTerm, setDebouncedTerm] = useState("")
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedTerm(searchTerm)
+    }, 300)
+    return () => clearTimeout(handler)
+  }, [searchTerm])
+
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        inputRef.current?.focus()
+      }
+    }
+    document.addEventListener("keydown", down)
+    return () => document.removeEventListener("keydown", down)
+  }, [])
+
+  const allNavItems = React.useMemo(() => {
+    const items: { title: string; url: string; icon?: any }[] = [
+      { title: "Dashboard Home", url: "/dashboard", icon: LayoutDashboard },
+    ]
+
+    connectedSheets.forEach((s) => {
+      items.push({
+        title: s.title,
+        url: `/dashboard/sheets/${s.spreadsheetId}`,
+        icon: Database,
+      })
+    })
+
+    if (user.role === "admin") {
+      items.push(
+        { title: "Manage Sheets", url: "/dashboard/sheets?tab=connections", icon: Database },
+        { title: "Integrations", url: "/dashboard/sheets?tab=integrations", icon: Globe },
+        { title: "Users Directory", url: "/dashboard/users", icon: Users }
+      )
+    }
+
+    items.push({ title: "Activity Logs", url: "/dashboard/logs", icon: History })
+
+    return items
+  }, [connectedSheets, user.role])
+
+  const searchResults = React.useMemo(() => {
+    if (!debouncedTerm) return []
+    return allNavItems.filter((item) =>
+      item.title.toLowerCase().includes(debouncedTerm.toLowerCase())
+    )
+  }, [debouncedTerm, allNavItems])
 
   useEffect(() => {
     async function loadData() {
@@ -150,8 +218,8 @@ export function AppSidebar({
   return (
     <TooltipProvider delayDuration={0}>
       <Sidebar collapsible="icon" {...props}>
-        <SidebarHeader>
-          <div className="flex h-16 items-center gap-3 px-4">
+        <SidebarHeader className="gap-4">
+          <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/10">
               <Sparkles className="h-4.5 w-4.5 animate-pulse" />
             </div>
@@ -159,20 +227,70 @@ export function AppSidebar({
               Aegis Sheet DB
             </span>
           </div>
+
+          <div className="relative group-data-[collapsible=icon]:hidden">
+            <InputGroup className="w-full min-w-0">
+              <InputGroupAddon>
+                <Search className="size-3.5" />
+              </InputGroupAddon>
+              <InputGroupInput
+                ref={inputRef}
+                placeholder="Search sheets or config..."
+                className="min-w-0 text-xs"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <InputGroupAddon align="inline-end">
+                <Kbd className="text-tiny">CTRL + K</Kbd>
+              </InputGroupAddon>
+            </InputGroup>
+            <Separator className="w-full" orientation="horizontal" />
+
+            {searchTerm.length > 0 && (
+              <div className="absolute top-full right-0 left-0 z-50 mt-1">
+                <Card className="overflow-hidden p-0 shadow-lg">
+                  <Command className="h-auto max-h-75">
+                    <CommandList className="max-h-75">
+                      <CommandEmpty>No results found for &quot;{searchTerm}&quot;</CommandEmpty>
+                      
+                      {searchResults.length > 0 && (
+                        <CommandGroup heading="Results">
+                          {searchResults.map((item) => (
+                            <CommandItem
+                              key={item.url}
+                              onSelect={() => {
+                                router.push(item.url)
+                                setSearchTerm("")
+                              }}
+                              className="flex cursor-pointer items-center gap-3 px-3 py-2.5 sm:gap-2 sm:py-1.5"
+                            >
+                              {item.icon && (
+                                <item.icon className="text-muted-foreground size-4 sm:size-3.5" />
+                              )}
+                              <span className="text-sm sm:text-xs">{item.title}</span>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      )}
+                    </CommandList>
+                  </Command>
+                </Card>
+              </div>
+            )}
+          </div>
         </SidebarHeader>
 
         <SidebarContent>
           {/* SHEETS SECTION */}
           <SidebarGroup>
             <div className="flex items-center justify-between px-2 py-1.5 group-data-[collapsible=icon]:hidden">
-              <SidebarGroupLabel className="p-0 text-xs font-bold tracking-wider text-muted-foreground/70 uppercase">
+              <SidebarGroupLabel className="text-muted-foreground px-0 uppercase">
                 Connected Sheets
               </SidebarGroupLabel>
               {user.role === "admin" && (
                 <Button
                   variant="secondary"
                   size="icon-sm"
-                  className="h-6 w-6"
                   onClick={() =>
                     window.dispatchEvent(new Event("open_connect_sheet_dialog"))
                   }
@@ -264,7 +382,9 @@ export function AppSidebar({
 
           {/* CONFIGURATION SECTION */}
           <SidebarGroup>
-            <SidebarGroupLabel>Configuration</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-muted-foreground px-0 uppercase">
+              Configuration
+            </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>

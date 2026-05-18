@@ -73,6 +73,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { Spinner } from "@/components/ui/spinner"
 
 export default function SheetsManagementPage() {
   const { data: session, status } = useSession()
@@ -440,7 +441,7 @@ export default function SheetsManagementPage() {
                         <span className="sm:hidden">Add</span>
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-2xl">
+                    <DialogContent>
                       <DialogHeader>
                         <DialogTitle>Add New Spreadsheet</DialogTitle>
                       </DialogHeader>
@@ -481,7 +482,7 @@ export default function SheetsManagementPage() {
                               className="w-full"
                             >
                               {loading ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <Spinner className="h-4 w-4" />
                               ) : (
                                 <Plus className="h-4 w-4" />
                               )}

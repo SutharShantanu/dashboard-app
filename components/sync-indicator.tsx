@@ -7,6 +7,7 @@ import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { BadgeDot } from "@/components/ui/badge-dot";
 
 export function SyncIndicator() {
   const queryClient = useQueryClient();
@@ -61,9 +62,12 @@ export function SyncIndicator() {
   return (
     <div className="flex items-center gap-4">
       {/* DB MODE PILL */}
-      <Badge variant="secondary" className="text-xs gap-1.5 flex items-center font-bold uppercase tracking-wider">
-        <Database className="h-3.5 w-3.5 text-muted-foreground" />
-          {dbMode || "Checking..."}
+      <Badge variant="secondary" className="text-xs gap-2 flex items-center font-bold uppercase tracking-wider">
+        <BadgeDot 
+          variant={dbMode === "Connected" ? "success" : dbMode === "Simulated" ? "warning" : "destructive"} 
+          pulse={dbMode === "Connected"}
+        />
+        {dbMode || "Checking..."}
       </Badge>
 
       {/* SYNC TIME */}

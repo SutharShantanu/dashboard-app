@@ -92,21 +92,14 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <Sparkles />
-                <span>Upgrade to Pro</span>
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
               <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>
                 <Settings />
                 <span>Profile & Settings</span>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/login" })}>
-              <LogOut />
+            <DropdownMenuItem variant="destructive" onClick={() => signOut({ callbackUrl: "/login" })} className="text-destructive! focus:text-destructive!">
+              <LogOut className="text-destructive!" />
               <span>Log out</span>
             </DropdownMenuItem>
           </DropdownMenuContent>

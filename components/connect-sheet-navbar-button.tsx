@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
+import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { Plus, Loader2, X, Link as LinkIcon, Database } from "lucide-react"
 import {
   Dialog,
@@ -25,11 +26,32 @@ import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 
 export function ConnectSheetNavbarButton({ isAdmin }: { isAdmin: boolean }) {
-  const [isOpen, setIsOpen] = useState(false)
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+
+  const isOpen = searchParams?.get("dialog") === "connect-sheet"
+  const activeTab = searchParams?.get("dialogTab") || "url"
+
   const [connectUrl, setConnectUrl] = useState("")
   const [connectTitle, setConnectTitle] = useState("")
   const [isConnecting, setIsConnecting] = useState(false)
   const [progress, setProgress] = useState(0)
+
+  const setIsOpen = React.useCallback((open: boolean) => {
+    const params = new URLSearchParams(window.location.search)
+    if (open) {
+      params.set("dialog", "connect-sheet")
+      if (!params.get("dialogTab")) {
+        params.set("dialogTab", "url")
+      }
+      router.push(`${window.location.pathname}?${params.toString()}`, { scroll: false })
+    } else {
+      params.delete("dialog")
+      params.delete("dialogTab")
+      router.push(`${window.location.pathname}?${params.toString()}`, { scroll: false })
+    }
+  }, [router])
 
   React.useEffect(() => {
     let interval: NodeJS.Timeout
@@ -52,7 +74,7 @@ export function ConnectSheetNavbarButton({ isAdmin }: { isAdmin: boolean }) {
     window.addEventListener("open_connect_sheet_dialog", handleOpen)
     return () =>
       window.removeEventListener("open_connect_sheet_dialog", handleOpen)
-  }, [])
+  }, [setIsOpen])
 
   if (!isAdmin) return null
 
@@ -119,12 +141,16 @@ export function ConnectSheetNavbarButton({ isAdmin }: { isAdmin: boolean }) {
           </TooltipContent>
         </Tooltip>
 
-        <DialogContent className="sm:max-w-">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Add New Spreadsheet</DialogTitle>
           </DialogHeader>
 
-          <Tabs defaultValue="url" className="w-full">
+          <Tabs value={activeTab} onValueChange={(val) => {
+            const params = new URLSearchParams(window.location.search)
+            params.set("dialogTab", val)
+            router.replace(`${window.location.pathname}?${params.toString()}`, { scroll: false })
+          }} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="url" className="gap-2">
                 <LinkIcon className="h-3.5 w-3.5" />
@@ -182,9 +208,9 @@ export function ConnectSheetNavbarButton({ isAdmin }: { isAdmin: boolean }) {
                   </Button>
                   <Button type="submit" disabled={isConnecting}>
                     {isConnecting ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Spinner className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Plus className="mr-2 h-4 w-4" />
+                      <Plus className="h-4 w-4" />
                     )}
                     Connect
                   </Button>

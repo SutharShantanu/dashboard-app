@@ -926,7 +926,7 @@ function DashboardPageContent() {
                 <div className="flex shrink-0 items-center justify-end">
                   <Button
                     onClick={() => setIsAddStudentOpen(true)}
-                    className="h-10 w-full lg:w-auto"
+                    className="w-full lg:w-auto"
                   >
                     <Plus className="h-4 w-4" />
                     Add Student
