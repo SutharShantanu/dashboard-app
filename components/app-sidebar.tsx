@@ -30,11 +30,16 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuAction,
   SidebarFooter,
   SidebarRail,
 } from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group"
 import {
   Command,
   CommandEmpty,
@@ -71,7 +76,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { NavUser } from "@/components/nav-user"
-import { TooltipProvider } from "@/components/ui/tooltip"
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { Spinner } from "./ui/spinner"
 import { Separator } from "./ui/separator"
 
@@ -119,6 +124,20 @@ export function AppSidebar({
 
   const inputRef = React.useRef<HTMLInputElement>(null)
 
+  const handleSync = async (spreadsheetId: string, title: string) => {
+    const toastId = toast.loading(`Syncing "${title}"...`)
+    try {
+      const res = await fetch(`/api/students?spreadsheetId=${spreadsheetId}`, {
+        method: "PUT",
+      })
+      if (!res.ok) throw new Error("Failed to sync")
+      toast.success(`Synced "${title}" successfully`, { id: toastId })
+      window.dispatchEvent(new Event("sheet_connected"))
+    } catch (err) {
+      toast.error(`Failed to sync "${title}"`, { id: toastId })
+    }
+  }
+
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey)) {
@@ -145,13 +164,25 @@ export function AppSidebar({
 
     if (user.role === "admin") {
       items.push(
-        { title: "Manage Sheets", url: "/dashboard/sheets?tab=connections", icon: Database },
-        { title: "Integrations", url: "/dashboard/sheets?tab=integrations", icon: Globe },
+        {
+          title: "Manage Sheets",
+          url: "/dashboard/sheets?tab=connections",
+          icon: Database,
+        },
+        {
+          title: "Integrations",
+          url: "/dashboard/sheets?tab=integrations",
+          icon: Globe,
+        },
         { title: "Users Directory", url: "/dashboard/users", icon: Users }
       )
     }
 
-    items.push({ title: "Activity Logs", url: "/dashboard/logs", icon: History })
+    items.push({
+      title: "Activity Logs",
+      url: "/dashboard/logs",
+      icon: History,
+    })
 
     return items
   }, [connectedSheets, user.role])
@@ -241,18 +272,23 @@ export function AppSidebar({
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
               <InputGroupAddon align="inline-end">
-                <Kbd className="text-tiny">CTRL + K</Kbd>
+                {searchTerm !== debouncedTerm && searchTerm.length > 0 ? (
+                  <Spinner className="size-3.5 text-muted-foreground" />
+                ) : (
+                  <Kbd className="text-tiny">CTRL + K</Kbd>
+                )}
               </InputGroupAddon>
             </InputGroup>
-            <Separator className="w-full" orientation="horizontal" />
 
             {searchTerm.length > 0 && (
               <div className="absolute top-full right-0 left-0 z-50 mt-1">
                 <Card className="overflow-hidden p-0 shadow-lg">
                   <Command className="h-auto max-h-75">
                     <CommandList className="max-h-75">
-                      <CommandEmpty>No results found for &quot;{searchTerm}&quot;</CommandEmpty>
-                      
+                      <CommandEmpty>
+                        No results found for &quot;{searchTerm}&quot;
+                      </CommandEmpty>
+
                       {searchResults.length > 0 && (
                         <CommandGroup heading="Results">
                           {searchResults.map((item) => (
@@ -265,9 +301,11 @@ export function AppSidebar({
                               className="flex cursor-pointer items-center gap-3 px-3 py-2.5 sm:gap-2 sm:py-1.5"
                             >
                               {item.icon && (
-                                <item.icon className="text-muted-foreground size-4 sm:size-3.5" />
+                                <item.icon className="size-4 text-muted-foreground sm:size-3.5" />
                               )}
-                              <span className="text-sm sm:text-xs">{item.title}</span>
+                              <span className="text-sm sm:text-xs">
+                                {item.title}
+                              </span>
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -284,97 +322,115 @@ export function AppSidebar({
           {/* SHEETS SECTION */}
           <SidebarGroup>
             <div className="flex items-center justify-between px-2 py-1.5 group-data-[collapsible=icon]:hidden">
-              <SidebarGroupLabel className="text-muted-foreground px-0 uppercase">
+              <SidebarGroupLabel className="px-0 text-muted-foreground uppercase">
                 Connected Sheets
               </SidebarGroupLabel>
               {user.role === "admin" && (
-                <Button
-                  variant="secondary"
-                  size="icon-sm"
-                  onClick={() =>
-                    window.dispatchEvent(new Event("open_connect_sheet_dialog"))
-                  }
-                  title="Connect New Sheet"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="secondary"
+                      size="icon-sm"
+                      onClick={() =>
+                        window.dispatchEvent(new Event("open_connect_sheet_dialog"))
+                      }
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Connect New Sheet</TooltipContent>
+                </Tooltip>
               )}
             </div>
 
             <SidebarGroupContent>
               <SidebarMenu>
-                {isLoadingSheets ? (
-                  Array.from({ length: 3 }).map((_, i) => (
-                    <SidebarMenuItem key={i}>
-                      <div className="flex items-center gap-2 px-2 py-1.5">
-                        <Skeleton className="h-4 w-4 rounded-full" />
-                        <Skeleton className="h-4 w-24" />
-                      </div>
-                    </SidebarMenuItem>
-                  ))
-                ) : connectedSheets.length > 0
-                  ? connectedSheets.map((s: any, index: number) => (
-                      <ContextMenu key={s.spreadsheetId}>
-                        <ContextMenuTrigger asChild>
-                          <SidebarMenuItem>
-                            <SidebarMenuButton
-                              asChild
-                              isActive={
-                                pathname ===
-                                  `/dashboard/sheets/${s.spreadsheetId}` ||
-                                (pathname === "/dashboard" &&
-                                  activeSpreadsheetId === s.spreadsheetId)
-                              }
-                              tooltip={s.title}
-                            >
-                              <Link
-                                href={`/dashboard/sheets/${s.spreadsheetId}`}
-                              >
-                                <Database className="h-3.5 w-3.5 text-primary" />
-                                <span className="truncate">{s.title}</span>
-                              </Link>
-                            </SidebarMenuButton>
-                          </SidebarMenuItem>
-                        </ContextMenuTrigger>
-                        <ContextMenuContent className="w-fit">
-                          <ContextMenuItem
-                            onClick={() =>
-                              window.open(
-                                `https://docs.google.com/spreadsheets/d/${s.spreadsheetId}/edit`,
-                                "_blank"
-                              )
-                            }
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                            <span>Open in Google Sheets</span>
-                          </ContextMenuItem>
-                          <ContextMenuItem
-                            onClick={() => {
-                              window.dispatchEvent(new Event("sheet_connected"))
-                              toast.success(`Refreshed "${s.title}" data`)
-                            }}
-                          >
-                            <RefreshCw className="h-4 w-4" />
-                            <span>Reload / Sync Data</span>
-                          </ContextMenuItem>
-                          {user.role === "admin" && (
-                            <>
-                              <ContextMenuSeparator />
-                              <ContextMenuItem
-                                variant="destructive"
-                                onClick={() =>
-                                  handleDeleteSheet(s.spreadsheetId, s.title)
-                                }
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                <span>Remove Sheet</span>
-                              </ContextMenuItem>
-                            </>
-                          )}
-                        </ContextMenuContent>
-                      </ContextMenu>
+                {isLoadingSheets
+                  ? Array.from({ length: 3 }).map((_, i) => (
+                      <SidebarMenuItem key={i}>
+                        <div className="flex items-center gap-2 px-2 py-1.5">
+                          <Skeleton className="h-4 w-4 rounded-full" />
+                          <Skeleton className="h-4 w-24" />
+                        </div>
+                      </SidebarMenuItem>
                     ))
-                  : null}
+                  : connectedSheets.length > 0
+                    ? connectedSheets.map((s: any, index: number) => (
+                        <ContextMenu key={s.spreadsheetId}>
+                          <ContextMenuTrigger asChild>
+                            <SidebarMenuItem>
+                              <SidebarMenuButton
+                                asChild
+                                isActive={
+                                  pathname ===
+                                    `/dashboard/sheets/${s.spreadsheetId}` ||
+                                  (pathname === "/dashboard" &&
+                                    activeSpreadsheetId === s.spreadsheetId)
+                                }
+                                tooltip={s.title}
+                              >
+                                <Link
+                                  href={`/dashboard/sheets/${s.spreadsheetId}`}
+                                >
+                                  <Database className="h-3.5 w-3.5 text-primary" />
+                                  <span className="truncate">{s.title}</span>
+                                </Link>
+                              </SidebarMenuButton>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <SidebarMenuAction
+                                    onClick={() =>
+                                      handleSync(s.spreadsheetId, s.title)
+                                    }
+                                  >
+                                    <RefreshCw className="h-3.5 w-3.5" />
+                                  </SidebarMenuAction>
+                                </TooltipTrigger>
+                                <TooltipContent>Sync Sheet</TooltipContent>
+                              </Tooltip>
+                            </SidebarMenuItem>
+                          </ContextMenuTrigger>
+                          <ContextMenuContent className="w-fit">
+                            <ContextMenuItem
+                              onClick={() =>
+                                window.open(
+                                  `https://docs.google.com/spreadsheets/d/${s.spreadsheetId}/edit`,
+                                  "_blank"
+                                )
+                              }
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                              <span>Open in Google Sheets</span>
+                            </ContextMenuItem>
+                            <ContextMenuItem
+                              onClick={() => {
+                                window.dispatchEvent(
+                                  new Event("sheet_connected")
+                                )
+                                toast.success(`Refreshed "${s.title}" data`)
+                              }}
+                            >
+                              <RefreshCw className="h-4 w-4" />
+                              <span>Sync Data</span>
+                            </ContextMenuItem>
+                            {user.role === "admin" && (
+                              <>
+                                <ContextMenuSeparator />
+                                <ContextMenuItem
+                                  variant="destructive"
+                                  onClick={() =>
+                                    handleDeleteSheet(s.spreadsheetId, s.title)
+                                  }
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  <span>Remove Sheet</span>
+                                </ContextMenuItem>
+                              </>
+                            )}
+                          </ContextMenuContent>
+                        </ContextMenu>
+                      ))
+                    : null}
                 {/* Manage Sheets moved to Configuration section */}
               </SidebarMenu>
             </SidebarGroupContent>
@@ -382,7 +438,7 @@ export function AppSidebar({
 
           {/* CONFIGURATION SECTION */}
           <SidebarGroup>
-            <SidebarGroupLabel className="text-muted-foreground px-0 uppercase">
+            <SidebarGroupLabel className="px-0 text-muted-foreground uppercase">
               Configuration
             </SidebarGroupLabel>
             <SidebarGroupContent>

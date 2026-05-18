@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, Suspense } from "react"
+import React, { useState, useEffect, Suspense, useMemo } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
@@ -17,7 +17,18 @@ import {
   Eye,
   EyeOff,
   RefreshCw,
+  Pencil,
+  Trash2,
 } from "lucide-react"
+
+import { ColumnDef } from "@tanstack/react-table"
+import { DataTable } from "@/components/ui/data-table"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 // shadcn/ui components
 import { Input } from "@/components/ui/input"
@@ -57,6 +68,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { PageHeader } from "@/components/page-header"
+import { PermissionSelector } from "@/components/permission-selector"
 import {
   PasswordStrength,
   isStrongPassword,
@@ -78,6 +90,8 @@ interface User {
   isActive: string
   createdAt: string
   createdBy: string
+  permissionPreset?: string
+  perSheetPermissions?: Record<string, string[]>
 }
 
 function UsersDirectoryContent() {
@@ -98,7 +112,15 @@ function UsersDirectoryContent() {
     password: "",
     role: "sub-admin",
     allowedColumns: "Comments,Notes",
+    permissionPreset: "",
+    perSheetPermissions: {} as Record<string, string[]>,
   })
+
+  const [connectedSheets, setConnectedSheets] = useState<any[]>([])
+  const [sheetsWithColumns, setSheetsWithColumns] = useState<any[]>([])
+  const [presets, setPresets] = useState<any[]>([])
+  const [newPresetName, setNewPresetName] = useState("")
+  const [isEditMode, setIsEditMode] = useState(false)
 
   // Inline editing allowed columns state
   const [editingAllowedColsUser, setEditingAllowedColsUser] = useState<
@@ -116,6 +138,8 @@ function UsersDirectoryContent() {
         return
       }
       fetchUsers()
+      fetchConnectedSheets()
+      fetchPresets()
     }
   }, [sessionStatus, session, router])
 
@@ -142,40 +166,125 @@ function UsersDirectoryContent() {
     }
   }
 
+  const fetchConnectedSheets = async () => {
+    try {
+      const res = await fetch("/api/connected-sheets")
+      if (!res.ok) throw new Error("Failed to load connected sheets")
+      const data = await res.json()
+      setConnectedSheets(data.connectedSheets || [])
+
+      // Now fetch columns for each sheet
+      const sheetsData = []
+      for (const sheet of data.connectedSheets || []) {
+        try {
+          const sRes = await fetch(
+            `/api/students?spreadsheetId=${sheet.spreadsheetId}`
+          )
+          if (sRes.ok) {
+            const sData = await sRes.json()
+            sheetsData.push({
+              id: sheet.spreadsheetId,
+              title: sheet.title,
+              columns: sData.columns || [],
+            })
+          }
+        } catch (err) {
+          console.error(
+            `Failed to fetch columns for sheet ${sheet.title}:`,
+            err
+          )
+        }
+      }
+      setSheetsWithColumns(sheetsData)
+    } catch (err: any) {
+      toast.error(err.message || "Failed to fetch connected sheets.")
+    }
+  }
+
+  const fetchPresets = async () => {
+    try {
+      const res = await fetch("/api/permission-presets")
+      if (!res.ok) throw new Error("Failed to load presets")
+      const data = await res.json()
+      setPresets(data.presets || [])
+    } catch (err: any) {
+      console.error("Failed to fetch presets:", err)
+    }
+  }
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [activeActionId, setActiveActionId] = useState<string | null>(null)
 
-  // Handles creating a new user account
+  // Handles creating or updating a user account
   const handleCreateUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (
       !newUser.username ||
       !newUser.displayName ||
-      !newUser.password ||
+      (!isEditMode && !newUser.password) || // Password required only for new users
       !newUser.role
     ) {
-      toast.error("All user account fields are required.")
+      toast.error("Required fields are missing.")
       return
     }
 
     setIsSubmitting(true)
     const promise = async () => {
+      let currentPresetId = newUser.permissionPreset
+
+      // Save preset if name is provided
+      if (newPresetName.trim()) {
+        try {
+          const presetRes = await fetch("/api/permission-presets", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: newPresetName.trim(),
+              permissions: newUser.perSheetPermissions,
+            }),
+          })
+          if (presetRes.ok) {
+            const presetData = await presetRes.json()
+            currentPresetId = presetData.preset?.id || currentPresetId
+            toast.success(`Preset "${newPresetName}" saved!`)
+            fetchPresets() // Refresh presets list
+          } else {
+            console.error("Failed to save preset")
+          }
+        } catch (err) {
+          console.error("Error saving preset:", err)
+        }
+      }
+
       const payload = {
         ...newUser,
+        permissionPreset: currentPresetId,
         allowedColumns:
           newUser.role === "admin"
             ? "*"
             : newUser.allowedColumns || "Comments,Notes",
       }
 
-      const res = await fetch("/api/users", {
-        method: "POST",
+      // Remove password if empty in edit mode
+      if (isEditMode && !payload.password) {
+        delete (payload as any).password
+      }
+
+      const url = isEditMode ? `/api/users/${newUser.username}` : "/api/users"
+      const method = isEditMode ? "PATCH" : "POST"
+
+      const res = await fetch(url, {
+        method: method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       })
 
       const result = await res.json()
-      if (!res.ok) throw new Error(result.error || "Failed to register user.")
+      if (!res.ok)
+        throw new Error(
+          result.error ||
+            `Failed to ${isEditMode ? "update" : "register"} user.`
+        )
 
       setIsAddUserOpen(false)
       setNewUser({
@@ -185,15 +294,19 @@ function UsersDirectoryContent() {
         password: "",
         role: "sub-admin",
         allowedColumns: "Comments,Notes",
+        permissionPreset: "",
+        perSheetPermissions: {},
       })
       fetchUsers()
       return result
     }
 
     toast.promise(promise(), {
-      loading: "Creating user account...",
+      loading: isEditMode
+        ? "Updating user account..."
+        : "Creating user account...",
       success: (data) =>
-        `Successfully registered ${newUser.role}: ${newUser.username}`,
+        `Successfully ${isEditMode ? "updated" : "registered"} ${newUser.role}: ${newUser.username}`,
       error: (err) => err.message || "Failed to save account.",
       finally: () => setIsSubmitting(false),
     })
@@ -288,12 +401,179 @@ function UsersDirectoryContent() {
     })
   }
 
+  const handleEditUser = (user: User) => {
+    setIsEditMode(true)
+    setNewUser({
+      username: user.username,
+      displayName: user.displayName,
+      email: user.email || "",
+      password: "",
+      role: user.role,
+      allowedColumns: user.allowedColumns,
+      permissionPreset: user.permissionPreset || "",
+      perSheetPermissions: user.perSheetPermissions || {},
+    })
+    setIsAddUserOpen(true)
+  }
+
+  const handleOpenCreateModal = () => {
+    setIsEditMode(false)
+    setNewUser({
+      username: "",
+      displayName: "",
+      email: "",
+      password: "",
+      role: "sub-admin",
+      allowedColumns: "Comments,Notes",
+      permissionPreset: "",
+      perSheetPermissions: {},
+    })
+    setIsAddUserOpen(true)
+  }
+
   const filteredUsers = users.filter(
     (u) =>
       u.username.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
       u.displayName.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
       (u.email && u.email.toLowerCase().includes(userSearchQuery.toLowerCase()))
   )
+
+  const columns = useMemo<ColumnDef<User>[]>(() => [
+    {
+      accessorKey: "username",
+      header: "Username",
+      cell: ({ row }) => <span className="font-bold">{row.original.username}</span>,
+    },
+    {
+      accessorKey: "displayName",
+      header: "Display Name",
+    },
+    {
+      accessorKey: "email",
+      header: "Email",
+      cell: ({ row }) => row.original.email || "-",
+    },
+    {
+      accessorKey: "role",
+      header: "Role",
+      cell: ({ row }) => (
+        <Badge
+          variant={row.original.role === "admin" ? "default" : "secondary"}
+          className="capitalize"
+        >
+          {row.original.role || "sub-admin"}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "allowedColumns",
+      header: "Permissions",
+      cell: ({ row }) => (
+        <Badge variant="outline" className="px-2.5 py-1 font-mono text-xs">
+          {row.original.role === "admin" ||
+          !row.original.allowedColumns ||
+          row.original.allowedColumns === "*" ||
+          row.original.allowedColumns.toLowerCase() === "none"
+            ? "All"
+            : row.original.allowedColumns}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "createdAt",
+      header: "Created At",
+      cell: ({ row }) =>
+        row.original.createdAt
+          ? format(new Date(row.original.createdAt), "MMM d, yyyy HH:mm")
+          : "-",
+    },
+    {
+      accessorKey: "isActive",
+      header: "Status",
+      cell: ({ row }) => (
+        <Badge
+          variant={row.original.isActive === "TRUE" ? "default" : "destructive"}
+          className="rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase"
+        >
+          {row.original.isActive === "TRUE" ? "Active" : "Suspended"}
+        </Badge>
+      ),
+    },
+    {
+      id: "actions",
+      header: () => <div className="text-right">Actions</div>,
+      cell: ({ row }) => {
+        const user = row.original
+        return (
+          <div className="flex justify-end gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon-xs"
+                    onClick={() => handleEditUser(user)}
+                    disabled={activeActionId === user.username}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Edit User</TooltipContent>
+              </Tooltip>
+              
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon-xs"
+                    onClick={() => handleEditUser(user)}
+                    disabled={activeActionId === user.username}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>View User</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon-xs"
+                    onClick={() => handleResetPassword(user.username)}
+                    disabled={activeActionId === user.username}
+                  >
+                    {activeActionId === user.username ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Key className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Reset Password</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon-xs"
+                    onClick={() => {
+                      toast.info("Delete functionality not implemented yet.")
+                    }}
+                    disabled={activeActionId === user.username}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Delete User</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        )
+      },
+    },
+  ], [handleEditUser, handleResetPassword, activeActionId])
 
   if (sessionStatus === "loading") {
     return (
@@ -340,13 +620,12 @@ function UsersDirectoryContent() {
         subtitle="System Administration"
         title="Admins & Sub-Admins Directory"
         description="Manage administrative accounts, assign role-based column access locks, and oversee account activation status across your workspace."
-        actionButton={
-          <Button onClick={() => setIsAddUserOpen(true)}>
-            <UserPlus className="h-4 w-4" />
-            Create Account
-          </Button>
-        }
-      />
+      >
+        <Button onClick={() => handleOpenCreateModal()}>
+          <UserPlus className="h-4 w-4" />
+          Create Account
+        </Button>
+      </PageHeader>
 
       {/* User Search Bar */}
       <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -402,320 +681,203 @@ function UsersDirectoryContent() {
             </Empty>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="px-6 py-4 font-semibold">
-                    Username
-                  </TableHead>
-                  <TableHead className="px-6 py-4 font-semibold">
-                    Display Name
-                  </TableHead>
-                  <TableHead className="px-6 py-4 font-semibold">
-                    Email
-                  </TableHead>
-                  <TableHead className="px-6 py-4 font-semibold">
-                    Role
-                  </TableHead>
-                  <TableHead className="px-6 py-4 font-semibold">
-                    Permissions
-                  </TableHead>
-                  <TableHead className="px-6 py-4 font-semibold">
-                    Created At
-                  </TableHead>
-                  <TableHead className="px-6 py-4 font-semibold">
-                    Status
-                  </TableHead>
-                  <TableHead className="px-6 py-4 text-right font-semibold">
-                    Actions
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow
-                    key={user.username}
-                    className="transition-colors hover:bg-muted/40"
-                  >
-                    <TableCell className="px-6 py-4 font-bold whitespace-nowrap">
-                      {user.username}
-                    </TableCell>
-                    <TableCell className="px-6 py-4 font-medium whitespace-nowrap">
-                      {user.displayName}
-                    </TableCell>
-                    <TableCell className="px-6 py-4 font-medium whitespace-nowrap text-muted-foreground">
-                      {user.email || "-"}
-                    </TableCell>
-                    <TableCell className="px-6 py-4 whitespace-nowrap">
-                      <Badge
-                        variant={
-                          user.role === "admin" ? "default" : "secondary"
-                        }
-                        className="capitalize"
-                      >
-                        {user.role || "sub-admin"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="px-6 py-4 whitespace-nowrap">
-                      {editingAllowedColsUser === user.username ? (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="text"
-                            value={tempAllowedColsValue}
-                            onChange={(e) =>
-                              setTempAllowedColsValue(e.target.value)
-                            }
-                            className="h-8 w-64 text-xs"
-                          />
-                          <Button
-                            size="icon-xs"
-                            disabled={activeActionId === user.username}
-                            onClick={() => handleSaveAllowedCols(user.username)}
-                            title="Save Columns"
-                          >
-                            {activeActionId === user.username ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Check className="h-3.5 w-3.5" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="icon-xs"
-                            disabled={activeActionId === user.username}
-                            onClick={() => setEditingAllowedColsUser(null)}
-                            title="Cancel"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className="px-2.5 py-1 font-mono text-xs"
-                          >
-                            {user.role === "admin" ||
-                            !user.allowedColumns ||
-                            user.allowedColumns === "*" ||
-                            user.allowedColumns.toLowerCase() === "none"
-                              ? "All"
-                              : user.allowedColumns}
-                          </Badge>
-                          {user.role !== "admin" && (
-                            <Button
-                              variant="ghost"
-                              size="xs"
-                              onClick={() => {
-                                setEditingAllowedColsUser(user.username)
-                                setTempAllowedColsValue(user.allowedColumns)
-                              }}
-                              className="h-7 text-xs font-medium"
-                            >
-                              Edit
-                            </Button>
-                          )}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="px-6 py-4 text-sm whitespace-nowrap text-muted-foreground">
-                      {user.createdAt
-                        ? format(new Date(user.createdAt), "MMM d, yyyy HH:mm")
-                        : "-"}
-                    </TableCell>
-                    <TableCell className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        disabled={activeActionId === user.username}
-                        onClick={() =>
-                          handleToggleUserActive(user.username, user.isActive)
-                        }
-                        className="transition-all duration-200 hover:opacity-80 disabled:opacity-50"
-                      >
-                        <Badge
-                          variant={
-                            user.isActive === "TRUE" ? "default" : "destructive"
-                          }
-                          className="cursor-pointer rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase"
-                        >
-                          {activeActionId === user.username ? (
-                            <Loader2 className="mr-1 h-2 w-2 animate-spin" />
-                          ) : null}
-                          {user.isActive === "TRUE" ? "Active" : "Suspended"}
-                        </Badge>
-                      </button>
-                    </TableCell>
-                    <TableCell className="px-6 py-4 text-right whitespace-nowrap">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={activeActionId === user.username}
-                        onClick={() => handleResetPassword(user.username)}
-                        className="h-8 gap-1.5 text-xs"
-                      >
-                        {activeActionId === user.username ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Key className="h-3.5 w-3.5" />
-                        )}
-                        Reset Pass
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          <div className="p-6">
+            <DataTable columns={columns} data={filteredUsers} />
           </div>
         )}
       </div>
 
       {/* Modal Dialog for User Creation */}
-      <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
-        <DialogContent className="max-w-md rounded-3xl p-6 sm:p-8">
-          <DialogHeader>
+      <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen} name={isEditMode ? "editUser" : "createUser"}>
+        <DialogContent className="max-w-4xl rounded-3xl">
+          <DialogHeader className="sticky top-0 z-10 -mx-4 -mt-4 border-b border-border bg-popover p-4 sm:-mx-6 sm:-mt-6 sm:p-6">
             <DialogTitle className="text-xl font-extrabold">
-              Create Admin or Sub-Admin Account
+              {isEditMode
+                ? "Edit User Account"
+                : "Create Admin or Sub-Admin Account"}
             </DialogTitle>
             <p className="text-xs text-muted-foreground">
-              Register new administrator or restricted sub-administrator.
+              {isEditMode
+                ? "Update details for this account."
+                : "Register new administrator or restricted sub-administrator."}
             </p>
           </DialogHeader>
 
-          <form onSubmit={handleCreateUserSubmit} className="mt-6 space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                Unique Username *
-              </label>
-              <Input
-                type="text"
-                placeholder="e.g. rahul_sub"
-                value={newUser.username}
-                onChange={(e) =>
-                  setNewUser((prev) => ({
-                    ...prev,
-                    username: e.target.value,
-                  }))
-                }
-                className="h-10"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                Display Name *
-              </label>
-              <Input
-                type="text"
-                placeholder="e.g. Rahul Sharma (Advisor)"
-                value={newUser.displayName}
-                onChange={(e) =>
-                  setNewUser((prev) => ({
-                    ...prev,
-                    displayName: e.target.value,
-                  }))
-                }
-                className="h-10"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                Email Address
-              </label>
-              <Input
-                type="email"
-                placeholder="e.g. rahul@domain.com"
-                value={newUser.email}
-                onChange={(e) =>
-                  setNewUser((prev) => ({
-                    ...prev,
-                    email: e.target.value,
-                  }))
-                }
-                className="h-10"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                Login Password *
-              </label>
-              <InputGroup className="h-10">
-                <InputGroupInput
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Create secure password"
-                  value={newUser.password}
+          <form onSubmit={handleCreateUserSubmit} className="mt-6 space-y-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              {/* Username */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                  Unique Username *
+                </label>
+                <Input
+                  type="text"
+                  placeholder="e.g. rahul_sub"
+                  value={newUser.username}
                   onChange={(e) =>
                     setNewUser((prev) => ({
                       ...prev,
-                      password: e.target.value,
+                      username: e.target.value,
                     }))
                   }
+                  className="h-10"
+                  disabled={isEditMode}
                 />
-                <InputGroupAddon align="inline-end">
-                  <InputGroupButton
-                    size="icon-xs"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="size-4" />
-                    ) : (
-                      <Eye className="size-4" />
-                    )}
-                  </InputGroupButton>
-                </InputGroupAddon>
-              </InputGroup>
+              </div>
 
-              <PasswordStrength password={newUser.password} className="mt-2" />
+              {/* Display Name */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                  Display Name *
+                </label>
+                <Input
+                  type="text"
+                  placeholder="e.g. Rahul Sharma (Advisor)"
+                  value={newUser.displayName}
+                  onChange={(e) =>
+                    setNewUser((prev) => ({
+                      ...prev,
+                      displayName: e.target.value,
+                    }))
+                  }
+                  className="h-10"
+                />
+              </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                Role *
-              </label>
-              <Select
-                value={newUser.role}
-                onValueChange={(val) =>
-                  setNewUser((prev) => ({ ...prev, role: val }))
-                }
-              >
-                <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Select Role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin (Full Access)</SelectItem>
-                  <SelectItem value="sub-admin">
-                    Sub-Admin (Restricted)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              {/* Email */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                  Email Address
+                </label>
+                <Input
+                  type="email"
+                  placeholder="e.g. rahul@domain.com"
+                  value={newUser.email}
+                  onChange={(e) =>
+                    setNewUser((prev) => ({
+                      ...prev,
+                      email: e.target.value,
+                    }))
+                  }
+                  className="h-10"
+                />
+              </div>
+
+              {/* Password */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                  {isEditMode ? "New Password (Optional)" : "Login Password *"}
+                </label>
+                <InputGroup className="h-10">
+                  <InputGroupInput
+                    type={showPassword ? "text" : "password"}
+                    placeholder={
+                      isEditMode
+                        ? "Leave blank to keep current"
+                        : "Create secure password"
+                    }
+                    value={newUser.password}
+                    onChange={(e) =>
+                      setNewUser((prev) => ({
+                        ...prev,
+                        password: e.target.value,
+                      }))
+                    }
+                  />
+                  <InputGroupAddon align="inline-end">
+                    <InputGroupButton
+                      size="icon-xs"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="size-4" />
+                      ) : (
+                        <Eye className="size-4" />
+                      )}
+                    </InputGroupButton>
+                  </InputGroupAddon>
+                </InputGroup>
+
+                {newUser.password && (
+                  <PasswordStrength
+                    password={newUser.password}
+                    className="mt-2"
+                  />
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              {/* Role */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                  Role *
+                </label>
+                <Select
+                  value={newUser.role}
+                  onValueChange={(val) =>
+                    setNewUser((prev) => ({ ...prev, role: val }))
+                  }
+                >
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Select Role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">Admin (Full Access)</SelectItem>
+                    <SelectItem value="sub-admin">
+                      Sub-Admin (Restricted)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div></div>
             </div>
 
             {newUser.role === "sub-admin" && (
               <div className="space-y-1.5">
                 <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                  Allowed Columns (Comma Separated)
+                  Column Permissions
                 </label>
-                <Input
-                  type="text"
-                  placeholder="e.g. Comments,Notes"
-                  value={newUser.allowedColumns}
-                  onChange={(e) =>
+                <PermissionSelector
+                  sheets={sheetsWithColumns}
+                  value={newUser.perSheetPermissions}
+                  onChange={(permissions) =>
                     setNewUser((prev) => ({
                       ...prev,
-                      allowedColumns: e.target.value,
+                      perSheetPermissions: permissions,
                     }))
                   }
-                  className="h-10"
+                  presets={presets}
+                  onPresetSelect={(presetId) => {
+                    const preset = presets.find((p) => p.id === presetId)
+                    if (preset) {
+                      setNewUser((prev) => ({
+                        ...prev,
+                        perSheetPermissions: preset.permissions,
+                        permissionPreset: preset.id,
+                      }))
+                    }
+                  }}
                 />
-                <p className="text-[10px] text-muted-foreground">
-                  Allowed Columns specify what columns to the right of Grade
-                  they are allowed to modify.
-                </p>
+
+                <div className="mt-4 space-y-1.5">
+                  <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                    Save as Preset Name (Optional)
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. Sub-Admin Default"
+                    value={newPresetName}
+                    onChange={(e) => setNewPresetName(e.target.value)}
+                    className="h-10"
+                  />
+                </div>
               </div>
             )}
 
-            <div className="flex justify-end gap-3 border-t border-border pt-4">
+            <div className="sticky bottom-0 z-10 -mx-4 mt-6 -mb-4 flex justify-end gap-3 border-t border-border bg-popover p-4 pt-4 sm:-mx-6 sm:-mb-6 sm:p-6">
               <Button
                 variant="outline"
                 type="button"
@@ -725,14 +887,23 @@ function UsersDirectoryContent() {
               </Button>
               <Button
                 type="submit"
-                disabled={isSubmitting || !isStrongPassword(newUser.password)}
+                disabled={
+                  isSubmitting ||
+                  (!isEditMode
+                    ? !isStrongPassword(newUser.password)
+                    : newUser.password
+                      ? !isStrongPassword(newUser.password)
+                      : false)
+                }
               >
                 {isSubmitting ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : isEditMode ? (
+                  <Check className="h-4 w-4" />
                 ) : (
-                  <UserPlus className="mr-2 h-4 w-4" />
+                  <UserPlus className="h-4 w-4" />
                 )}
-                Create Account
+                {isEditMode ? "Save Changes" : "Create Account"}
               </Button>
             </div>
           </form>

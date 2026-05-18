@@ -30,39 +30,13 @@ export async function PATCH(
     if (body.displayName !== undefined) updates.displayName = String(body.displayName).trim();
     if (body.isActive !== undefined) updates.isActive = body.isActive === "FALSE" ? "FALSE" : "TRUE";
     if (body.role !== undefined) updates.role = body.role === "admin" ? "admin" : "sub-admin";
+    if (body.permissionPreset !== undefined) updates.permissionPreset = body.permissionPreset;
+    if (body.perSheetPermissions !== undefined) updates.perSheetPermissions = body.perSheetPermissions;
+
+    if (body.email !== undefined) updates.email = String(body.email).trim();
 
     if (body.allowedColumns !== undefined) {
-      const allowedColumns = String(body.allowedColumns).trim();
-
-      // Determine the final role of the updated user to see if they are a sub-admin
-      const users = await getUsers();
-      const existingUser = users.find((u: any) => u.username.toLowerCase() === username.toLowerCase());
-      const targetRole = body.role !== undefined ? body.role : (existingUser ? existingUser.role : "sub-admin");
-
-      if (targetRole === "sub-admin" && allowedColumns) {
-        const { columns } = await getStudents();
-        const gradeIndex = columns.indexOf("Grade");
-        if (gradeIndex !== -1) {
-          const selectedCols = allowedColumns.split(",").map((c: string) => c.trim());
-          const invalidCols = selectedCols.filter((colName: string) => {
-            const colIdx = columns.indexOf(colName);
-            return colIdx !== -1 && colIdx <= gradeIndex;
-          });
-
-          if (invalidCols.length > 0) {
-            return NextResponse.json(
-              {
-                error: `Forbidden: Sub-admins are only allowed to edit columns to the right of the 'Grade' column (column M). Invalid columns selected: ${invalidCols.join(
-                  ", "
-                )}`,
-              },
-              { status: 400 }
-            );
-          }
-        }
-      }
-
-      updates.allowedColumns = allowedColumns;
+      updates.allowedColumns = String(body.allowedColumns).trim();
     }
 
     if (body.password) {

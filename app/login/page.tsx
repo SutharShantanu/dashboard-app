@@ -203,7 +203,7 @@ export default function LoginPage() {
                   <div className="flex justify-end">
                     <Link
                       href="/forgot-password"
-                      className="text-sm font-medium text-primary hover:underline"
+                      className="text-xs font-medium text-primary hover:underline"
                     >
                       Forgot password?
                     </Link>
@@ -222,10 +222,7 @@ export default function LoginPage() {
                     Signing in…
                   </>
                 ) : (
-                  <>
-                    <LogIn className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                    Enter Terminal
-                  </>
+                  <>Login</>
                 )}
               </Button>
 

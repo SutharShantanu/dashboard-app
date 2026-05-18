@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { username, displayName, email, password, role, allowedColumns } = body;
+    const { username, displayName, email, password, role, allowedColumns, permissionPreset, perSheetPermissions } = body;
 
     if (!username || !displayName || !password || !role) {
       return NextResponse.json(
@@ -58,29 +58,6 @@ export async function POST(request: Request) {
 
     const targetRole = role === "admin" ? "admin" : "sub-admin";
 
-    if (targetRole === "sub-admin" && allowedColumns) {
-      const { columns } = await getStudents();
-      const gradeIndex = columns.indexOf("Grade");
-      if (gradeIndex !== -1) {
-        const selectedCols = allowedColumns.split(",").map((c: string) => c.trim());
-        const invalidCols = selectedCols.filter((colName: string) => {
-          const colIdx = columns.indexOf(colName);
-          return colIdx !== -1 && colIdx <= gradeIndex;
-        });
-
-        if (invalidCols.length > 0) {
-          return NextResponse.json(
-            {
-              error: `Forbidden: Sub-admins are only allowed to edit columns to the right of the 'Grade' column (column M). Invalid columns selected: ${invalidCols.join(
-                ", "
-              )}`,
-            },
-            { status: 400 }
-          );
-        }
-      }
-    }
-
     const passwordHash = await bcrypt.hash(password, 12);
 
     const newUser: User = {
@@ -90,6 +67,8 @@ export async function POST(request: Request) {
       passwordHash,
       role: role === "admin" ? "admin" : "sub-admin",
       allowedColumns: allowedColumns || "",
+      permissionPreset: permissionPreset,
+      perSheetPermissions: perSheetPermissions || {},
       isActive: "TRUE",
       createdAt: new Date().toISOString(),
       createdBy: session.user.username,

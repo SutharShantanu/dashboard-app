@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
+import { BadgeDot } from "@/components/ui/badge-dot"
 import {
   Table,
   TableBody,
@@ -237,7 +238,7 @@ export default function SheetsManagementPage() {
         header: "Status",
         cell: ({ row }) => (
           <Badge variant="secondary" className="gap-1 text-xs">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+            <BadgeDot variant="success" pulse />
             Connected
           </Badge>
         ),
@@ -299,7 +300,7 @@ export default function SheetsManagementPage() {
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="destructive"
-                    size="icon"
+                    size="icon-sm"
                     title="Delete Connection"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -392,7 +393,6 @@ export default function SheetsManagementPage() {
         onValueChange={(val) => {
           router.push(`/dashboard/sheets?tab=${val}`)
         }}
-        className="space-y-6"
       >
         <TabsList>
           <TabsTrigger value="connections" className="gap-2">
@@ -406,124 +406,122 @@ export default function SheetsManagementPage() {
         </TabsList>
 
         <TabsContent value="connections" className="space-y-6">
-          <div className="grid gap-8">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                <div>
-                  <CardTitle>Connected Sheets</CardTitle>
-                  <CardDescription>
-                    View and manage all external spreadsheets currently linked
-                    to your account.
-                  </CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      toast.promise(fetchSheets(), {
-                        loading: "Refreshing connections...",
-                        success: "Connection list updated.",
-                        error: "Failed to refresh connections.",
-                      })
-                    }}
-                    disabled={loading || isInitialLoading}
-                  >
-                    <RefreshCcw
-                      className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-                    />
-                    <span className="hidden sm:inline">Refresh</span>
-                  </Button>
-                  <Dialog open={isDriveOpen} onOpenChange={setIsDriveOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline">
-                        <Plus className="h-4 w-4" />
-                        <span className="hidden sm:inline">Add Sheet</span>
-                        <span className="sm:hidden">Add</span>
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Add New Spreadsheet</DialogTitle>
-                      </DialogHeader>
-                      <Tabs defaultValue="url" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2">
-                          <TabsTrigger value="url">Via URL</TabsTrigger>
-                          <TabsTrigger value="drive">Browse Drive</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="url" className="space-y-4 py-4">
-                          <form
-                            onSubmit={handleConnectSheet}
-                            className="grid gap-4"
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle>Connected Sheets</CardTitle>
+                <CardDescription>
+                  View and manage all external spreadsheets currently linked to
+                  your account.
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    toast.promise(fetchSheets(), {
+                      loading: "Refreshing connections...",
+                      success: "Connection list updated.",
+                      error: "Failed to refresh connections.",
+                    })
+                  }}
+                  disabled={loading || isInitialLoading}
+                >
+                  <RefreshCcw
+                    className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                  />
+                  <span className="hidden sm:inline">Refresh</span>
+                </Button>
+                <Dialog open={isDriveOpen} onOpenChange={setIsDriveOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline">
+                      <Plus className="h-4 w-4" />
+                      <span className="hidden sm:inline">Add Sheet</span>
+                      <span className="sm:hidden">Add</span>
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add New Spreadsheet</DialogTitle>
+                    </DialogHeader>
+                    <Tabs defaultValue="url" className="w-full">
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="url">Via URL</TabsTrigger>
+                        <TabsTrigger value="drive">Browse Drive</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="url" className="space-y-4 py-4">
+                        <form
+                          onSubmit={handleConnectSheet}
+                          className="grid gap-4"
+                        >
+                          <div className="grid gap-2">
+                            <Label htmlFor="sheetUrl">Google Sheet URL</Label>
+                            <Input
+                              id="sheetUrl"
+                              placeholder="https://docs.google.com/spreadsheets/d/..."
+                              value={sheetUrl}
+                              onChange={(e) => setSheetUrl(e.target.value)}
+                              required
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="sheetTitle">
+                              Display Name (Optional)
+                            </Label>
+                            <Input
+                              id="sheetTitle"
+                              placeholder="e.g. 2024 Admissions Data"
+                              value={sheetTitle}
+                              onChange={(e) => setSheetTitle(e.target.value)}
+                            />
+                          </div>
+                          <Button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full"
                           >
-                            <div className="grid gap-2">
-                              <Label htmlFor="sheetUrl">Google Sheet URL</Label>
-                              <Input
-                                id="sheetUrl"
-                                placeholder="https://docs.google.com/spreadsheets/d/..."
-                                value={sheetUrl}
-                                onChange={(e) => setSheetUrl(e.target.value)}
-                                required
-                              />
-                            </div>
-                            <div className="grid gap-2">
-                              <Label htmlFor="sheetTitle">
-                                Display Name (Optional)
-                              </Label>
-                              <Input
-                                id="sheetTitle"
-                                placeholder="e.g. 2024 Admissions Data"
-                                value={sheetTitle}
-                                onChange={(e) => setSheetTitle(e.target.value)}
-                              />
-                            </div>
-                            <Button
-                              type="submit"
-                              disabled={loading}
-                              className="w-full"
-                            >
-                              {loading ? (
-                                <Spinner className="h-4 w-4" />
-                              ) : (
-                                <Plus className="h-4 w-4" />
-                              )}
-                              Connect Spreadsheet
-                            </Button>
-                          </form>
-                        </TabsContent>
-                        <TabsContent value="drive" className="py-4">
-                          <DriveBrowser
-                            onSelect={handleDriveSelect}
-                            onClose={() => setIsDriveOpen(false)}
-                          />
-                        </TabsContent>
-                      </Tabs>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {connectedSheets.length === 0 ? (
-                  <Empty className="rounded-lg border-2 border-dashed py-12">
-                    <EmptyHeader>
-                      <EmptyMedia variant="icon">
-                        <Database className="text-muted-foreground" />
-                      </EmptyMedia>
-                      <EmptyTitle>No sheets connected</EmptyTitle>
-                      <EmptyDescription>
-                        Connect your first Google Sheet to start managing data.
-                      </EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
-                ) : (
-                  <DataTable columns={columns} data={connectedSheets} />
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                            {loading ? (
+                              <Spinner className="h-4 w-4" />
+                            ) : (
+                              <Plus className="h-4 w-4" />
+                            )}
+                            Connect Spreadsheet
+                          </Button>
+                        </form>
+                      </TabsContent>
+                      <TabsContent value="drive" className="py-4">
+                        <DriveBrowser
+                          onSelect={handleDriveSelect}
+                          onClose={() => setIsDriveOpen(false)}
+                        />
+                      </TabsContent>
+                    </Tabs>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {connectedSheets.length === 0 ? (
+                <Empty className="rounded-lg border-2 border-dashed py-12">
+                  <EmptyHeader>
+                    <EmptyMedia variant="icon">
+                      <Database className="text-muted-foreground" />
+                    </EmptyMedia>
+                    <EmptyTitle>No sheets connected</EmptyTitle>
+                    <EmptyDescription>
+                      Connect your first Google Sheet to start managing data.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
+              ) : (
+                <DataTable columns={columns} data={connectedSheets} />
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-6">
-          <Card className="rounded-2xl border-border/50 bg-card/60 backdrop-blur-2xl">
+          <Card>
             <CardHeader>
               <CardTitle className="text-2xl font-bold">Integrations</CardTitle>
               <CardDescription>
@@ -531,47 +529,52 @@ export default function SheetsManagementPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between rounded-xl border border-blue-500/10 bg-blue-500/5 p-6">
-                <div className="flex items-center gap-4">
-                  <div className="rounded-full bg-blue-500/10 p-3">
-                    <Cloud className="h-6 w-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold">Google Drive</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Browse and link spreadsheets from your Drive.
-                    </p>
-                  </div>
-                </div>
-                <div>
-                  {isGoogleConnected ? (
-                    <Badge
-                      variant="secondary"
-                      className="border-emerald-500/20 bg-emerald-500/15 text-emerald-600"
-                    >
-                      <div className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-                      Connected
-                    </Badge>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant="outline"
-                        className="text-muted-foreground"
-                      >
-                        Not Connected
-                      </Badge>
-                      <Button
-                        variant="link"
-                        className="ml-2 h-auto p-0 font-bold"
-                        onClick={() =>
-                          signIn("google", { callbackUrl: "/dashboard/sheets" })
-                        }
-                      >
-                        Connect Now
-                      </Button>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                    <div className="flex items-center gap-4">
+                      <div className="rounded-full bg-muted p-3">
+                        <Cloud className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          Google Drive
+                          {isGoogleConnected ? (
+                            <Badge variant="secondary" className="gap-1.5">
+                              <BadgeDot variant="success" pulse />
+                              Connected
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="gap-1.5">
+                              <BadgeDot variant="destructive" pulse />
+                              Not Connected
+                            </Badge>
+                          )}
+                        </CardTitle>
+                        <CardDescription>
+                          Browse and link spreadsheets from your Drive.
+                        </CardDescription>
+                      </div>
                     </div>
-                  )}
-                </div>
+                    <div>
+                      {!isGoogleConnected && (                        
+                        <Button
+                          onClick={() =>
+                            signIn("google", {
+                              callbackUrl: "/dashboard/sheets",
+                            })
+                          }
+                        >
+                          <Plus className="h-4 w-4" />
+                          <span className="hidden sm:inline">
+                            Connect Now
+                          </span>
+                          <span className="sm:hidden">Connect</span>
+                        </Button>
+                      )}
+                    </div>
+                  </CardHeader>
+                </Card>
               </div>
 
               {isGoogleConnected && googleResponse && (

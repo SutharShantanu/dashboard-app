@@ -7,6 +7,8 @@ export interface IUser extends Document {
   passwordHash: string;
   role: "admin" | "sub-admin";
   allowedColumns: string; // Comma-separated list
+  permissionPreset?: string;
+  perSheetPermissions?: Map<string, string[]>;
   isActive: boolean;
   createdAt: Date;
   createdBy: string;
@@ -21,6 +23,8 @@ const UserSchema: Schema = new Schema({
   passwordHash: { type: String, required: true },
   role: { type: String, enum: ["admin", "sub-admin"], required: true },
   allowedColumns: { type: String, default: "" },
+  permissionPreset: { type: String },
+  perSheetPermissions: { type: Map, of: [String], default: {} },
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
   createdBy: { type: String, required: true },

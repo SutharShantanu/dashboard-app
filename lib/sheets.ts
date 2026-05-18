@@ -29,6 +29,8 @@ export interface UserInterface {
   passwordHash: string;
   role: "admin" | "sub-admin";
   allowedColumns: string;
+  permissionPreset?: string;
+  perSheetPermissions?: any;
   isActive: "TRUE" | "FALSE";
   createdAt: string;
   createdBy: string;
@@ -100,7 +102,7 @@ export async function syncSheetData(spreadsheetId: string): Promise<void> {
   const { data } = await fetchRawGoogleSheetsData(spreadsheetId, `${connectedSheet.sheetName}!A:AZ`);
   
   for (const item of data) {
-    const id = item.ID || item.id || item.Id || (item.__rowIndex ? `row_${item.__rowIndex}` : Object.values(item)[0]);
+    const id = String(item.ID || item.id || item.Id || (item.__rowIndex ? `row_${item.__rowIndex}` : Object.values(item)[0]));
     if (!id) continue;
 
     const existing = await SheetRow.findOne({ rowId: id, sheetId: spreadsheetId });
@@ -226,6 +228,8 @@ export async function getUsers(): Promise<User[]> {
     passwordHash: u.passwordHash,
     role: u.role,
     allowedColumns: u.allowedColumns,
+    permissionPreset: u.permissionPreset,
+    perSheetPermissions: u.perSheetPermissions,
     isActive: u.isActive ? "TRUE" : "FALSE",
     createdAt: u.createdAt.toISOString(),
     createdBy: u.createdBy

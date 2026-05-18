@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import dns from 'dns';
 
-dns.setServers(['8.8.8.8']);
+// dns.setServers(['8.8.8.8']);
 
 // Evaluate lazily to support script imports
 /**
@@ -64,12 +64,12 @@ async function connectToDatabase() {
       bufferCommands: false,
     };
 
-    try {
-      dns.setServers(['8.8.8.8', '1.1.1.1']);
-      console.log('DNS servers set to 8.8.8.8, 1.1.1.1');
-    } catch (e) {
-      console.error('Failed to set DNS servers:', e);
-    }
+    // try {
+    //   dns.setServers(['8.8.8.8', '1.1.1.1']);
+    //   console.log('DNS servers set to 8.8.8.8, 1.1.1.1');
+    // } catch (e) {
+    //   console.error('Failed to set DNS servers:', e);
+    // }
 
     cached.promise = mongoose.connect(getMongoUri(), opts).then((mongoose) => {
       return mongoose;
