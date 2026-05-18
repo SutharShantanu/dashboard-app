@@ -998,7 +998,7 @@ function DashboardPageContent() {
                 </div>
               ) : (
                 <ScrollArea className="h-[calc(100vh-280px)] w-full max-w-full">
-                  <Table>
+                  <Table noWrapper className="min-w-max">
                     <TableHeader>
                       <TableRow>
                         {columns.map((col) => {
@@ -1168,8 +1168,8 @@ function DashboardPageContent() {
                       </Empty>
                     </div>
                   ) : (
-                    <div className="overflow-x-auto">
-                      <Table>
+                    <ScrollArea className="w-full">
+                      <Table noWrapper className="min-w-max">
                         <TableHeader>
                           <TableRow>
                             <TableHead className="px-4 py-3.5">
@@ -1261,7 +1261,8 @@ function DashboardPageContent() {
                           ))}
                         </TableBody>
                       </Table>
-                    </div>
+                      <ScrollBar orientation="horizontal" />
+                    </ScrollArea>
                   )}
                 </div>
               </>

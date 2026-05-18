@@ -16,6 +16,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Spinner } from "./ui/spinner"
 
 interface DriveFile {
   id: string
@@ -104,7 +105,7 @@ export function DriveBrowser({ onSelect, onClose }: DriveBrowserProps) {
       <ScrollArea className="flex-1 p-2">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-full gap-2 py-10">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <Spinner className="h-6 w-6 text-primary" />
             <p className="text-sm text-muted-foreground">Loading files...</p>
           </div>
         ) : error ? (

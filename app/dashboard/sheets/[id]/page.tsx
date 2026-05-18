@@ -383,55 +383,57 @@ export default function SheetDetailPage() {
         </div>
       </div>
 
-      <Card className="max-w-full">
-        <CardHeader>
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <CardTitle>Sheet Data</CardTitle>
-              <CardDescription>
-                Showing {filteredAndSortedData.length} of {data.length} records
-              </CardDescription>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+      <div className="max-w-full" style={{ width: 0, minWidth: "100%" }}>
+        <Card className="max-w-full">
+          <CardHeader>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div>
+                <CardTitle>Sheet Data</CardTitle>
+                <CardDescription>
+                  Showing {filteredAndSortedData.length} of {data.length} records
+                </CardDescription>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
 
 
-              {/* FILTERS */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="gap-2">
-                    <Filter className="h-4 w-4" />
-                    Status
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-fit">
-                  <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setStatusFilter(null)}>
-                    All Statuses
-                  </DropdownMenuItem>
-                  {uniqueStatuses.map((status) => (
-                    <DropdownMenuItem key={status} onClick={() => setStatusFilter(status)}>
-                      {status}
+                {/* FILTERS */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="gap-2">
+                      <Filter className="h-4 w-4" />
+                      Status
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-fit">
+                    <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setStatusFilter(null)}>
+                      All Statuses
                     </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    {uniqueStatuses.map((status) => (
+                      <DropdownMenuItem key={status} onClick={() => setStatusFilter(status)}>
+                        {status}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-              {/* ACTIONS */}
-              <ExportDropdown data={filteredAndSortedData} filename={sheetTitle} />
-              <Button variant="outline" onClick={handleShare} >
-                <Share2 className="h-4 w-4" />
-                Share
-              </Button>
+                {/* ACTIONS */}
+                <ExportDropdown data={filteredAndSortedData} filename={sheetTitle} />
+                <Button variant="outline" onClick={handleShare} >
+                  <Share2 className="h-4 w-4" />
+                  Share
+                </Button>
+              </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent className="w-full max-w-full">
-          <DataTable columns={tableColumns} data={filteredAndSortedData} />
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent className="w-full max-w-full">
+            <DataTable columns={tableColumns} data={filteredAndSortedData} />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
