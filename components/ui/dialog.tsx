@@ -89,14 +89,14 @@ function DialogContent({
         )}
         {...props}
       >
-        <div className="overflow-y-auto max-h-[85vh] p-4 sm:p-6">
+        <div className="overflow-y-auto max-h-[85vh] flex flex-col">
           {children}
         </div>
         {showCloseButton && (
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button
               variant="ghost"
-              className="absolute top-2 right-2"
+              className="absolute top-2 right-2 z-50"
               size="icon-sm"
             >
               <XIcon />

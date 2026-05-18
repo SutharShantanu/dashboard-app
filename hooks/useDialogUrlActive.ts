@@ -19,9 +19,15 @@ export function useDialogUrlActive(isOpen: boolean, name: string = "dialog") {
     const query = search ? `?${search}` : "";
 
     const newUrl = `${pathname}${query}`;
-    const currentUrl = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
+    
+    // For comparison, create sorted versions to avoid infinite loops due to ordering differences
+    const currentSorted = new URLSearchParams(Array.from(searchParams.entries()));
+    currentSorted.sort();
+    
+    const nextSorted = new URLSearchParams(Array.from(current.entries()));
+    nextSorted.sort();
 
-    if (newUrl !== currentUrl) {
+    if (currentSorted.toString() !== nextSorted.toString()) {
       router.replace(newUrl, { scroll: false });
     }
   }, [isOpen, name, router, searchParams, pathname]);

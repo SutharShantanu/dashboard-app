@@ -50,6 +50,7 @@ import {
   FieldGroup,
   FieldSet,
 } from "@/components/ui/field"
+import { PasswordStrength, isStrongPassword } from "@/components/password-strength"
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required"),
@@ -84,27 +85,10 @@ export default function SettingsPage() {
   const [loadingLogs, setLoadingLogs] = useState(false)
 
   // Dialog state from URL
-  const isDialogOpen = searchParams.get("dialog") === "change-password"
-
-  const setDialogOpen = (open: boolean) => {
-    const params = new URLSearchParams(searchParams.toString())
-    if (open) {
-      params.set("dialog", "change-password")
-    } else {
-      params.delete("dialog")
-    }
-    router.push(`${pathname}?${params.toString()}`)
-  }
-
-  const getPasswordStrength = (pass: string) => {
-    let s = 0
-    if (pass.length > 5) s++
-    if (pass.length > 7) s++
-    if (/[A-Z]/.test(pass)) s++
-    if (/[0-9]/.test(pass)) s++
-    if (/[^A-Za-z0-9]/.test(pass)) s++
-    return s
-  }
+  const [isDialogOpen, setIsDialogOpen] = useState(
+    searchParams.get("dialog") === "change-password" ||
+    searchParams.get("changePassword") === "open"
+  )
 
   const {
     control,
@@ -165,7 +149,7 @@ export default function SettingsPage() {
       if (!res.ok) throw new Error(data.error || "Failed to change password")
       toast.success("Password changed successfully")
       reset()
-      setDialogOpen(false)
+      setIsDialogOpen(false)
     } catch (err: any) {
       toast.error(err.message)
     } finally {
@@ -293,7 +277,7 @@ export default function SettingsPage() {
 
               {!isGoogleUser && (
                 <div className="border-t pt-6">
-                  <Button onClick={() => setDialogOpen(true)} variant="outline">
+                  <Button onClick={() => setIsDialogOpen(true)} variant="outline">
                     <KeyRound className="h-4 w-4" /> Change Password
                   </Button>
                 </div>
@@ -513,7 +497,7 @@ export default function SettingsPage() {
       </Tabs>
 
       {/* Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={(open) => setDialogOpen(open)}>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen} name="changePassword">
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Change Password</DialogTitle>
@@ -546,38 +530,10 @@ export default function SettingsPage() {
                         New Password
                       </FieldLabel>
                       <Input id="newPassword" type="password" {...field} />
-                      {newPasswordValue && (
-                        <div className="mt-1 w-full space-y-1">
-                          <div className="flex h-1 gap-1">
-                            {[1, 2, 3, 4, 5].map((level) => {
-                              const strength =
-                                getPasswordStrength(newPasswordValue)
-                              return (
-                                <div
-                                  key={level}
-                                  className={`h-full flex-1 rounded-full ${
-                                    level <= strength
-                                      ? strength <= 2
-                                        ? "bg-red-500"
-                                        : strength === 3
-                                          ? "bg-orange-500"
-                                          : "bg-emerald-500"
-                                      : "bg-muted"
-                                  }`}
-                                />
-                              )
-                            })}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {getPasswordStrength(newPasswordValue) <= 2 &&
-                              "Weak"}
-                            {getPasswordStrength(newPasswordValue) === 3 &&
-                              "Medium"}
-                            {getPasswordStrength(newPasswordValue) >= 4 &&
-                              "Strong"}
-                          </p>
-                        </div>
-                      )}
+                      <PasswordStrength
+                        password={newPasswordValue || ""}
+                        className="mt-2"
+                      />
                       <FieldError errors={[errors.newPassword]} />
                     </Field>
                   )}
@@ -585,7 +541,7 @@ export default function SettingsPage() {
               </FieldGroup>
             </FieldSet>
             <DialogFooter>
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading || !isStrongPassword(newPasswordValue)}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Update Password
               </Button>

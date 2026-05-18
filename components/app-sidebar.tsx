@@ -173,7 +173,12 @@ export function AppSidebar({
           title: "Integrations",
           url: "/dashboard/sheets?tab=integrations",
           icon: Globe,
-        },
+        }
+      )
+    }
+
+    if (user.username === "SabaAdmin") {
+      items.push(
         { title: "Users Directory", url: "/dashboard/users", icon: Users }
       )
     }

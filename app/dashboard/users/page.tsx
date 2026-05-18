@@ -130,9 +130,10 @@ function UsersDirectoryContent() {
 
   useEffect(() => {
     if (sessionStatus === "authenticated") {
-      if (session?.user?.role !== "admin") {
+      const currentUsername = (session?.user as any)?.username || session?.user?.name
+      if (currentUsername !== "SabaAdmin") {
         toast.error(
-          "Access Denied: Only administrators can view user accounts."
+          "Access Denied: This route is specially bound to only SabaAdmin."
         )
         router.push("/dashboard")
         return
@@ -561,7 +562,7 @@ function UsersDirectoryContent() {
                     onClick={() => {
                       toast.info("Delete functionality not implemented yet.")
                     }}
-                    disabled={activeActionId === user.username}
+                    disabled={activeActionId === user.username || user.username === "SabaAdmin"}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
@@ -588,7 +589,8 @@ function UsersDirectoryContent() {
     )
   }
 
-  if (session?.user?.role !== "admin") {
+  const currentUsername = (session?.user as any)?.username || session?.user?.name
+  if (currentUsername !== "SabaAdmin") {
     return (
       <div className="flex min-h-svh items-center justify-center bg-background p-6 text-foreground">
         <Card className="max-w-md border-destructive/20 bg-destructive/5 p-6 text-center">
@@ -599,8 +601,7 @@ function UsersDirectoryContent() {
             Access Restricted
           </CardTitle>
           <CardDescription className="mt-2 text-muted-foreground">
-            You do not have administrative privileges required to view or modify
-            system accounts.
+            This route is specially bound to only SabaAdmin. You do not have permission to view or modify system accounts.
           </CardDescription>
           <Button
             onClick={() => router.push("/dashboard")}
@@ -690,7 +691,7 @@ function UsersDirectoryContent() {
       {/* Modal Dialog for User Creation */}
       <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen} name={isEditMode ? "editUser" : "createUser"}>
         <DialogContent className="max-w-4xl rounded-3xl">
-          <DialogHeader className="sticky top-0 z-10 -mx-4 -mt-4 border-b border-border bg-popover p-4 sm:-mx-6 sm:-mt-6 sm:p-6">
+          <DialogHeader className="sticky top-0 z-10 border-b border-border bg-popover p-4 sm:p-6">
             <DialogTitle className="text-xl font-extrabold">
               {isEditMode
                 ? "Edit User Account"
@@ -703,7 +704,8 @@ function UsersDirectoryContent() {
             </p>
           </DialogHeader>
 
-          <form onSubmit={handleCreateUserSubmit} className="mt-6 space-y-6">
+          <form onSubmit={handleCreateUserSubmit}>
+            <div className="max-h-[65vh] overflow-y-auto p-4 sm:p-6 space-y-6">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               {/* Username */}
               <div className="space-y-1.5">
@@ -877,7 +879,9 @@ function UsersDirectoryContent() {
               </div>
             )}
 
-            <div className="sticky bottom-0 z-10 -mx-4 mt-6 -mb-4 flex justify-end gap-3 border-t border-border bg-popover p-4 pt-4 sm:-mx-6 sm:-mb-6 sm:p-6">
+            </div>
+            
+            <div className="flex justify-end gap-3 border-t border-border bg-popover p-4 pt-4 sm:p-6">
               <Button
                 variant="outline"
                 type="button"
