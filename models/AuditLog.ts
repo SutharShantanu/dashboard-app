@@ -12,6 +12,7 @@ export interface IAuditLog extends Document {
     | "USER_UPDATE" 
     | "USER_DEACTIVATE" 
     | "USER_ACTIVATE" 
+    | "USER_DELETE" 
     | "STUDENT_CREATE"
     | "STUDENT_UPDATE"
     | "STUDENT_DELETE"
@@ -38,7 +39,7 @@ const AuditLogSchema: Schema = new Schema({
     required: true,
     enum: [
       "READ", "WRITE", "USER_CREATE", "USER_UPDATE", "USER_DEACTIVATE", 
-      "USER_ACTIVATE", "STUDENT_CREATE", "STUDENT_UPDATE", "STUDENT_DELETE", 
+      "USER_ACTIVATE", "USER_DELETE", "STUDENT_CREATE", "STUDENT_UPDATE", "STUDENT_DELETE", 
       "LOGIN", "LOGOUT", "SHEET_SYNC", "SHEET_CONNECT", "SHEET_DISCONNECT"
     ]
   },

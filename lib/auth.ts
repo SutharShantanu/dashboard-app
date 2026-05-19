@@ -52,8 +52,11 @@ export const authOptions: NextAuthOptions = {
         }
 
         await connectToDatabase();
+        
+        // Escape special regex characters to prevent query injection and ReDoS attacks
+        const escapedUsername = credentials.username.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
         const user = await User.findOne({ 
-          username: { $regex: new RegExp(`^${credentials.username}$`, "i") } 
+          username: { $regex: new RegExp(`^${escapedUsername}$`, "i") } 
         });
 
         if (!user) {

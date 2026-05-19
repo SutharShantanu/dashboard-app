@@ -41,7 +41,7 @@ export function PasswordStrength({ password = "", className }: PasswordStrengthP
               )}
               <span
                 className={cn(
-                  "text-[10px] font-medium transition-colors",
+                  "text-tiny font-medium transition-colors",
                   isMet ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
                 )}
               >
@@ -54,7 +54,7 @@ export function PasswordStrength({ password = "", className }: PasswordStrengthP
       
       {/* Progress Bar for visual feedback */}
       <div className="space-y-1.5">
-        <div className="flex justify-between text-[9px] uppercase tracking-wider font-black">
+        <div className="flex justify-between text-tiny uppercase tracking-wider font-black">
           <span className="text-muted-foreground/60">Security Score</span>
           <span className={cn(
             isStrongPassword(password) ? "text-emerald-500" : "text-muted-foreground/40"

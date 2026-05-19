@@ -53,6 +53,7 @@ export interface AuditLogInterface {
     | "USER_UPDATE" 
     | "USER_DEACTIVATE" 
     | "USER_ACTIVATE" 
+    | "USER_DELETE" 
     | "STUDENT_CREATE"
     | "STUDENT_UPDATE"
     | "STUDENT_DELETE"
@@ -263,7 +264,11 @@ export async function updateUser(username: string, updates: Partial<User>, actor
     mongoUpdates.isActive = updates.isActive === "TRUE";
   }
   
-  await User.updateOne({ username }, { $set: mongoUpdates });
+  const escapedUsername = username.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+  await User.updateOne(
+    { username: { $regex: new RegExp(`^${escapedUsername}$`, "i") } },
+    { $set: mongoUpdates }
+  );
 
   await appendAuditLog({
     timestamp: new Date().toISOString(),
@@ -274,6 +279,25 @@ export async function updateUser(username: string, updates: Partial<User>, actor
     targetRow: username,
     ip,
     details: `Updated user account: ${username}. Changes: ${Object.keys(updates).join(", ")}`
+  });
+}
+
+export async function deleteUser(username: string, actor: string = "system", actorRole: string = "system", ip: string = "127.0.0.1"): Promise<void> {
+  await connectToDatabase();
+  const escapedUsername = username.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+  await User.deleteOne({
+    username: { $regex: new RegExp(`^${escapedUsername}$`, "i") }
+  });
+
+  await appendAuditLog({
+    timestamp: new Date().toISOString(),
+    actor,
+    actorDisplayName: actor,
+    actorRole,
+    action: "USER_DELETE",
+    targetRow: username,
+    ip,
+    details: `Deleted user account: ${username}`
   });
 }
 

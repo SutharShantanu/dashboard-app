@@ -931,7 +931,7 @@ function DashboardPageContent() {
 
             <div className="flex items-center gap-4 px-2">
               <div className="flex flex-col items-end">
-                <span className="text-[10px] font-bold tracking-widest text-muted-foreground/60 uppercase">
+                <span className="text-tiny font-bold tracking-widest text-muted-foreground/60 uppercase">
                   Sync Status
                 </span>
                 <span className="text-xs font-medium text-muted-foreground">
@@ -1056,7 +1056,7 @@ function DashboardPageContent() {
                               ].includes(col) ? (
                                 <Badge
                                   variant="outline"
-                                  className="px-1.5 text-[9px] uppercase"
+                                  className="px-1.5 text-tiny uppercase"
                                 >
                                   SYS
                                 </Badge>
@@ -1096,7 +1096,7 @@ function DashboardPageContent() {
                               )}
                               {focusInfo && (
                                 <div
-                                  className="pointer-events-none absolute -top-3 left-1 z-20 flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm"
+                                  className="pointer-events-none absolute -top-3 left-1 z-20 flex items-center gap-1 rounded px-1.5 py-0.5 text-tiny font-bold text-white shadow-sm"
                                   style={{ backgroundColor: focusInfo.color }}
                                 >
                                   <span>👤 {focusInfo.user}</span>
@@ -1243,7 +1243,7 @@ function DashboardPageContent() {
                                     { addSuffix: true }
                                   )}
                                 </span>
-                                <span className="text-[10px] opacity-70">
+                                <span className="text-tiny opacity-70">
                                   {format(
                                     new Date(log.timestamp),
                                     "MMM d, yyyy HH:mm"
@@ -1261,7 +1261,7 @@ function DashboardPageContent() {
                               <Badge
                                 variant="outline"
                                 className={cn(
-                                  "px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase",
+                                  "px-2 py-0.5 text-tiny font-bold tracking-wider uppercase",
                                   log.action.includes("CREATE") &&
                                     "border-green-500/20 bg-green-500/10 text-green-500",
                                   log.action.includes("UPDATE") &&

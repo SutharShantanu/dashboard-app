@@ -186,7 +186,7 @@ export function DriveBrowser({ onSelect, onClose }: DriveBrowserProps) {
         )}
       </ScrollArea>
 
-      <div className="border-t bg-muted/30 p-3 text-[10px] text-muted-foreground">
+      <div className="border-t bg-muted/30 p-3 text-tiny text-muted-foreground">
         Note: You only see files shared with the system service account.
       </div>
     </div>

@@ -55,6 +55,7 @@
     --color-warning-foreground: var(--warning-foreground);
     --color-invert: var(--invert);
     --color-invert-foreground: var(--invert-foreground);
+    --font-size-tiny: 0.625rem;
 }
 
 :root {

@@ -45,8 +45,8 @@ const Avatar = React.forwardRef<
     data-size={size}
     className={cn(
       "group/avatar relative flex size-8 shrink-0 rounded-full select-none data-[size=lg]:size-10 data-[size=sm]:size-6",
-      "group-data-[slot=avatar-group]/avatar-group:ring-background group-data-[slot=avatar-group]/avatar-group:ring-2",
-      className,
+      "group-data-[slot=avatar-group]/avatar-group:ring-2 group-data-[slot=avatar-group]/avatar-group:ring-background",
+      className
     )}
     {...props}
   />
@@ -60,7 +60,10 @@ const AvatarImage = React.forwardRef<
   <AvatarPrimitive.Image
     ref={ref}
     data-slot="avatar-image"
-    className={cn("aspect-square size-full rounded-full object-cover", className)}
+    className={cn(
+      "aspect-square size-full rounded-full object-cover",
+      className
+    )}
     {...props}
   />
 ))
@@ -72,41 +75,47 @@ const AvatarFallback = React.forwardRef<
     variant?: string
     seed?: string
   }
->(({ className, children, variant: variantProp, seed: seedProp, ...props }, ref) => {
-  const extractText = (node: React.ReactNode): string => {
-    if (node == null || typeof node === "boolean") return ""
-    if (typeof node === "string" || typeof node === "number") return String(node)
-    if (Array.isArray(node)) return node.map(extractText).join("")
-    if (React.isValidElement(node)) {
-      const props = node.props as { children?: React.ReactNode } | undefined
-      return extractText(props?.children)
+>(
+  (
+    { className, children, variant: variantProp, seed: seedProp, ...props },
+    ref
+  ) => {
+    const extractText = (node: React.ReactNode): string => {
+      if (node == null || typeof node === "boolean") return ""
+      if (typeof node === "string" || typeof node === "number")
+        return String(node)
+      if (Array.isArray(node)) return node.map(extractText).join("")
+      if (React.isValidElement(node)) {
+        const props = node.props as { children?: React.ReactNode } | undefined
+        return extractText(props?.children)
+      }
+      return ""
     }
-    return ""
+
+    const text = React.useMemo(() => extractText(children), [children])
+    const seed = seedProp || text || "user"
+
+    const variant = React.useMemo(
+      () => variantProp || getVariantFromString(seed),
+      [seed, variantProp]
+    )
+
+    return (
+      <AvatarPrimitive.Fallback
+        ref={ref}
+        data-slot="avatar-fallback"
+        className={cn(
+          "text-md flex size-full items-center justify-center rounded-full font-semibold tracking-tight shadow-inner backdrop-blur-sm transition-colors group-data-[size=lg]/avatar:text-sm group-data-[size=sm]/avatar:text-xs",
+          variant,
+          className
+        )}
+        {...props}
+      >
+        {children}
+      </AvatarPrimitive.Fallback>
+    )
   }
-
-  const text = React.useMemo(() => extractText(children), [children])
-  const seed = seedProp || text || "user"
-
-  const variant = React.useMemo(
-    () => variantProp || getVariantFromString(seed),
-    [seed, variantProp],
-  )
-
-  return (
-    <AvatarPrimitive.Fallback
-      ref={ref}
-      data-slot="avatar-fallback"
-      className={cn(
-        "text-md group-data-[size=sm]/avatar:text-tiny flex size-full items-center justify-center rounded-full font-semibold tracking-tight shadow-inner backdrop-blur-sm transition-colors group-data-[size=lg]/avatar:text-sm",
-        variant,
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </AvatarPrimitive.Fallback>
-  )
-})
+)
 AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName
 
 function AvatarBadge({ className, ...props }: React.ComponentProps<"span">) {
@@ -114,11 +123,11 @@ function AvatarBadge({ className, ...props }: React.ComponentProps<"span">) {
     <span
       data-slot="avatar-badge"
       className={cn(
-        "bg-primary text-primary-foreground ring-background absolute right-0 bottom-0 z-10 inline-flex items-center justify-center rounded-full bg-blend-color ring-2 select-none",
+        "absolute right-0 bottom-0 z-10 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground bg-blend-color ring-2 ring-background select-none",
         "group-data-[size=sm]/avatar:size-2 group-data-[size=sm]/avatar:[&>svg]:hidden",
         "group-data-[size=default]/avatar:size-2.5 group-data-[size=default]/avatar:[&>svg]:size-2",
         "group-data-[size=lg]/avatar:size-3 group-data-[size=lg]/avatar:[&>svg]:size-2",
-        className,
+        className
       )}
       {...props}
     />
@@ -136,7 +145,7 @@ function AvatarGroup({
       data-size={size}
       className={cn(
         "group/avatar-group flex items-center -space-x-3 data-[size=sm]:-space-x-2",
-        className,
+        className
       )}
       {...props}
     />
@@ -153,19 +162,19 @@ function AvatarGroupCount({
   const value = seed || (typeof children === "string" ? children : "+")
   const variant = React.useMemo(
     () => variantProp || getVariantFromString(value),
-    [value, variantProp],
+    [value, variantProp]
   )
 
   return (
     <div
       data-slot="avatar-group-count"
       className={cn(
-        "text-lgfont-semibold ring-background relative flex size-8 shrink-0 items-center justify-center rounded-full ring-2 backdrop-blur-sm select-none",
+        "text-lgfont-semibold relative flex size-8 shrink-0 items-center justify-center rounded-full ring-2 ring-background backdrop-blur-sm select-none",
         "group-data-[size=lg]/avatar-group:size-10 group-data-[size=sm]/avatar-group:size-6",
         "text-foreground/70",
         "bg-opacity-40",
         variant,
-        className,
+        className
       )}
       {...props}
     >
@@ -174,4 +183,11 @@ function AvatarGroupCount({
   )
 }
 
-export { Avatar, AvatarImage, AvatarFallback, AvatarGroup, AvatarGroupCount, AvatarBadge }
+export {
+  Avatar,
+  AvatarImage,
+  AvatarFallback,
+  AvatarGroup,
+  AvatarGroupCount,
+  AvatarBadge,
+}

@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, Suspense, useMemo } from "react"
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useTabUrlSync } from "@/hooks/useTabUrlSync"
 import { format } from "date-fns"
 import { toast } from "sonner"
 import {
@@ -25,10 +26,15 @@ import { ColumnDef } from "@tanstack/react-table"
 import { DataTable } from "@/components/ui/data-table"
 import {
   Tooltip,
-  TooltipContent,
   TooltipProvider,
+  TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card"
 
 // shadcn/ui components
 import { Input } from "@/components/ui/input"
@@ -59,6 +65,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -86,6 +93,11 @@ import { z } from "zod"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Field, FieldLabel, FieldError } from "@/components/ui/field"
+import {
+  Alert,
+  AlertTitle,
+  AlertDescription,
+} from "@/components/ui/alert"
 
 interface User {
   username: string
@@ -109,6 +121,7 @@ interface UserFormValues {
   allowedColumns?: string
   permissionPreset?: string
   perSheetPermissions?: Record<string, string[]>
+  isActive?: string
 }
 
 function generateSecurePassword(): string {
@@ -135,12 +148,13 @@ function generateSecurePassword(): string {
 }
 
 function UsersDirectoryContent() {
-  const { data: session, status: sessionStatus } = useSession()
+  const { data: session, status: sessionStatus, update: updateSession } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
 
-  const currentUsername =
-    (session?.user as any)?.username || session?.user?.name
-  const currentUserRole = (session?.user as any)?.role
+  // Use only the canonical username field — never fall back to display name
+  const currentUsername = (session?.user as any)?.username as string | undefined
+  const currentUserRole = (session?.user as any)?.role as string | undefined
 
   const [users, setUsers] = useState<User[]>([])
   const [loadingUsers, setLoadingUsers] = useState<boolean>(true)
@@ -155,9 +169,29 @@ function UsersDirectoryContent() {
   // Reset Password Dialog State
   const [isResetPasswordOpen, setIsResetPasswordOpen] = useState<boolean>(false)
   const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null)
-  const [newResetPassword, setNewResetPassword] = useState<string>("")
-  const [showResetPassword, setShowResetPassword] = useState<boolean>(false)
-  const [isResetSubmitting, setIsResetSubmitting] = useState<boolean>(false)
+
+  const resetPasswordSchema = z.object({
+    newPassword: z
+      .string()
+      .min(1, "Password is required")
+      .refine(isStrongPassword, {
+        message: "Password must be at least 8 chars with uppercase, number & symbol",
+      }),
+    showPassword: z.boolean().optional(),
+  })
+  type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>
+
+  const resetPasswordForm = useForm<ResetPasswordFormValues>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: { newPassword: "", showPassword: false },
+  })
+
+  // Tab inside the reset-password dialog — kept in sync with the URL.
+  // Industry convention: camelCase param key → ?resetPassword=open&tab=directChange
+  const [resetPasswordTab, setResetPasswordTab] = useState<string>(
+    () => searchParams.get("tab") ?? "direct"
+  )
+  useTabUrlSync(resetPasswordTab, "tab", isResetPasswordOpen)
 
   const schema = useMemo(() => {
     return z
@@ -173,6 +207,7 @@ function UsersDirectoryContent() {
           .record(z.string(), z.array(z.string()))
           .optional()
           .default({}),
+        isActive: z.string().optional(),
       })
       .superRefine((data, ctx) => {
         if (!isEditMode) {
@@ -219,6 +254,7 @@ function UsersDirectoryContent() {
       allowedColumns: "Comments,Notes",
       permissionPreset: "",
       perSheetPermissions: {},
+      isActive: "TRUE",
     },
   })
 
@@ -238,13 +274,9 @@ function UsersDirectoryContent() {
 
   useEffect(() => {
     if (sessionStatus === "authenticated") {
-      const currentUsername =
-        (session?.user as any)?.username || session?.user?.name
-      const currentUserRole = (session?.user as any)?.role
-      if (currentUsername !== "SabaAdmin" && currentUserRole !== "admin") {
-        toast.error(
-          "Access Denied: This route is specially bound to admins."
-        )
+      const urole = (session?.user as any)?.role as string | undefined
+      if (urole !== "admin") {
+        toast.error("Access Denied: This route is specially bound to admins.")
         router.push("/dashboard")
         return
       }
@@ -252,7 +284,8 @@ function UsersDirectoryContent() {
       fetchConnectedSheets()
       fetchPresets()
     }
-  }, [sessionStatus, session, router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionStatus])
 
   // Custom event listener for external modal open triggers (e.g., sidebar)
   useEffect(() => {
@@ -270,7 +303,7 @@ function UsersDirectoryContent() {
   const fetchUsers = async () => {
     setLoadingUsers(true)
     try {
-      const res = await fetch("/api/users")
+      const res = await fetch("/api/users", { cache: "no-store" })
       if (!res.ok) throw new Error("Failed to load users")
       const data = await res.json()
       setUsers(data.users || [])
@@ -401,6 +434,10 @@ function UsersDirectoryContent() {
         permissionPreset: "",
         perSheetPermissions: {},
       })
+      // Refresh the session JWT so header immediately shows the new displayName
+      if (isEditMode && data.username?.toLowerCase() === currentUsername?.toLowerCase()) {
+        await updateSession({ displayName: data.displayName })
+      }
       fetchUsers()
       return result
     }
@@ -476,50 +513,15 @@ function UsersDirectoryContent() {
   // Reset Sub-admin Password
   const handleOpenResetPassword = (user: User) => {
     setResetPasswordUser(user)
-    setNewResetPassword("")
-    setShowResetPassword(false)
+    resetPasswordForm.reset({ newPassword: "", showPassword: false })
     setIsResetPasswordOpen(true)
   }
 
-  const handleDirectPasswordReset = async () => {
-    if (!resetPasswordUser) return
-    if (!newResetPassword.trim()) {
-      toast.error("Password is required.")
-      return
-    }
-    if (!isStrongPassword(newResetPassword)) {
-      toast.error("Password does not meet the strength requirements.")
-      return
-    }
 
-    setIsResetSubmitting(true)
-    const promise = async () => {
-      const res = await fetch(`/api/users/${resetPasswordUser.username}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: newResetPassword.trim() }),
-      })
-
-      const result = await res.json()
-      if (!res.ok) throw new Error(result.error || "Failed to reset password.")
-
-      setIsResetPasswordOpen(false)
-      fetchUsers()
-      return result
-    }
-
-    toast.promise(promise(), {
-      loading: `Updating password for ${resetPasswordUser.username}...`,
-      success: "Password updated successfully.",
-      error: (err) => err.message || "Failed to reset password.",
-      finally: () => setIsResetSubmitting(false),
-    })
-  }
 
   const handleSendOtpEmail = async () => {
     if (!resetPasswordUser || !resetPasswordUser.email) return
 
-    setIsResetSubmitting(true)
     const promise = async () => {
       const res = await fetch("/api/auth/forgot-password", {
         method: "POST",
@@ -539,7 +541,34 @@ function UsersDirectoryContent() {
       loading: `Sending reset link to ${resetPasswordUser.email}...`,
       success: `Reset link dispatched to ${resetPasswordUser.email}.`,
       error: (err) => err.message || "Failed to send email.",
-      finally: () => setIsResetSubmitting(false),
+    })
+  }
+
+  const handleDeleteUser = async (username: string) => {
+    const confirmDelete = window.confirm(
+      `Are you absolutely sure you want to permanently delete user account: "${username}"?\nThis action is irreversible and will be logged.`
+    )
+    if (!confirmDelete) return
+
+    setActiveActionId(username)
+    const promise = async () => {
+      const res = await fetch(`/api/users/${username}`, {
+        method: "DELETE",
+      })
+
+      const result = await res.json()
+      if (!res.ok)
+        throw new Error(result.error || "Failed to delete user account.")
+
+      fetchUsers()
+      return result
+    }
+
+    toast.promise(promise(), {
+      loading: `Deleting user account: ${username}...`,
+      success: `User account "${username}" has been permanently deleted.`,
+      error: (err) => err.message || "Failed to delete user account.",
+      finally: () => setActiveActionId(null),
     })
   }
 
@@ -555,6 +584,7 @@ function UsersDirectoryContent() {
       allowedColumns: user.allowedColumns,
       permissionPreset: user.permissionPreset || "",
       perSheetPermissions: user.perSheetPermissions || {},
+      isActive: user.isActive,
     })
     setIsAddUserOpen(true)
   }
@@ -571,6 +601,7 @@ function UsersDirectoryContent() {
       allowedColumns: user.allowedColumns,
       permissionPreset: user.permissionPreset || "",
       perSheetPermissions: user.perSheetPermissions || {},
+      isActive: user.isActive,
     })
     setIsAddUserOpen(true)
   }
@@ -587,6 +618,7 @@ function UsersDirectoryContent() {
       allowedColumns: "Comments,Notes",
       permissionPreset: "",
       perSheetPermissions: {},
+      isActive: "TRUE",
     })
     setIsAddUserOpen(true)
   }
@@ -631,16 +663,69 @@ function UsersDirectoryContent() {
       {
         accessorKey: "allowedColumns",
         header: "Permissions",
-        cell: ({ row }) => (
-          <Badge variant="outline" className="px-2.5 py-1 font-mono text-xs">
-            {row.original.role === "admin" ||
-            !row.original.allowedColumns ||
-            row.original.allowedColumns === "*" ||
-            row.original.allowedColumns.toLowerCase() === "none"
-              ? "All"
-              : row.original.allowedColumns}
-          </Badge>
-        ),
+        cell: ({ row }) => {
+          const user = row.original
+          const isAdmin =
+            user.role === "admin" ||
+            !user.allowedColumns ||
+            user.allowedColumns === "*"
+          const presetName = presets.find(
+            (p) => p.id === user.permissionPreset
+          )?.name
+          const cols = isAdmin
+            ? ["All Columns"]
+            : user.allowedColumns
+              ? user.allowedColumns.split(",").map((c) => c.trim())
+              : []
+          return (
+            <HoverCard openDelay={100} closeDelay={80}>
+              <HoverCardTrigger asChild>
+                <Badge
+                  variant="outline"
+                  className="cursor-help font-mono text-tiny"
+                >
+                  {isAdmin
+                    ? "All Access"
+                    : presetName
+                      ? presetName
+                      : `${cols.length} col${cols.length !== 1 ? "s" : ""}`}
+                </Badge>
+              </HoverCardTrigger>
+              <HoverCardContent
+                side="top"
+                align="start"
+                className="w-56 space-y-2 p-3"
+              >
+                {presetName && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">
+                      Preset
+                    </span>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {presetName}
+                    </Badge>
+                  </div>
+                )}
+                <div>
+                  <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">
+                    {isAdmin ? "Access" : "Allowed Columns"}
+                  </span>
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {cols.map((col) => (
+                      <Badge
+                        key={col}
+                        variant="outline"
+                        className="text-tiny font-mono"
+                      >
+                        {col}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </HoverCardContent>
+            </HoverCard>
+          )
+        },
       },
       {
         accessorKey: "createdAt",
@@ -658,7 +743,7 @@ function UsersDirectoryContent() {
             variant={
               row.original.isActive === "TRUE" ? "default" : "destructive"
             }
-            className="rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase"
+            className="text-xs font-bold tracking-wider uppercase"
           >
             {row.original.isActive === "TRUE" ? "Active" : "Suspended"}
           </Badge>
@@ -669,9 +754,15 @@ function UsersDirectoryContent() {
         header: () => <div className="text-right">Actions</div>,
         cell: ({ row }) => {
           const user = row.original
-          const isSelf = user.username.toLowerCase() === currentUsername?.toLowerCase();
-          const isTargetAdminOrSabaAdmin = user.role === "admin" || user.username.toLowerCase() === "sabaadmin";
-          const cannotModify = currentUserRole === "admin" && currentUsername !== "SabaAdmin" && !isSelf && isTargetAdminOrSabaAdmin;
+          const isSelf =
+            user.username.toLowerCase() === currentUsername?.toLowerCase()
+          const isTargetAdminOrSabaAdmin =
+            user.role === "admin" || user.username.toLowerCase() === "sabaadmin"
+          const cannotModify =
+            currentUserRole === "admin" &&
+            currentUsername !== "SabaAdmin" &&
+            !isSelf &&
+            isTargetAdminOrSabaAdmin
 
           return (
             <div className="flex justify-end gap-2">
@@ -682,7 +773,9 @@ function UsersDirectoryContent() {
                       variant="outline"
                       size="icon-xs"
                       onClick={() => handleEditUser(user)}
-                      disabled={activeActionId === user.username || cannotModify}
+                      disabled={
+                        activeActionId === user.username || cannotModify
+                      }
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
@@ -710,7 +803,9 @@ function UsersDirectoryContent() {
                       variant="outline"
                       size="icon-xs"
                       onClick={() => handleOpenResetPassword(user)}
-                      disabled={activeActionId === user.username || cannotModify}
+                      disabled={
+                        activeActionId === user.username || cannotModify
+                      }
                     >
                       {activeActionId === user.username ? (
                         <Spinner className="h-3.5 w-3.5" />
@@ -727,13 +822,12 @@ function UsersDirectoryContent() {
                     <Button
                       variant="destructive"
                       size="icon-xs"
-                      onClick={() => {
-                        toast.info("Delete functionality not implemented yet.")
-                      }}
+                      onClick={() => handleDeleteUser(user.username)}
                       disabled={
                         activeActionId === user.username ||
                         user.username?.toLowerCase() === "sabaadmin" ||
-                        cannotModify
+                        cannotModify ||
+                        isSelf
                       }
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -747,7 +841,16 @@ function UsersDirectoryContent() {
         },
       },
     ],
-    [handleEditUser, handleViewUser, handleOpenResetPassword, activeActionId, currentUsername, currentUserRole]
+    [
+      handleEditUser,
+      handleViewUser,
+      handleOpenResetPassword,
+      handleDeleteUser,
+      activeActionId,
+      currentUsername,
+      currentUserRole,
+      presets,
+    ]
   )
 
   if (sessionStatus === "loading") {
@@ -774,8 +877,8 @@ function UsersDirectoryContent() {
             Access Restricted
           </CardTitle>
           <CardDescription className="mt-2 text-muted-foreground">
-            This route is specially bound to admins. You do not have
-            permission to view or modify system accounts.
+            This route is specially bound to admins. You do not have permission
+            to view or modify system accounts.
           </CardDescription>
           <Button
             onClick={() => router.push("/dashboard")}
@@ -849,11 +952,11 @@ function UsersDirectoryContent() {
         </CardContent>
       </Card>
 
-      {/* Modal Dialog for User Creation */}
+      {/* URL pattern: ?userModal=open — camelCase key, stable name */}
       <Dialog
         open={isAddUserOpen}
         onOpenChange={setIsAddUserOpen}
-        name={isViewMode ? "viewUser" : isEditMode ? "editUser" : "createUser"}
+        name="userModal"
       >
         <DialogContent>
           <DialogHeader className="sticky top-0 z-10 border-b border-border">
@@ -878,232 +981,339 @@ function UsersDirectoryContent() {
               isViewMode ? (e) => e.preventDefault() : handleSubmit(onSubmit)
             }
           >
-            <div className="space-y-6 overflow-y-auto p-4">
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                {/* Username */}
-                <Controller
-                  name="username"
-                  control={control}
-                  render={({ field }) => (
-                    <Field data-invalid={!!errors.username}>
-                      <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                        Unique Username *
-                      </FieldLabel>
-                      <Input
-                        {...field}
-                        type="text"
-                        placeholder="e.g. rahul_sub"
-                        disabled={isEditMode || isViewMode}
-                      />
-                      <FieldError errors={[errors.username]} />
-                    </Field>
-                  )}
-                />
-
-                {/* Display Name */}
-                <Controller
-                  name="displayName"
-                  control={control}
-                  render={({ field }) => (
-                    <Field data-invalid={!!errors.displayName}>
-                      <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                        Display Name *
-                      </FieldLabel>
-                      <Input
-                        {...field}
-                        type="text"
-                        placeholder="e.g. Rahul Sharma (Advisor)"
-                        disabled={isViewMode}
-                      />
-                      <FieldError errors={[errors.displayName]} />
-                    </Field>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                {/* Email */}
-                <Controller
-                  name="email"
-                  control={control}
-                  render={({ field }) => (
-                    <Field
-                      data-invalid={!!errors.email}
-                      className={isViewMode ? "md:col-span-2" : ""}
-                    >
-                      <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                        Email Address
-                      </FieldLabel>
-                      <Input
-                        {...field}
-                        type="email"
-                        placeholder="e.g. rahul@domain.com"
-                        disabled={isViewMode}
-                      />
-                      <FieldError errors={[errors.email]} />
-                    </Field>
-                  )}
-                />
-
-                {/* Password */}
-                {!isViewMode && !isEditMode && (
-                  <Controller
-                    name="password"
-                    control={control}
-                    render={({ field }) => (
-                      <Field data-invalid={!!errors.password}>
-                        <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                          {isEditMode
-                            ? "New Password (Optional)"
-                            : "Login Password *"}
-                        </FieldLabel>
-                        <InputGroup>
-                          <InputGroupInput
-                            {...field}
-                            type={showPassword ? "text" : "password"}
-                            placeholder={
-                              isEditMode
-                                ? "Leave blank to keep current"
-                                : "Create secure password"
-                            }
-                          />
-                          <InputGroupAddon
-                            align="inline-end"
-                            className="flex items-center gap-1"
-                          >
-                            <InputGroupButton
-                              size="icon-xs"
-                              type="button"
-                              onClick={() => {
-                                const securePw = generateSecurePassword()
-                                setValue("password", securePw)
-                                setShowPassword(true)
-                                navigator.clipboard.writeText(securePw)
-                                toast.success(
-                                  "Secure password generated and copied to clipboard!"
-                                )
-                              }}
-                              title="Generate Secure Password"
-                            >
-                              <Sparkles className="size-4 text-primary" />
-                            </InputGroupButton>
-                            <InputGroupButton
-                              size="icon-xs"
-                              type="button"
-                              onClick={() => setShowPassword(!showPassword)}
-                            >
-                              {showPassword ? (
-                                <EyeOff className="size-4" />
-                              ) : (
-                                <Eye className="size-4" />
-                              )}
-                            </InputGroupButton>
-                          </InputGroupAddon>
-                        </InputGroup>
-
-                        {watchedPassword && (
-                          <PasswordStrength
-                            password={watchedPassword}
-                            className="mt-2"
-                          />
-                        )}
-                        <FieldError errors={[errors.password]} />
-                      </Field>
-                    )}
-                  />
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                {/* Role */}
-                <Controller
-                  name="role"
-                  control={control}
-                  render={({ field }) => (
-                    <Field data-invalid={!!errors.role}>
-                      <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                        Role *
-                      </FieldLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
-                        disabled={
-                          isViewMode ||
-                          watch("username")?.toLowerCase() === "sabaadmin" ||
-                          (currentUsername !== "SabaAdmin" && currentUserRole === "admin")
+            {isViewMode ? (
+              <div className="space-y-5 overflow-y-auto p-5">
+                {/* Identity Hero Card */}
+                <div className="relative overflow-hidden rounded-xl border border-border bg-gradient-to-br from-card to-card/60 p-5 shadow-sm">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-lg font-bold text-primary shadow-inner">
+                        {watch("displayName")?.substring(0, 2).toUpperCase() || "US"}
+                        <span
+                          className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card ${
+                            watch("isActive") === "TRUE" ? "bg-emerald-500" : "bg-rose-500"
+                          }`}
+                        />
+                      </div>
+                      <div>
+                        <h4 className="text-base font-bold leading-tight text-foreground">
+                          {watch("displayName")}
+                        </h4>
+                        <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+                          @{watch("username")}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                      <Badge
+                        variant={watch("isActive") === "TRUE" ? "default" : "destructive"}
+                        className={
+                          watch("isActive") === "TRUE"
+                            ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400"
+                            : "border border-rose-500/20 bg-rose-500/10 text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
                         }
                       >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select Role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="admin">
-                            Admin (Full Access)
-                          </SelectItem>
-                          <SelectItem value="sub-admin">
-                            Sub-Admin (Restricted)
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FieldError errors={[errors.role]} />
-                    </Field>
-                  )}
-                />
-                <div></div>
+                        <span
+                          className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${
+                            watch("isActive") === "TRUE" ? "bg-emerald-500" : "bg-rose-500"
+                          }`}
+                        />
+                        {watch("isActive") === "TRUE" ? "Active" : "Suspended"}
+                      </Badge>
+                      <Badge
+                        variant={watch("role") === "admin" ? "default" : "secondary"}
+                        className="capitalize text-[10px] tracking-wide"
+                      >
+                        {watch("role") === "admin" ? "⚡ Admin" : "🔒 Sub-Admin"}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1 rounded-lg border border-border bg-muted/30 p-3.5">
+                    <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">
+                      Username
+                    </span>
+                    <p className="font-mono text-sm font-semibold text-foreground">
+                      {watch("username")}
+                    </p>
+                  </div>
+                  <div className="space-y-1 rounded-lg border border-border bg-muted/30 p-3.5">
+                    <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">
+                      Display Name
+                    </span>
+                    <p className="text-sm font-semibold text-foreground">
+                      {watch("displayName")}
+                    </p>
+                  </div>
+                  <div className="space-y-1 rounded-lg border border-border bg-muted/30 p-3.5 sm:col-span-2">
+                    <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">
+                      Email Address
+                    </span>
+                    <p className="text-sm font-semibold text-foreground">
+                      {watch("email") ? (
+                        <a
+                          href={`mailto:${watch("email")}`}
+                          className="text-primary underline underline-offset-2 hover:opacity-80"
+                        >
+                          {watch("email")}
+                        </a>
+                      ) : (
+                        <span className="font-normal italic text-muted-foreground">Not provided</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                {watchedRole === "sub-admin" && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 border-b border-border/40 pb-2">
+                      <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">
+                        Sheet &amp; Column Permissions
+                      </span>
+                      {watch("permissionPreset") && (
+                        <Badge variant="outline" className="ml-auto text-[10px]">
+                          {presets.find((p) => p.id === watch("permissionPreset"))?.name ?? "Custom Preset"}
+                        </Badge>
+                      )}
+                    </div>
+                    <PermissionSelector
+                      sheets={sheetsWithColumns}
+                      value={watch("perSheetPermissions") || {}}
+                      onChange={() => {}}
+                      presets={presets}
+                      onPresetSelect={() => {}}
+                      disabled={true}
+                    />
+                  </div>
+                )}
               </div>
-
-              {watchedRole === "sub-admin" && (
-                <div className="space-y-6">
+            ) : (
+              <div className="space-y-6 overflow-y-auto p-4">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  {/* Username */}
                   <Controller
-                    name="perSheetPermissions"
+                    name="username"
                     control={control}
                     render={({ field }) => (
-                      <Field>
+                      <Field data-invalid={!!errors.username}>
                         <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                          Column Permissions
+                          Unique Username *
                         </FieldLabel>
-                        <PermissionSelector
-                          sheets={sheetsWithColumns}
-                          value={field.value}
-                          onChange={(permissions) => {
-                            field.onChange(permissions)
-                            setValue("permissionPreset", "")
-                          }}
-                          presets={presets}
-                          onPresetSelect={(presetId) => {
-                            const preset = presets.find(
-                              (p) => p.id === presetId
-                            )
-                            if (preset) {
-                              setValue(
-                                "perSheetPermissions",
-                                preset.permissions
-                              )
-                              setValue("permissionPreset", preset.id)
-                            }
-                          }}
-                          disabled={isViewMode}
+                        <Input
+                          {...field}
+                          type="text"
+                          placeholder="e.g. rahul_sub"
+                          disabled={isEditMode || isViewMode}
                         />
+                        <FieldError errors={[errors.username]} />
                       </Field>
                     )}
                   />
 
-                  {!isViewMode && (
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                        Save as Preset Name (Optional)
-                      </label>
-                      <Input
-                        type="text"
-                        placeholder="e.g. Sub-Admin Default"
-                        value={newPresetName}
-                        onChange={(e) => setNewPresetName(e.target.value)}
-                      />
-                    </div>
+                  {/* Display Name */}
+                  <Controller
+                    name="displayName"
+                    control={control}
+                    render={({ field }) => (
+                      <Field data-invalid={!!errors.displayName}>
+                        <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                          Display Name *
+                        </FieldLabel>
+                        <Input
+                          {...field}
+                          type="text"
+                          placeholder="e.g. Rahul Sharma (Advisor)"
+                          disabled={isViewMode}
+                        />
+                        <FieldError errors={[errors.displayName]} />
+                      </Field>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  {/* Email */}
+                  <Controller
+                    name="email"
+                    control={control}
+                    render={({ field }) => (
+                      <Field
+                        data-invalid={!!errors.email}
+                        className={isViewMode ? "md:col-span-2" : ""}
+                      >
+                        <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                          Email Address
+                        </FieldLabel>
+                        <Input
+                          {...field}
+                          type="email"
+                          placeholder="e.g. rahul@domain.com"
+                          disabled={isViewMode}
+                        />
+                        <FieldError errors={[errors.email]} />
+                      </Field>
+                    )}
+                  />
+
+                  {/* Password */}
+                  {!isViewMode && !isEditMode && (
+                    <Controller
+                      name="password"
+                      control={control}
+                      render={({ field }) => (
+                        <Field data-invalid={!!errors.password}>
+                          <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                            {isEditMode
+                              ? "New Password (Optional)"
+                              : "Login Password *"}
+                          </FieldLabel>
+                          <InputGroup>
+                            <InputGroupInput
+                              {...field}
+                              type={showPassword ? "text" : "password"}
+                              placeholder={
+                                isEditMode
+                                  ? "Leave blank to keep current"
+                                  : "Create secure password"
+                              }
+                            />
+                            <InputGroupAddon
+                              align="inline-end"
+                              className="flex items-center gap-1"
+                            >
+                              <InputGroupButton
+                                size="icon-xs"
+                                type="button"
+                                onClick={() => {
+                                  const securePw = generateSecurePassword()
+                                  setValue("password", securePw)
+                                  setShowPassword(true)
+                                  navigator.clipboard.writeText(securePw)
+                                  toast.success(
+                                    "Secure password generated and copied to clipboard!"
+                                  )
+                                }}
+                                title="Generate Secure Password"
+                              >
+                                <Sparkles className="size-4 text-primary" />
+                              </InputGroupButton>
+                              <InputGroupButton
+                                size="icon-xs"
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                              >
+                                {showPassword ? (
+                                  <EyeOff className="size-4" />
+                                ) : (
+                                  <Eye className="size-4" />
+                                )}
+                              </InputGroupButton>
+                            </InputGroupAddon>
+                          </InputGroup>
+
+                          <PasswordStrength
+                            password={watchedPassword || ""}
+                            className="mt-2"
+                          />
+                          <FieldError errors={[errors.password]} />
+                        </Field>
+                      )}
+                    />
                   )}
                 </div>
-              )}
-            </div>
+
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                  {/* Role */}
+                  <Controller
+                    name="role"
+                    control={control}
+                    render={({ field }) => (
+                      <Field data-invalid={!!errors.role}>
+                        <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                          Role *
+                        </FieldLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          disabled={
+                            isViewMode ||
+                            watch("username")?.toLowerCase() === "sabaadmin" ||
+                            (currentUsername !== "SabaAdmin" &&
+                              currentUserRole === "admin")
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Role" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="admin">
+                              Admin (Full Access)
+                            </SelectItem>
+                            <SelectItem value="sub-admin">
+                              Sub-Admin (Restricted)
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FieldError errors={[errors.role]} />
+                      </Field>
+                    )}
+                  />
+                  <div></div>
+                </div>
+
+                {watchedRole === "sub-admin" && (
+                  <div className="space-y-6">
+                    <Controller
+                      name="perSheetPermissions"
+                      control={control}
+                      render={({ field }) => (
+                        <Field>
+                          <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                            Column Permissions
+                          </FieldLabel>
+                          <PermissionSelector
+                            sheets={sheetsWithColumns}
+                            value={field.value}
+                            onChange={(permissions) => {
+                              field.onChange(permissions)
+                              setValue("permissionPreset", "")
+                            }}
+                            presets={presets}
+                            onPresetSelect={(presetId) => {
+                              const preset = presets.find(
+                                (p) => p.id === presetId
+                              )
+                              if (preset) {
+                                setValue(
+                                  "perSheetPermissions",
+                                  preset.permissions
+                                )
+                                setValue("permissionPreset", preset.id)
+                              }
+                            }}
+                            disabled={isViewMode}
+                          />
+                        </Field>
+                      )}
+                    />
+
+                    {!isViewMode && (
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                          Save as Preset Name (Optional)
+                        </label>
+                        <Input
+                          type="text"
+                          placeholder="e.g. Sub-Admin Default"
+                          value={newPresetName}
+                          onChange={(e) => setNewPresetName(e.target.value)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex justify-end gap-3 border-t border-border bg-popover p-4 pt-4 sm:p-6">
               {isViewMode ? (
@@ -1140,10 +1350,17 @@ function UsersDirectoryContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Premium Credentials Management Dialog */}
-      <Dialog open={isResetPasswordOpen} onOpenChange={setIsResetPasswordOpen}>
+      {/* URL pattern: ?resetPassword=open&tab=direct | tab=otp */}
+      <Dialog
+        open={isResetPasswordOpen}
+        onOpenChange={(open) => {
+          setIsResetPasswordOpen(open)
+          if (!open) setResetPasswordTab("direct")
+        }}
+        name="resetPassword"
+      >
         <DialogContent>
-          <DialogHeader className="border-b border-border pb-4">
+          <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl font-bold">
               <Key className="h-5 w-5 text-primary" />
               Reset Password & Access Options
@@ -1157,163 +1374,196 @@ function UsersDirectoryContent() {
             </p>
           </DialogHeader>
 
-          <Tabs defaultValue="direct" className="mt-4 w-full">
-            <TabsList className="grid w-full grid-cols-2">
+          {/* Controlled Tabs — value kept in sync with ?tab=direct | tab=otp */}
+          <Tabs
+            value={resetPasswordTab}
+            onValueChange={setResetPasswordTab}
+            className="w-fit m-2"
+          >
+            <TabsList className="grid w-fit grid-cols-2">
               <TabsTrigger value="direct">Direct Password</TabsTrigger>
               <TabsTrigger value="otp">OTP Reset Link</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="direct" className="space-y-4">
-              <div className="relative space-y-4 overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm transition-all hover:border-primary/20">
-                <div className="absolute top-0 left-0 h-full w-1 bg-primary" />
-                <div>
-                  <h4 className="flex items-center gap-1.5 text-sm font-bold text-foreground">
-                    Direct Password Change
-                  </h4>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Update the password immediately. The user will be required
-                    to use this new password on their next login.
-                  </p>
-                </div>
+            <TabsContent value="direct">
+              <Card className="border ring-0 shadow-none">
+                <CardContent className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-bold text-foreground">Direct Password Change</h4>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Update the password immediately. The user will be required to use this new
+                      password on their next login.
+                    </p>
+                  </div>
 
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                      New Secure Password *
-                    </label>
-                    <InputGroup>
-                      <InputGroupInput
-                        type={showResetPassword ? "text" : "password"}
-                        value={newResetPassword}
-                        onChange={(e) => setNewResetPassword(e.target.value)}
-                        placeholder="Enter new secure password"
-                      />
-                      <InputGroupAddon
-                        align="inline-end"
-                        className="flex items-center gap-1"
-                      >
-                        <InputGroupButton
-                          size="icon-xs"
-                          type="button"
-                          onClick={() => {
-                            const securePw = generateSecurePassword()
-                            setNewResetPassword(securePw)
-                            setShowResetPassword(true)
-                            navigator.clipboard.writeText(securePw)
-                            toast.success(
-                              "Secure password generated and copied to clipboard!"
-                            )
-                          }}
-                          title="Generate Secure Password"
-                        >
-                          <Sparkles className="size-4 text-primary" />
-                        </InputGroupButton>
-                        <InputGroupButton
-                          size="icon-xs"
-                          type="button"
-                          onClick={() =>
-                            setShowResetPassword(!showResetPassword)
+                  <form
+                    onSubmit={resetPasswordForm.handleSubmit(async (values) => {
+                      if (!resetPasswordUser) return
+                      const promise = async () => {
+                        const res = await fetch(
+                          `/api/users/${resetPasswordUser.username}`,
+                          {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ password: values.newPassword }),
                           }
-                        >
-                          {showResetPassword ? (
-                            <EyeOff className="size-4" />
-                          ) : (
-                            <Eye className="size-4" />
-                          )}
-                        </InputGroupButton>
-                      </InputGroupAddon>
-                    </InputGroup>
-                  </div>
-
-                  {newResetPassword && (
-                    <PasswordStrength
-                      password={newResetPassword}
-                      className="mt-2"
+                        )
+                        const result = await res.json()
+                        if (!res.ok)
+                          throw new Error(result.error || "Failed to reset password.")
+                        setIsResetPasswordOpen(false)
+                        fetchUsers()
+                        return result
+                      }
+                      toast.promise(promise(), {
+                        loading: `Updating password for ${resetPasswordUser.username}...`,
+                        success: "Password updated successfully.",
+                        error: (err) => err.message || "Failed to reset password.",
+                      })
+                    })}
+                    className="space-y-4"
+                  >
+                    <Controller
+                      name="newPassword"
+                      control={resetPasswordForm.control}
+                      render={({ field }) => (
+                        <Field data-invalid={!!resetPasswordForm.formState.errors.newPassword}>
+                          <FieldLabel className="text-tiny font-bold uppercase tracking-wider text-muted-foreground">
+                            New Secure Password *
+                          </FieldLabel>
+                          <InputGroup>
+                            <InputGroupInput
+                              {...field}
+                              type={
+                                resetPasswordForm.watch("showPassword") ? "text" : "password"
+                              }
+                              placeholder="Enter new secure password"
+                              autoComplete="new-password"
+                            />
+                            <InputGroupAddon align="inline-end" className="flex items-center gap-1">
+                              <InputGroupButton
+                                size="icon-xs"
+                                type="button"
+                                title="Generate Secure Password"
+                                onClick={() => {
+                                  const pw = generateSecurePassword()
+                                  field.onChange(pw)
+                                  resetPasswordForm.setValue("showPassword", true)
+                                  navigator.clipboard.writeText(pw)
+                                  toast.success("Secure password generated & copied!")
+                                }}
+                              >
+                                <Sparkles className="size-4 text-primary" />
+                              </InputGroupButton>
+                              <InputGroupButton
+                                size="icon-xs"
+                                type="button"
+                                onClick={() =>
+                                  resetPasswordForm.setValue(
+                                    "showPassword",
+                                    !resetPasswordForm.watch("showPassword")
+                                  )
+                                }
+                              >
+                                {resetPasswordForm.watch("showPassword") ? (
+                                  <EyeOff className="size-4" />
+                                ) : (
+                                  <Eye className="size-4" />
+                                )}
+                              </InputGroupButton>
+                            </InputGroupAddon>
+                          </InputGroup>
+                          <PasswordStrength
+                            password={field.value || ""}
+                            className="mt-2"
+                          />
+                          <FieldError
+                            errors={[resetPasswordForm.formState.errors.newPassword]}
+                          />
+                        </Field>
+                      )}
                     />
-                  )}
-                </div>
 
-                <Button
-                  type="button"
-                  onClick={handleDirectPasswordReset}
-                  disabled={
-                    isResetSubmitting || !isStrongPassword(newResetPassword)
-                  }
-                >
-                  {isResetSubmitting ? (
-                    <Spinner className="h-4 w-4" />
-                  ) : (
-                    <Check className="h-4 w-4" />
-                  )}
-                  Update Password Immediately
-                </Button>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="otp" className="space-y-4">
-              <div className="relative space-y-4 overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm transition-all hover:border-amber-500/20">
-                <div className="absolute top-0 left-0 h-full w-1 bg-amber-500" />
-                <div>
-                  <h4 className="flex items-center gap-1.5 text-sm font-bold text-foreground">
-                    Trigger OTP Password Reset Link
-                  </h4>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Generate a temporary OTP code and dispatch a secure reset
-                    link directly to the user's registered email address.
-                  </p>
-                </div>
-
-                {!resetPasswordUser?.email ? (
-                  <div className="flex gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-500">
-                    <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
-                    <div>
-                      <span className="font-bold">
-                        Email Verification Disabled
-                      </span>
-                      <p className="mt-0.5 text-muted-foreground">
-                        This user account does not have a configured email
-                        address. Direct password change must be used.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between rounded-lg border border-border bg-muted/50 p-2.5 text-xs">
-                      <span className="text-muted-foreground">
-                        Destination Email:
-                      </span>
-                      <span className="font-mono font-medium">
-                        {resetPasswordUser.email}
-                      </span>
-                    </div>
                     <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleSendOtpEmail}
-                      disabled={isResetSubmitting}
+                      type="submit"
+                      disabled={resetPasswordForm.formState.isSubmitting}
                     >
-                      {isResetSubmitting ? (
+                      {resetPasswordForm.formState.isSubmitting ? (
                         <Spinner className="h-4 w-4" />
                       ) : (
-                        <RefreshCw className="h-4 w-4" />
+                        <Check className="h-4 w-4" />
                       )}
-                      Send Reset Link Email
+                      Update Password Immediately
                     </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="otp">
+              <Card className="border ring-0 shadow-none">
+                <CardContent className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-bold text-foreground">Trigger OTP Password Reset Link</h4>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Generate a temporary OTP code and dispatch a secure reset link directly to
+                      the user's registered email address.
+                    </p>
                   </div>
-                )}
-              </div>
+
+                  {!resetPasswordUser?.email ? (
+                    <Alert className="border-amber-500/30 bg-amber-500/5 text-amber-600 dark:text-amber-400">
+                      <ShieldAlert className="size-4" />
+                      <AlertTitle className="font-bold">Email Not Configured</AlertTitle>
+                      <AlertDescription className="text-amber-600/80 dark:text-amber-400/80">
+                        This account has no registered email address. Use the Direct
+                        Password tab instead.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <div className="space-y-3">
+                      <Card className="border shadow-none">
+                        <CardContent className="flex items-center justify-between p-3">
+                          <span className="text-tiny font-bold uppercase tracking-wider text-muted-foreground">
+                            Destination
+                          </span>
+                          <Badge variant="outline" className="font-mono">
+                            {resetPasswordUser.email}
+                          </Badge>
+                        </CardContent>
+                      </Card>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        onClick={handleSendOtpEmail}
+                        disabled={resetPasswordForm.formState.isSubmitting}
+                      >
+                        <Spinner
+                          className={`h-4 w-4 ${
+                            resetPasswordForm.formState.isSubmitting
+                              ? "opacity-100"
+                              : "opacity-0"
+                          }`}
+                        />
+                        Send Reset Link Email
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
 
-          <div className="mt-2 flex justify-end gap-3 border-t border-border pt-4">
+          <DialogFooter>
             <Button
-              variant="outline"
+              variant="destructive"
               type="button"
               onClick={() => setIsResetPasswordOpen(false)}
             >
               Cancel
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

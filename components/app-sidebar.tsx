@@ -75,7 +75,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { NavUser } from "@/components/nav-user"
-import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import {
+  TooltipProvider,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip"
 import { Spinner } from "./ui/spinner"
 import { Separator } from "./ui/separator"
 
@@ -177,9 +182,11 @@ export function AppSidebar({
     }
 
     if (user.username === "SabaAdmin") {
-      items.push(
-        { title: "Users Directory", url: "/dashboard/users", icon: Users }
-      )
+      items.push({
+        title: "Users Directory",
+        url: "/dashboard/users",
+        icon: Users,
+      })
     }
 
     items.push({
@@ -279,7 +286,7 @@ export function AppSidebar({
                 {searchTerm !== debouncedTerm && searchTerm.length > 0 ? (
                   <Spinner className="size-3.5 text-muted-foreground" />
                 ) : (
-                  <Kbd className="text-tiny">CTRL + K</Kbd>
+                  <Kbd className="text-xs">CTRL + K</Kbd>
                 )}
               </InputGroupAddon>
             </InputGroup>
@@ -336,7 +343,9 @@ export function AppSidebar({
                       variant="secondary"
                       size="icon-sm"
                       onClick={() =>
-                        window.dispatchEvent(new Event("open_connect_sheet_dialog"))
+                        window.dispatchEvent(
+                          new Event("open_connect_sheet_dialog")
+                        )
                       }
                     >
                       <Plus className="h-3.5 w-3.5" />

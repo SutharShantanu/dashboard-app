@@ -181,7 +181,7 @@ export function SettingsDialog({ open, onOpenChange, user }: SettingsDialogProps
                   <div className="flex flex-col gap-1">
                     <span className="text-sm font-medium">Account Created</span>
                     <span className="text-xs text-muted-foreground">Your account has been successfully provisioned.</span>
-                    <span className="text-[10px] text-muted-foreground">Just now</span>
+                    <span className="text-tiny text-muted-foreground">Just now</span>
                   </div>
                 </div>
                 <div className="flex items-start gap-4 rounded-lg border p-3">
@@ -191,7 +191,7 @@ export function SettingsDialog({ open, onOpenChange, user }: SettingsDialogProps
                   <div className="flex flex-col gap-1">
                     <span className="text-sm font-medium">Database Synced</span>
                     <span className="text-xs text-muted-foreground">The primary student database was synced from Google Sheets.</span>
-                    <span className="text-[10px] text-muted-foreground">2 hours ago</span>
+                    <span className="text-tiny text-muted-foreground">2 hours ago</span>
                   </div>
                 </div>
                 <div className="flex items-start gap-4 rounded-lg border p-3 opacity-60">
@@ -201,7 +201,7 @@ export function SettingsDialog({ open, onOpenChange, user }: SettingsDialogProps
                   <div className="flex flex-col gap-1">
                     <span className="text-sm font-medium">Security Alert</span>
                     <span className="text-xs text-muted-foreground">New login detected from a different IP address.</span>
-                    <span className="text-[10px] text-muted-foreground">Yesterday</span>
+                    <span className="text-tiny text-muted-foreground">Yesterday</span>
                   </div>
                 </div>
               </div>

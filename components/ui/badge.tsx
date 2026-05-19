@@ -29,8 +29,8 @@ const badgeVariants = cva(
           "bg-destructive/10 border-none text-destructive-foreground dark:bg-destructive/20",
       },
       size: {
-        xs: "h-4 px-1 text-[0.6rem]",
-        sm: "h-4.5 px-1 text-[0.625rem]",
+        xs: "h-4 px-1 text-tiny",
+        sm: "h-4.5 px-1 text-tiny",
         default: "h-5 px-2 text-xs",
         lg: "h-5.5 px-2.5 text-xs",
         xl: "h-6 px-3 text-sm",

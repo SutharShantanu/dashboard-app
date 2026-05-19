@@ -4,6 +4,8 @@ import { authOptions } from "../../../lib/auth";
 import { getUsers, createUser, User, getStudents } from "../../../lib/sheets";
 import bcrypt from "bcryptjs";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);

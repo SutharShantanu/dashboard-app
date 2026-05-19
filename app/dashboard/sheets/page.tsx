@@ -223,7 +223,7 @@ export default function SheetsManagementPage() {
                     })
                   : "-"}
               </span>
-              <span className="text-[10px] opacity-70">
+              <span className="text-tiny opacity-70">
                 {createdAt
                   ? format(new Date(createdAt), "MMM d, yyyy HH:mm")
                   : ""}

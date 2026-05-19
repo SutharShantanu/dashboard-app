@@ -223,7 +223,7 @@ export function PermissionSelector({
           <CardHeader className="p-3">
             <CardTitle className="flex items-center justify-between text-xs font-medium">
               Granted Columns
-              <Badge variant="secondary" className="text-tiny h-4">
+              <Badge variant="secondary" className="h-4 text-xs">
                 {grantedColumns.length}
               </Badge>
             </CardTitle>

@@ -432,10 +432,10 @@ export default function SheetDetailPage() {
                 </TooltipTrigger>
                 <TooltipContent>
                   <p className="text-xs font-semibold">{user.name}</p>
-                  <p className="text-[10px] text-muted-foreground capitalize">
+                  <p className="text-tiny text-muted-foreground capitalize">
                     {user.role}
                   </p>
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-tiny text-muted-foreground">
                     {user.isActive ? "Active now" : "Offline"}
                   </p>
                 </TooltipContent>
