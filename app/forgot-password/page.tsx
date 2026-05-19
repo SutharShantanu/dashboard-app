@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,14 +9,30 @@ import { Label } from "@/components/ui/label";
 import { Mail, KeyRound, Lock, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  useEffect(() => {
+    const emailParam = searchParams.get("email");
+    const otpParam = searchParams.get("otp");
+    if (emailParam) {
+      setEmail(emailParam);
+    }
+    if (otpParam) {
+      setOtp(otpParam);
+    }
+    if (emailParam && otpParam) {
+      setStep(2);
+      toast.success("Direct link detected! Form auto-populated.");
+    }
+  }, [searchParams]);
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,5 +184,17 @@ export default function ForgotPasswordPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ForgotPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-muted/40 p-6 md:p-10">
+        <div className="text-sm text-muted-foreground">Loading reset interface...</div>
+      </div>
+    }>
+      <ForgotPasswordContent />
+    </Suspense>
   );
 }

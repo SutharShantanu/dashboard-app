@@ -1,0 +1,11 @@
+continue
+
+
+do not allow password change in edit profile. 
+
+i want to have two type of option for the passwrod change/rest.
+1. SabaAdmin can change password for any other admin or Sub-Admin
+2. Saba-Admin can also triger a mail for password reset which will land on sub-admin's mailbox and using the link sub-admin can also create a new password by himself.
+
+what do you think of this methond & approach.
+

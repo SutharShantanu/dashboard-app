@@ -67,7 +67,7 @@ export function DataTable<TData, TValue>({
           />
         </InputGroup>
       </div>
-      <div className="rounded-md border w-full max-w-full overflow-x-auto touch-pan-x">
+      <div className="border w-full max-w-full overflow-x-auto touch-pan-x">
         <div className="w-fit min-w-full">
           <Table noWrapper className="border-collapse w-auto min-w-full table-auto">
             <TableHeader>

@@ -47,10 +47,15 @@ export async function POST(request: Request) {
       );
     }
 
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+      "127.0.0.1";
+
     const newSheet = await addConnectedSheet(
       url.trim(),
       title || "",
-      session.user.username
+      session.user.username,
+      ip
     );
 
     // Trigger sync immediately
@@ -96,7 +101,11 @@ export async function DELETE(request: Request) {
       );
     }
 
-    await removeConnectedSheet(spreadsheetId);
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+      "127.0.0.1";
+
+    await removeConnectedSheet(spreadsheetId, session.user.username, ip);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

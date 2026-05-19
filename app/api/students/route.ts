@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../../lib/auth";
-import { getStudents, getDbMode, updateStudentCell, createStudent, syncSheetData } from "../../../lib/sheets";
+import { getStudents, getDbMode, updateStudentCell, createStudent, syncSheetData, resolveUserAllowedColumns } from "../../../lib/sheets";
 
 // GET: Retrieves all student records and the active database configuration (simulation mode status)
 export async function GET(request: Request) {
@@ -18,21 +18,8 @@ export async function GET(request: Request) {
 
     const { data, columns } = await getStudents(sheet, spreadsheetId);
 
-    // Map allowed columns for UI edit locks
-    let allowedCols: string[] = [];
-    const gradeIndex = columns.indexOf("Grade");
-
-    if (session.user.role === "admin") {
-      allowedCols = [...columns];
-    } else {
-      if (gradeIndex !== -1) {
-        allowedCols = columns.filter((_, idx) => idx > gradeIndex);
-      } else {
-        allowedCols = session.user.allowedColumns
-          ? session.user.allowedColumns.split(",").map((c) => c.trim())
-          : [];
-      }
-    }
+    const activeSheetName = sheet || "Students";
+    const allowedCols = resolveUserAllowedColumns(session.user, activeSheetName, columns);
 
     return NextResponse.json({
       data,
@@ -76,7 +63,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+      "127.0.0.1";
 
     const newStudent = {
       ID: ID.trim(),
@@ -141,36 +130,29 @@ export async function PATCH(request: Request) {
       );
     }
 
-    // Role-based permission check
+    // Role-based permission check using the unified helper
+    const activeSheetName = sheet || "Students";
     const { columns } = await getStudents(sheet, spreadsheetId);
-    const gradeIndex = columns.indexOf("Grade");
-    const colIndex = columns.indexOf(column);
+    const allowedCols = resolveUserAllowedColumns(session.user, activeSheetName, columns);
 
-    if (gradeIndex !== -1 && colIndex !== -1) {
-      if (session.user.role !== "admin") {
-        if (colIndex <= gradeIndex) {
-          return NextResponse.json(
-            { error: "🔒 Lock: Columns up to 'Grade' can only be edited by Admins." },
-            { status: 403 }
-          );
-        }
+    if (!allowedCols.includes(column)) {
+      const gradeIndex = columns.indexOf("Grade");
+      const colIndex = columns.indexOf(column);
+      if (session.user.role !== "admin" && gradeIndex !== -1 && colIndex !== -1 && colIndex <= gradeIndex) {
+        return NextResponse.json(
+          { error: "🔒 Lock: Columns up to 'Grade' can only be edited by Admins." },
+          { status: 403 }
+        );
       }
-    } else {
-      if (session.user.role !== "admin") {
-        const allowedList = session.user.allowedColumns
-          ? session.user.allowedColumns.split(",").map((c) => c.trim())
-          : [];
-
-        if (!allowedList.includes(column)) {
-          return NextResponse.json(
-            { error: `🔒 Lock: You do not have permission to edit the '${column}' column.` },
-            { status: 403 }
-          );
-        }
-      }
+      return NextResponse.json(
+        { error: `🔒 Lock: You do not have permission to edit the '${column}' column.` },
+        { status: 403 }
+      );
     }
 
-    const ip = request.headers.get("x-forwarded-for") || "127.0.0.1";
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+      "127.0.0.1";
 
     await updateStudentCell(
       id,

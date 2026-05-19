@@ -11,7 +11,6 @@ import {
   History,
   LayoutDashboard,
   Plus,
-  Loader2,
   Database,
   ExternalLink,
   RefreshCw,
@@ -190,7 +189,7 @@ export function AppSidebar({
     })
 
     return items
-  }, [connectedSheets, user.role])
+  }, [connectedSheets, user.role, user.username])
 
   const searchResults = React.useMemo(() => {
     if (!debouncedTerm) return []

@@ -15,32 +15,94 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.role !== "admin") {
+    const resolvedParams = await context.params;
+    const { username } = resolvedParams;
+
+    const userRole = (session.user as any).role;
+    const currentUsername = session.user.username;
+    const isSelfUpdate = currentUsername.toLowerCase() === username.toLowerCase();
+
+    if (!isSelfUpdate && currentUsername !== "SabaAdmin" && userRole !== "admin") {
       return NextResponse.json(
-        { error: "Forbidden: Admins only" },
+        { error: "Forbidden: Only admins can manage other users" },
         { status: 403 }
       );
     }
 
-    const resolvedParams = await context.params;
-    const { username } = resolvedParams;
     const body = await request.json();
     const updates: Partial<User> = {};
 
-    if (body.displayName !== undefined) updates.displayName = String(body.displayName).trim();
-    if (body.isActive !== undefined) updates.isActive = body.isActive === "FALSE" ? "FALSE" : "TRUE";
-    if (body.role !== undefined) updates.role = body.role === "admin" ? "admin" : "sub-admin";
-    if (body.permissionPreset !== undefined) updates.permissionPreset = body.permissionPreset;
-    if (body.perSheetPermissions !== undefined) updates.perSheetPermissions = body.perSheetPermissions;
+    // Standard admin boundaries check
+    if (!isSelfUpdate && currentUsername !== "SabaAdmin") {
+      const users = await getUsers();
+      const targetUser = users.find(u => u.username.toLowerCase() === username.toLowerCase());
+      if (!targetUser) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
 
-    if (body.email !== undefined) updates.email = String(body.email).trim();
+      if (targetUser.role === "admin" || targetUser.username.toLowerCase() === "sabaadmin") {
+        return NextResponse.json(
+          { error: "Forbidden: Standard admins can only modify sub-admin users" },
+          { status: 403 }
+        );
+      }
 
-    if (body.allowedColumns !== undefined) {
-      updates.allowedColumns = String(body.allowedColumns).trim();
+      if (body.role !== undefined && body.role !== "sub-admin") {
+        return NextResponse.json(
+          { error: "Forbidden: Standard admins cannot change user roles" },
+          { status: 403 }
+        );
+      }
     }
 
-    if (body.password) {
-      updates.passwordHash = await bcrypt.hash(body.password, 12);
+    // SabaAdmin protection checks
+    if (username.toLowerCase() === "sabaadmin") {
+      if (body.role !== undefined && body.role !== "admin") {
+        return NextResponse.json(
+          { error: "Forbidden: SabaAdmin's role must always remain 'admin'" },
+          { status: 403 }
+        );
+      }
+      if (body.isActive !== undefined && body.isActive !== "TRUE") {
+        return NextResponse.json(
+          { error: "Forbidden: SabaAdmin must always remain active" },
+          { status: 403 }
+        );
+      }
+    }
+
+    if (isSelfUpdate) {
+      if (username.toLowerCase() === "sabaadmin") {
+        // SabaAdmin self-update: can update displayName, email, and password.
+        if (body.displayName !== undefined) {
+          updates.displayName = String(body.displayName).trim();
+        }
+        if (body.email !== undefined) {
+          updates.email = String(body.email).trim();
+        }
+        if (body.password) {
+          updates.passwordHash = await bcrypt.hash(body.password, 12);
+        }
+      } else {
+        // Standard user self-update: Only displayName is permitted. Ignore other keys.
+        if (body.displayName !== undefined) {
+          updates.displayName = String(body.displayName).trim();
+        }
+      }
+    } else {
+      // Must be SabaAdmin or standard admin modifying another user (sub-admin)
+      if (body.displayName !== undefined) updates.displayName = String(body.displayName).trim();
+      if (body.isActive !== undefined) updates.isActive = body.isActive === "FALSE" ? "FALSE" : "TRUE";
+      if (body.role !== undefined) updates.role = body.role === "admin" ? "admin" : "sub-admin";
+      if (body.permissionPreset !== undefined) updates.permissionPreset = body.permissionPreset;
+      if (body.perSheetPermissions !== undefined) updates.perSheetPermissions = body.perSheetPermissions;
+      if (body.email !== undefined) updates.email = String(body.email).trim();
+      if (body.allowedColumns !== undefined) {
+        updates.allowedColumns = String(body.allowedColumns).trim();
+      }
+      if (body.password) {
+        updates.passwordHash = await bcrypt.hash(body.password, 12);
+      }
     }
 
     const ip =

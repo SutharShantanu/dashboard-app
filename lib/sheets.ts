@@ -526,3 +526,57 @@ function extractSpreadsheetId(url: string): string | null {
   return match ? match[1] : null;
 }
 
+export function resolveUserAllowedColumns(
+  user: {
+    role: "admin" | "sub-admin";
+    allowedColumns: string;
+    perSheetPermissions?: Record<string, string[]>;
+  },
+  activeSheet: string,
+  allColumns: string[]
+): string[] {
+  // 1. Check if perSheetPermissions is configured (i.e. has at least one sheet key)
+  const hasPerSheetConfig = user.perSheetPermissions && Object.keys(user.perSheetPermissions).length > 0;
+  
+  if (hasPerSheetConfig) {
+    let sheetPerms: string[] | undefined = undefined;
+    const keys = Object.keys(user.perSheetPermissions!);
+    const matchKey = keys.find(k => k.toLowerCase() === activeSheet.toLowerCase());
+    if (matchKey) {
+      sheetPerms = user.perSheetPermissions![matchKey];
+    }
+    
+    if (sheetPerms && Array.isArray(sheetPerms)) {
+      if (sheetPerms.includes("*")) {
+        return [...allColumns];
+      }
+      return allColumns.filter(col => sheetPerms.includes(col));
+    }
+    // If perSheetPermissions is configured generally, but this activeSheet has no entry,
+    // they are strictly constrained and cannot edit/view any columns for this sheet.
+    return [];
+  }
+
+  // 2. Check if custom allowedColumns limits are configured
+  if (user.allowedColumns && user.allowedColumns !== "*" && user.allowedColumns !== "all") {
+    const list = user.allowedColumns.split(",").map(c => c.trim());
+    return allColumns.filter(col => list.includes(col));
+  }
+
+  // 3. Fallback to role-based defaults
+  if (user.role === "admin") {
+    return [...allColumns];
+  } else {
+    // sub-admin defaults to columns to the right of 'Grade'
+    const gradeIndex = allColumns.indexOf("Grade");
+    if (gradeIndex !== -1) {
+      return allColumns.filter((_, idx) => idx > gradeIndex);
+    } else {
+      if (user.allowedColumns === "*") {
+        return [...allColumns];
+      }
+      return [];
+    }
+  }
+}
+

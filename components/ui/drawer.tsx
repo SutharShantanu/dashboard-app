@@ -4,6 +4,8 @@ import * as React from "react"
 import { Drawer as DrawerPrimitive } from "vaul"
 
 import { cn } from "@/lib/utils"
+import { buttonVariants } from "@/components/ui/button"
+import { type VariantProps } from "class-variance-authority"
 
 function Drawer({
   ...props
@@ -24,9 +26,24 @@ function DrawerPortal({
 }
 
 function DrawerClose({
+  className,
+  variant,
+  size,
+  asChild,
   ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Close>) {
-  return <DrawerPrimitive.Close data-slot="drawer-close" {...props} />
+}: React.ComponentProps<typeof DrawerPrimitive.Close> &
+  VariantProps<typeof buttonVariants>) {
+  return (
+    <DrawerPrimitive.Close
+      data-slot="drawer-close"
+      className={cn(
+        !asChild && buttonVariants({ variant, size }),
+        className
+      )}
+      asChild={asChild}
+      {...props}
+    />
+  )
 }
 
 function DrawerOverlay({

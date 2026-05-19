@@ -77,18 +77,29 @@ export const authOptions: NextAuthOptions = {
           displayName: user.displayName,
           role: user.role,
           allowedColumns: user.allowedColumns,
+          perSheetPermissions: user.perSheetPermissions ? Object.fromEntries(user.perSheetPermissions.entries()) : {},
         };
       },
     }),
   ],
   useSecureCookies: !!process.env.VERCEL || (process.env.NEXTAUTH_URL?.startsWith("https://") ?? false),
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.username = (user as any).username;
         token.displayName = (user as any).displayName;
         token.role = (user as any).role;
         token.allowedColumns = (user as any).allowedColumns;
+        token.perSheetPermissions = (user as any).perSheetPermissions;
+        token.name = (user as any).displayName;
+      }
+      if (trigger === "update" && session) {
+        if (session.displayName !== undefined) {
+          token.displayName = session.displayName;
+          token.name = session.displayName;
+        }
+        if (session.allowedColumns !== undefined) token.allowedColumns = session.allowedColumns;
+        if (session.perSheetPermissions !== undefined) token.perSheetPermissions = session.perSheetPermissions;
       }
       return token;
     },
@@ -98,6 +109,8 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).displayName = token.displayName;
         (session.user as any).role = token.role;
         (session.user as any).allowedColumns = token.allowedColumns;
+        (session.user as any).perSheetPermissions = token.perSheetPermissions;
+        session.user.name = token.displayName as string;
       }
       return session;
     },

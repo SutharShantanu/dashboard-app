@@ -9,7 +9,6 @@ import {
   Search,
   UserPlus,
   Users,
-  Loader2,
   Check,
   X,
   Key,
@@ -19,6 +18,7 @@ import {
   RefreshCw,
   Pencil,
   Trash2,
+  Sparkles,
 } from "lucide-react"
 
 import { ColumnDef } from "@tanstack/react-table"
@@ -54,6 +54,7 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
+  CardContent,
 } from "@/components/ui/card"
 import {
   Dialog,
@@ -61,6 +62,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Empty,
   EmptyHeader,
@@ -80,6 +82,10 @@ import {
   InputGroupButton,
 } from "@/components/ui/input-group"
 import { Spinner } from "@/components/ui/spinner"
+import { z } from "zod"
+import { useForm, Controller } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { Field, FieldLabel, FieldError } from "@/components/ui/field"
 
 interface User {
   username: string
@@ -94,9 +100,47 @@ interface User {
   perSheetPermissions?: Record<string, string[]>
 }
 
+interface UserFormValues {
+  username: string
+  displayName: string
+  email: string
+  password?: string
+  role: string
+  allowedColumns?: string
+  permissionPreset?: string
+  perSheetPermissions?: Record<string, string[]>
+}
+
+function generateSecurePassword(): string {
+  const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  const lowercase = "abcdefghijklmnopqrstuvwxyz"
+  const numbers = "0123456789"
+  const specials = "!@#$%^&*()_+~`|}{[]:;?><,./-="
+
+  let password = ""
+  password += uppercase[Math.floor(Math.random() * uppercase.length)]
+  password += lowercase[Math.floor(Math.random() * lowercase.length)]
+  password += numbers[Math.floor(Math.random() * numbers.length)]
+  password += specials[Math.floor(Math.random() * specials.length)]
+
+  const allChars = uppercase + lowercase + numbers + specials
+  for (let i = 0; i < 12; i++) {
+    password += allChars[Math.floor(Math.random() * allChars.length)]
+  }
+
+  return password
+    .split("")
+    .sort(() => 0.5 - Math.random())
+    .join("")
+}
+
 function UsersDirectoryContent() {
   const { data: session, status: sessionStatus } = useSession()
   const router = useRouter()
+
+  const currentUsername =
+    (session?.user as any)?.username || session?.user?.name
+  const currentUserRole = (session?.user as any)?.role
 
   const [users, setUsers] = useState<User[]>([])
   const [loadingUsers, setLoadingUsers] = useState<boolean>(true)
@@ -105,22 +149,86 @@ function UsersDirectoryContent() {
   // Add User Modal State
   const [isAddUserOpen, setIsAddUserOpen] = useState<boolean>(false)
   const [showPassword, setShowPassword] = useState<boolean>(false)
-  const [newUser, setNewUser] = useState({
-    username: "",
-    displayName: "",
-    email: "",
-    password: "",
-    role: "sub-admin",
-    allowedColumns: "Comments,Notes",
-    permissionPreset: "",
-    perSheetPermissions: {} as Record<string, string[]>,
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [isViewMode, setIsViewMode] = useState(false)
+
+  // Reset Password Dialog State
+  const [isResetPasswordOpen, setIsResetPasswordOpen] = useState<boolean>(false)
+  const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null)
+  const [newResetPassword, setNewResetPassword] = useState<string>("")
+  const [showResetPassword, setShowResetPassword] = useState<boolean>(false)
+  const [isResetSubmitting, setIsResetSubmitting] = useState<boolean>(false)
+
+  const schema = useMemo(() => {
+    return z
+      .object({
+        username: z.string().min(1, "Unique Username is required"),
+        displayName: z.string().min(1, "Display Name is required"),
+        email: z.string().email("Invalid email address").or(z.literal("")),
+        password: z.string().optional(),
+        role: z.string().min(1, "Role is required"),
+        allowedColumns: z.string().optional(),
+        permissionPreset: z.string().optional(),
+        perSheetPermissions: z
+          .record(z.string(), z.array(z.string()))
+          .optional()
+          .default({}),
+      })
+      .superRefine((data, ctx) => {
+        if (!isEditMode) {
+          if (!data.password) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["password"],
+              message: "Password is required",
+            })
+          } else if (!isStrongPassword(data.password)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["password"],
+              message: "Password must meet all security requirements",
+            })
+          }
+        } else {
+          if (data.password && !isStrongPassword(data.password)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["password"],
+              message: "Password must meet all security requirements",
+            })
+          }
+        }
+      })
+  }, [isEditMode])
+
+  const {
+    control,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<UserFormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      username: "",
+      displayName: "",
+      email: "",
+      password: "",
+      role: "sub-admin",
+      allowedColumns: "Comments,Notes",
+      permissionPreset: "",
+      perSheetPermissions: {},
+    },
   })
+
+  const watchedRole = watch("role")
+  const watchedPassword = watch("password")
 
   const [connectedSheets, setConnectedSheets] = useState<any[]>([])
   const [sheetsWithColumns, setSheetsWithColumns] = useState<any[]>([])
   const [presets, setPresets] = useState<any[]>([])
   const [newPresetName, setNewPresetName] = useState("")
-  const [isEditMode, setIsEditMode] = useState(false)
 
   // Inline editing allowed columns state
   const [editingAllowedColsUser, setEditingAllowedColsUser] = useState<
@@ -130,10 +238,12 @@ function UsersDirectoryContent() {
 
   useEffect(() => {
     if (sessionStatus === "authenticated") {
-      const currentUsername = (session?.user as any)?.username || session?.user?.name
-      if (currentUsername !== "SabaAdmin") {
+      const currentUsername =
+        (session?.user as any)?.username || session?.user?.name
+      const currentUserRole = (session?.user as any)?.role
+      if (currentUsername !== "SabaAdmin" && currentUserRole !== "admin") {
         toast.error(
-          "Access Denied: This route is specially bound to only SabaAdmin."
+          "Access Denied: This route is specially bound to admins."
         )
         router.push("/dashboard")
         return
@@ -146,7 +256,11 @@ function UsersDirectoryContent() {
 
   // Custom event listener for external modal open triggers (e.g., sidebar)
   useEffect(() => {
-    const handleOpenModal = () => setIsAddUserOpen(true)
+    const handleOpenModal = () => {
+      setIsEditMode(false)
+      setIsViewMode(false)
+      setIsAddUserOpen(true)
+    }
     window.addEventListener("open_add_user_modal", handleOpenModal)
     return () => {
       window.removeEventListener("open_add_user_modal", handleOpenModal)
@@ -217,21 +331,11 @@ function UsersDirectoryContent() {
   const [activeActionId, setActiveActionId] = useState<string | null>(null)
 
   // Handles creating or updating a user account
-  const handleCreateUserSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (
-      !newUser.username ||
-      !newUser.displayName ||
-      (!isEditMode && !newUser.password) || // Password required only for new users
-      !newUser.role
-    ) {
-      toast.error("Required fields are missing.")
-      return
-    }
-
+  const onSubmit = async (data: UserFormValues) => {
+    if (isViewMode) return
     setIsSubmitting(true)
     const promise = async () => {
-      let currentPresetId = newUser.permissionPreset
+      let currentPresetId = data.permissionPreset
 
       // Save preset if name is provided
       if (newPresetName.trim()) {
@@ -241,7 +345,7 @@ function UsersDirectoryContent() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               name: newPresetName.trim(),
-              permissions: newUser.perSheetPermissions,
+              permissions: data.perSheetPermissions,
             }),
           })
           if (presetRes.ok) {
@@ -249,6 +353,7 @@ function UsersDirectoryContent() {
             currentPresetId = presetData.preset?.id || currentPresetId
             toast.success(`Preset "${newPresetName}" saved!`)
             fetchPresets() // Refresh presets list
+            setNewPresetName("")
           } else {
             console.error("Failed to save preset")
           }
@@ -258,12 +363,10 @@ function UsersDirectoryContent() {
       }
 
       const payload = {
-        ...newUser,
+        ...data,
         permissionPreset: currentPresetId,
         allowedColumns:
-          newUser.role === "admin"
-            ? "*"
-            : newUser.allowedColumns || "Comments,Notes",
+          data.role === "admin" ? "*" : data.allowedColumns || "Comments,Notes",
       }
 
       // Remove password if empty in edit mode
@@ -271,7 +374,7 @@ function UsersDirectoryContent() {
         delete (payload as any).password
       }
 
-      const url = isEditMode ? `/api/users/${newUser.username}` : "/api/users"
+      const url = isEditMode ? `/api/users/${data.username}` : "/api/users"
       const method = isEditMode ? "PATCH" : "POST"
 
       const res = await fetch(url, {
@@ -288,7 +391,7 @@ function UsersDirectoryContent() {
         )
 
       setIsAddUserOpen(false)
-      setNewUser({
+      reset({
         username: "",
         displayName: "",
         email: "",
@@ -306,8 +409,8 @@ function UsersDirectoryContent() {
       loading: isEditMode
         ? "Updating user account..."
         : "Creating user account...",
-      success: (data) =>
-        `Successfully ${isEditMode ? "updated" : "registered"} ${newUser.role}: ${newUser.username}`,
+      success: () =>
+        `Successfully ${isEditMode ? "updated" : "registered"} ${data.role}: ${data.username}`,
       error: (err) => err.message || "Failed to save account.",
       finally: () => setIsSubmitting(false),
     })
@@ -371,40 +474,95 @@ function UsersDirectoryContent() {
   }
 
   // Reset Sub-admin Password
-  const handleResetPassword = async (username: string) => {
-    const newPass = prompt(
-      `Enter a new secure password for sub-admin '${username}':`
-    )
-    if (newPass === null) return
-    if (newPass.trim().length < 8) {
-      toast.error("Password must be at least 8 characters long.")
+  const handleOpenResetPassword = (user: User) => {
+    setResetPasswordUser(user)
+    setNewResetPassword("")
+    setShowResetPassword(false)
+    setIsResetPasswordOpen(true)
+  }
+
+  const handleDirectPasswordReset = async () => {
+    if (!resetPasswordUser) return
+    if (!newResetPassword.trim()) {
+      toast.error("Password is required.")
+      return
+    }
+    if (!isStrongPassword(newResetPassword)) {
+      toast.error("Password does not meet the strength requirements.")
       return
     }
 
-    setActiveActionId(username)
+    setIsResetSubmitting(true)
     const promise = async () => {
-      const res = await fetch(`/api/users/${username}`, {
+      const res = await fetch(`/api/users/${resetPasswordUser.username}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: newPass.trim() }),
+        body: JSON.stringify({ password: newResetPassword.trim() }),
       })
 
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || "Failed to reset password.")
+
+      setIsResetPasswordOpen(false)
+      fetchUsers()
       return result
     }
 
     toast.promise(promise(), {
-      loading: "Resetting password...",
-      success: "Password reset successfully.",
+      loading: `Updating password for ${resetPasswordUser.username}...`,
+      success: "Password updated successfully.",
       error: (err) => err.message || "Failed to reset password.",
-      finally: () => setActiveActionId(null),
+      finally: () => setIsResetSubmitting(false),
+    })
+  }
+
+  const handleSendOtpEmail = async () => {
+    if (!resetPasswordUser || !resetPasswordUser.email) return
+
+    setIsResetSubmitting(true)
+    const promise = async () => {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetPasswordUser.email }),
+      })
+
+      const result = await res.json()
+      if (!res.ok)
+        throw new Error(result.error || "Failed to send reset email.")
+
+      setIsResetPasswordOpen(false)
+      return result
+    }
+
+    toast.promise(promise(), {
+      loading: `Sending reset link to ${resetPasswordUser.email}...`,
+      success: `Reset link dispatched to ${resetPasswordUser.email}.`,
+      error: (err) => err.message || "Failed to send email.",
+      finally: () => setIsResetSubmitting(false),
     })
   }
 
   const handleEditUser = (user: User) => {
     setIsEditMode(true)
-    setNewUser({
+    setIsViewMode(false)
+    reset({
+      username: user.username,
+      displayName: user.displayName,
+      email: user.email || "",
+      password: "",
+      role: user.role,
+      allowedColumns: user.allowedColumns,
+      permissionPreset: user.permissionPreset || "",
+      perSheetPermissions: user.perSheetPermissions || {},
+    })
+    setIsAddUserOpen(true)
+  }
+
+  const handleViewUser = (user: User) => {
+    setIsEditMode(false)
+    setIsViewMode(true)
+    reset({
       username: user.username,
       displayName: user.displayName,
       email: user.email || "",
@@ -419,7 +577,8 @@ function UsersDirectoryContent() {
 
   const handleOpenCreateModal = () => {
     setIsEditMode(false)
-    setNewUser({
+    setIsViewMode(false)
+    reset({
       username: "",
       displayName: "",
       email: "",
@@ -439,148 +598,163 @@ function UsersDirectoryContent() {
       (u.email && u.email.toLowerCase().includes(userSearchQuery.toLowerCase()))
   )
 
-  const columns = useMemo<ColumnDef<User>[]>(() => [
-    {
-      accessorKey: "username",
-      header: "Username",
-      cell: ({ row }) => <span className="font-bold">{row.original.username}</span>,
-    },
-    {
-      accessorKey: "displayName",
-      header: "Display Name",
-    },
-    {
-      accessorKey: "email",
-      header: "Email",
-      cell: ({ row }) => row.original.email || "-",
-    },
-    {
-      accessorKey: "role",
-      header: "Role",
-      cell: ({ row }) => (
-        <Badge
-          variant={row.original.role === "admin" ? "default" : "secondary"}
-          className="capitalize"
-        >
-          {row.original.role || "sub-admin"}
-        </Badge>
-      ),
-    },
-    {
-      accessorKey: "allowedColumns",
-      header: "Permissions",
-      cell: ({ row }) => (
-        <Badge variant="outline" className="px-2.5 py-1 font-mono text-xs">
-          {row.original.role === "admin" ||
-          !row.original.allowedColumns ||
-          row.original.allowedColumns === "*" ||
-          row.original.allowedColumns.toLowerCase() === "none"
-            ? "All"
-            : row.original.allowedColumns}
-        </Badge>
-      ),
-    },
-    {
-      accessorKey: "createdAt",
-      header: "Created At",
-      cell: ({ row }) =>
-        row.original.createdAt
-          ? format(new Date(row.original.createdAt), "MMM d, yyyy HH:mm")
-          : "-",
-    },
-    {
-      accessorKey: "isActive",
-      header: "Status",
-      cell: ({ row }) => (
-        <Badge
-          variant={row.original.isActive === "TRUE" ? "default" : "destructive"}
-          className="rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase"
-        >
-          {row.original.isActive === "TRUE" ? "Active" : "Suspended"}
-        </Badge>
-      ),
-    },
-    {
-      id: "actions",
-      header: () => <div className="text-right">Actions</div>,
-      cell: ({ row }) => {
-        const user = row.original
-        return (
-          <div className="flex justify-end gap-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon-xs"
-                    onClick={() => handleEditUser(user)}
-                    disabled={activeActionId === user.username}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Edit User</TooltipContent>
-              </Tooltip>
-              
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon-xs"
-                    onClick={() => handleEditUser(user)}
-                    disabled={activeActionId === user.username}
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>View User</TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon-xs"
-                    onClick={() => handleResetPassword(user.username)}
-                    disabled={activeActionId === user.username}
-                  >
-                    {activeActionId === user.username ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Key className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Reset Password</TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon-xs"
-                    onClick={() => {
-                      toast.info("Delete functionality not implemented yet.")
-                    }}
-                    disabled={activeActionId === user.username || user.username === "SabaAdmin"}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Delete User</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        )
+  const columns = useMemo<ColumnDef<User>[]>(
+    () => [
+      {
+        accessorKey: "username",
+        header: "Username",
+        cell: ({ row }) => (
+          <span className="font-bold">{row.original.username}</span>
+        ),
       },
-    },
-  ], [handleEditUser, handleResetPassword, activeActionId])
+      {
+        accessorKey: "displayName",
+        header: "Display Name",
+      },
+      {
+        accessorKey: "email",
+        header: "Email",
+        cell: ({ row }) => row.original.email || "-",
+      },
+      {
+        accessorKey: "role",
+        header: "Role",
+        cell: ({ row }) => (
+          <Badge
+            variant={row.original.role === "admin" ? "default" : "secondary"}
+            className="capitalize"
+          >
+            {row.original.role || "sub-admin"}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: "allowedColumns",
+        header: "Permissions",
+        cell: ({ row }) => (
+          <Badge variant="outline" className="px-2.5 py-1 font-mono text-xs">
+            {row.original.role === "admin" ||
+            !row.original.allowedColumns ||
+            row.original.allowedColumns === "*" ||
+            row.original.allowedColumns.toLowerCase() === "none"
+              ? "All"
+              : row.original.allowedColumns}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: "createdAt",
+        header: "Created At",
+        cell: ({ row }) =>
+          row.original.createdAt
+            ? format(new Date(row.original.createdAt), "MMM d, yyyy HH:mm")
+            : "-",
+      },
+      {
+        accessorKey: "isActive",
+        header: "Status",
+        cell: ({ row }) => (
+          <Badge
+            variant={
+              row.original.isActive === "TRUE" ? "default" : "destructive"
+            }
+            className="rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase"
+          >
+            {row.original.isActive === "TRUE" ? "Active" : "Suspended"}
+          </Badge>
+        ),
+      },
+      {
+        id: "actions",
+        header: () => <div className="text-right">Actions</div>,
+        cell: ({ row }) => {
+          const user = row.original
+          const isSelf = user.username.toLowerCase() === currentUsername?.toLowerCase();
+          const isTargetAdminOrSabaAdmin = user.role === "admin" || user.username.toLowerCase() === "sabaadmin";
+          const cannotModify = currentUserRole === "admin" && currentUsername !== "SabaAdmin" && !isSelf && isTargetAdminOrSabaAdmin;
+
+          return (
+            <div className="flex justify-end gap-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon-xs"
+                      onClick={() => handleEditUser(user)}
+                      disabled={activeActionId === user.username || cannotModify}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Edit User</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon-xs"
+                      onClick={() => handleViewUser(user)}
+                      disabled={activeActionId === user.username}
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>View User</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon-xs"
+                      onClick={() => handleOpenResetPassword(user)}
+                      disabled={activeActionId === user.username || cannotModify}
+                    >
+                      {activeActionId === user.username ? (
+                        <Spinner className="h-3.5 w-3.5" />
+                      ) : (
+                        <Key className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Reset Password</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="destructive"
+                      size="icon-xs"
+                      onClick={() => {
+                        toast.info("Delete functionality not implemented yet.")
+                      }}
+                      disabled={
+                        activeActionId === user.username ||
+                        user.username?.toLowerCase() === "sabaadmin" ||
+                        cannotModify
+                      }
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Delete User</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          )
+        },
+      },
+    ],
+    [handleEditUser, handleViewUser, handleOpenResetPassword, activeActionId, currentUsername, currentUserRole]
+  )
 
   if (sessionStatus === "loading") {
     return (
       <div className="flex min-h-svh items-center justify-center bg-background text-foreground">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <Spinner className="h-10 w-10 text-primary" />
           <p className="text-sm font-medium tracking-wide text-muted-foreground">
             Verifying administrative access...
           </p>
@@ -589,8 +763,7 @@ function UsersDirectoryContent() {
     )
   }
 
-  const currentUsername = (session?.user as any)?.username || session?.user?.name
-  if (currentUsername !== "SabaAdmin") {
+  if (currentUsername !== "SabaAdmin" && currentUserRole !== "admin") {
     return (
       <div className="flex min-h-svh items-center justify-center bg-background p-6 text-foreground">
         <Card className="max-w-md border-destructive/20 bg-destructive/5 p-6 text-center">
@@ -601,7 +774,8 @@ function UsersDirectoryContent() {
             Access Restricted
           </CardTitle>
           <CardDescription className="mt-2 text-muted-foreground">
-            This route is specially bound to only SabaAdmin. You do not have permission to view or modify system accounts.
+            This route is specially bound to admins. You do not have
+            permission to view or modify system accounts.
           </CardDescription>
           <Button
             onClick={() => router.push("/dashboard")}
@@ -626,21 +800,6 @@ function UsersDirectoryContent() {
           <UserPlus className="h-4 w-4" />
           Create Account
         </Button>
-      </PageHeader>
-
-      {/* User Search Bar */}
-      <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex w-full max-w-md items-center">
-          <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search by username or display name..."
-            value={userSearchQuery}
-            onChange={(e) => setUserSearchQuery(e.target.value)}
-            className="h-10 w-full pl-9"
-          />
-        </div>
-
         <Button
           variant="outline"
           onClick={() => {
@@ -655,262 +814,506 @@ function UsersDirectoryContent() {
           <RefreshCw
             className={`h-4 w-4 ${loadingUsers ? "animate-spin" : ""}`}
           />
-          Refresh Directory
+          Refresh
         </Button>
-      </div>
+      </PageHeader>
 
       {/* Users Grid Table */}
-      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-        {loadingUsers ? (
-          <div className="flex flex-col items-center justify-center gap-3 py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-xs font-medium text-muted-foreground">
-              Loading administrative accounts...
-            </p>
-          </div>
-        ) : filteredUsers.length === 0 ? (
-          <div className="py-20">
-            <Empty className="mx-auto max-w-md p-12">
-              <EmptyMedia variant="icon" className="mb-4 size-12">
-                <Users className="size-6 text-muted-foreground" />
-              </EmptyMedia>
-              <EmptyHeader>
-                <EmptyTitle className="text-lg font-bold">
-                  No accounts found
-                </EmptyTitle>
-              </EmptyHeader>
-            </Empty>
-          </div>
-        ) : (
-          <div className="p-6">
-            <DataTable columns={columns} data={filteredUsers} />
-          </div>
-        )}
-      </div>
+      <Card className="overflow-hidden">
+        <CardContent>
+          {loadingUsers ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-16">
+              <Spinner className="h-8 w-8 text-primary" />
+              <p className="text-xs font-medium text-muted-foreground">
+                Loading administrative accounts...
+              </p>
+            </div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="py-20">
+              <Empty className="mx-auto max-w-md p-12">
+                <EmptyMedia variant="icon" className="mb-4 size-12">
+                  <Users className="size-6 text-muted-foreground" />
+                </EmptyMedia>
+                <EmptyHeader>
+                  <EmptyTitle className="text-lg font-bold">
+                    No accounts found
+                  </EmptyTitle>
+                </EmptyHeader>
+              </Empty>
+            </div>
+          ) : (
+            <>
+              <DataTable columns={columns} data={filteredUsers} />
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Modal Dialog for User Creation */}
-      <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen} name={isEditMode ? "editUser" : "createUser"}>
-        <DialogContent className="max-w-4xl rounded-3xl">
-          <DialogHeader className="sticky top-0 z-10 border-b border-border bg-popover p-4 sm:p-6">
+      <Dialog
+        open={isAddUserOpen}
+        onOpenChange={setIsAddUserOpen}
+        name={isViewMode ? "viewUser" : isEditMode ? "editUser" : "createUser"}
+      >
+        <DialogContent>
+          <DialogHeader className="sticky top-0 z-10 border-b border-border">
             <DialogTitle className="text-xl font-extrabold">
-              {isEditMode
-                ? "Edit User Account"
-                : "Create Admin or Sub-Admin Account"}
+              {isViewMode
+                ? "User Account Details"
+                : isEditMode
+                  ? "Edit User Account"
+                  : "Create Admin or Sub-Admin Account"}
             </DialogTitle>
             <p className="text-xs text-muted-foreground">
-              {isEditMode
-                ? "Update details for this account."
-                : "Register new administrator or restricted sub-administrator."}
+              {isViewMode
+                ? "View administrative access permissions and settings."
+                : isEditMode
+                  ? "Update details for this account."
+                  : "Register new administrator or restricted sub-administrator."}
             </p>
           </DialogHeader>
 
-          <form onSubmit={handleCreateUserSubmit}>
-            <div className="max-h-[65vh] overflow-y-auto p-4 sm:p-6 space-y-6">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              {/* Username */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                  Unique Username *
-                </label>
-                <Input
-                  type="text"
-                  placeholder="e.g. rahul_sub"
-                  value={newUser.username}
-                  onChange={(e) =>
-                    setNewUser((prev) => ({
-                      ...prev,
-                      username: e.target.value,
-                    }))
-                  }
-                  className="h-10"
-                  disabled={isEditMode}
+          <form
+            onSubmit={
+              isViewMode ? (e) => e.preventDefault() : handleSubmit(onSubmit)
+            }
+          >
+            <div className="space-y-6 overflow-y-auto p-4">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                {/* Username */}
+                <Controller
+                  name="username"
+                  control={control}
+                  render={({ field }) => (
+                    <Field data-invalid={!!errors.username}>
+                      <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                        Unique Username *
+                      </FieldLabel>
+                      <Input
+                        {...field}
+                        type="text"
+                        placeholder="e.g. rahul_sub"
+                        disabled={isEditMode || isViewMode}
+                      />
+                      <FieldError errors={[errors.username]} />
+                    </Field>
+                  )}
+                />
+
+                {/* Display Name */}
+                <Controller
+                  name="displayName"
+                  control={control}
+                  render={({ field }) => (
+                    <Field data-invalid={!!errors.displayName}>
+                      <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                        Display Name *
+                      </FieldLabel>
+                      <Input
+                        {...field}
+                        type="text"
+                        placeholder="e.g. Rahul Sharma (Advisor)"
+                        disabled={isViewMode}
+                      />
+                      <FieldError errors={[errors.displayName]} />
+                    </Field>
+                  )}
                 />
               </div>
 
-              {/* Display Name */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                  Display Name *
-                </label>
-                <Input
-                  type="text"
-                  placeholder="e.g. Rahul Sharma (Advisor)"
-                  value={newUser.displayName}
-                  onChange={(e) =>
-                    setNewUser((prev) => ({
-                      ...prev,
-                      displayName: e.target.value,
-                    }))
-                  }
-                  className="h-10"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              {/* Email */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                  Email Address
-                </label>
-                <Input
-                  type="email"
-                  placeholder="e.g. rahul@domain.com"
-                  value={newUser.email}
-                  onChange={(e) =>
-                    setNewUser((prev) => ({
-                      ...prev,
-                      email: e.target.value,
-                    }))
-                  }
-                  className="h-10"
-                />
-              </div>
-
-              {/* Password */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                  {isEditMode ? "New Password (Optional)" : "Login Password *"}
-                </label>
-                <InputGroup className="h-10">
-                  <InputGroupInput
-                    type={showPassword ? "text" : "password"}
-                    placeholder={
-                      isEditMode
-                        ? "Leave blank to keep current"
-                        : "Create secure password"
-                    }
-                    value={newUser.password}
-                    onChange={(e) =>
-                      setNewUser((prev) => ({
-                        ...prev,
-                        password: e.target.value,
-                      }))
-                    }
-                  />
-                  <InputGroupAddon align="inline-end">
-                    <InputGroupButton
-                      size="icon-xs"
-                      onClick={() => setShowPassword(!showPassword)}
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                {/* Email */}
+                <Controller
+                  name="email"
+                  control={control}
+                  render={({ field }) => (
+                    <Field
+                      data-invalid={!!errors.email}
+                      className={isViewMode ? "md:col-span-2" : ""}
                     >
-                      {showPassword ? (
-                        <EyeOff className="size-4" />
-                      ) : (
-                        <Eye className="size-4" />
-                      )}
-                    </InputGroupButton>
-                  </InputGroupAddon>
-                </InputGroup>
-
-                {newUser.password && (
-                  <PasswordStrength
-                    password={newUser.password}
-                    className="mt-2"
-                  />
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              {/* Role */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                  Role *
-                </label>
-                <Select
-                  value={newUser.role}
-                  onValueChange={(val) =>
-                    setNewUser((prev) => ({ ...prev, role: val }))
-                  }
-                >
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Select Role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Admin (Full Access)</SelectItem>
-                    <SelectItem value="sub-admin">
-                      Sub-Admin (Restricted)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div></div>
-            </div>
-
-            {newUser.role === "sub-admin" && (
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                  Column Permissions
-                </label>
-                <PermissionSelector
-                  sheets={sheetsWithColumns}
-                  value={newUser.perSheetPermissions}
-                  onChange={(permissions) =>
-                    setNewUser((prev) => ({
-                      ...prev,
-                      perSheetPermissions: permissions,
-                    }))
-                  }
-                  presets={presets}
-                  onPresetSelect={(presetId) => {
-                    const preset = presets.find((p) => p.id === presetId)
-                    if (preset) {
-                      setNewUser((prev) => ({
-                        ...prev,
-                        perSheetPermissions: preset.permissions,
-                        permissionPreset: preset.id,
-                      }))
-                    }
-                  }}
+                      <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                        Email Address
+                      </FieldLabel>
+                      <Input
+                        {...field}
+                        type="email"
+                        placeholder="e.g. rahul@domain.com"
+                        disabled={isViewMode}
+                      />
+                      <FieldError errors={[errors.email]} />
+                    </Field>
+                  )}
                 />
 
-                <div className="mt-4 space-y-1.5">
-                  <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                    Save as Preset Name (Optional)
-                  </label>
-                  <Input
-                    type="text"
-                    placeholder="e.g. Sub-Admin Default"
-                    value={newPresetName}
-                    onChange={(e) => setNewPresetName(e.target.value)}
-                    className="h-10"
-                  />
-                </div>
-              </div>
-            )}
+                {/* Password */}
+                {!isViewMode && !isEditMode && (
+                  <Controller
+                    name="password"
+                    control={control}
+                    render={({ field }) => (
+                      <Field data-invalid={!!errors.password}>
+                        <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                          {isEditMode
+                            ? "New Password (Optional)"
+                            : "Login Password *"}
+                        </FieldLabel>
+                        <InputGroup>
+                          <InputGroupInput
+                            {...field}
+                            type={showPassword ? "text" : "password"}
+                            placeholder={
+                              isEditMode
+                                ? "Leave blank to keep current"
+                                : "Create secure password"
+                            }
+                          />
+                          <InputGroupAddon
+                            align="inline-end"
+                            className="flex items-center gap-1"
+                          >
+                            <InputGroupButton
+                              size="icon-xs"
+                              type="button"
+                              onClick={() => {
+                                const securePw = generateSecurePassword()
+                                setValue("password", securePw)
+                                setShowPassword(true)
+                                navigator.clipboard.writeText(securePw)
+                                toast.success(
+                                  "Secure password generated and copied to clipboard!"
+                                )
+                              }}
+                              title="Generate Secure Password"
+                            >
+                              <Sparkles className="size-4 text-primary" />
+                            </InputGroupButton>
+                            <InputGroupButton
+                              size="icon-xs"
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                            >
+                              {showPassword ? (
+                                <EyeOff className="size-4" />
+                              ) : (
+                                <Eye className="size-4" />
+                              )}
+                            </InputGroupButton>
+                          </InputGroupAddon>
+                        </InputGroup>
 
-            </div>
-            
-            <div className="flex justify-end gap-3 border-t border-border bg-popover p-4 pt-4 sm:p-6">
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => setIsAddUserOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={
-                  isSubmitting ||
-                  (!isEditMode
-                    ? !isStrongPassword(newUser.password)
-                    : newUser.password
-                      ? !isStrongPassword(newUser.password)
-                      : false)
-                }
-              >
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : isEditMode ? (
-                  <Check className="h-4 w-4" />
-                ) : (
-                  <UserPlus className="h-4 w-4" />
+                        {watchedPassword && (
+                          <PasswordStrength
+                            password={watchedPassword}
+                            className="mt-2"
+                          />
+                        )}
+                        <FieldError errors={[errors.password]} />
+                      </Field>
+                    )}
+                  />
                 )}
-                {isEditMode ? "Save Changes" : "Create Account"}
-              </Button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                {/* Role */}
+                <Controller
+                  name="role"
+                  control={control}
+                  render={({ field }) => (
+                    <Field data-invalid={!!errors.role}>
+                      <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                        Role *
+                      </FieldLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        disabled={
+                          isViewMode ||
+                          watch("username")?.toLowerCase() === "sabaadmin" ||
+                          (currentUsername !== "SabaAdmin" && currentUserRole === "admin")
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admin">
+                            Admin (Full Access)
+                          </SelectItem>
+                          <SelectItem value="sub-admin">
+                            Sub-Admin (Restricted)
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FieldError errors={[errors.role]} />
+                    </Field>
+                  )}
+                />
+                <div></div>
+              </div>
+
+              {watchedRole === "sub-admin" && (
+                <div className="space-y-6">
+                  <Controller
+                    name="perSheetPermissions"
+                    control={control}
+                    render={({ field }) => (
+                      <Field>
+                        <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                          Column Permissions
+                        </FieldLabel>
+                        <PermissionSelector
+                          sheets={sheetsWithColumns}
+                          value={field.value}
+                          onChange={(permissions) => {
+                            field.onChange(permissions)
+                            setValue("permissionPreset", "")
+                          }}
+                          presets={presets}
+                          onPresetSelect={(presetId) => {
+                            const preset = presets.find(
+                              (p) => p.id === presetId
+                            )
+                            if (preset) {
+                              setValue(
+                                "perSheetPermissions",
+                                preset.permissions
+                              )
+                              setValue("permissionPreset", preset.id)
+                            }
+                          }}
+                          disabled={isViewMode}
+                        />
+                      </Field>
+                    )}
+                  />
+
+                  {!isViewMode && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                        Save as Preset Name (Optional)
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder="e.g. Sub-Admin Default"
+                        value={newPresetName}
+                        onChange={(e) => setNewPresetName(e.target.value)}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-border bg-popover p-4 pt-4 sm:p-6">
+              {isViewMode ? (
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={() => setIsAddUserOpen(false)}
+                >
+                  Close
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    type="button"
+                    onClick={() => setIsAddUserOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <Spinner className="h-4 w-4" />
+                    ) : isEditMode ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <UserPlus className="h-4 w-4" />
+                    )}
+                    {isEditMode ? "Save Changes" : "Create Account"}
+                  </Button>
+                </>
+              )}
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Premium Credentials Management Dialog */}
+      <Dialog open={isResetPasswordOpen} onOpenChange={setIsResetPasswordOpen}>
+        <DialogContent>
+          <DialogHeader className="border-b border-border pb-4">
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <Key className="h-5 w-5 text-primary" />
+              Reset Password & Access Options
+            </DialogTitle>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Manage credentials and secure access links for account{" "}
+              <span className="font-bold text-foreground">
+                {resetPasswordUser?.username}
+              </span>
+              .
+            </p>
+          </DialogHeader>
+
+          <Tabs defaultValue="direct" className="mt-4 w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="direct">Direct Password</TabsTrigger>
+              <TabsTrigger value="otp">OTP Reset Link</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="direct" className="space-y-4">
+              <div className="relative space-y-4 overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm transition-all hover:border-primary/20">
+                <div className="absolute top-0 left-0 h-full w-1 bg-primary" />
+                <div>
+                  <h4 className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+                    Direct Password Change
+                  </h4>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Update the password immediately. The user will be required
+                    to use this new password on their next login.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                      New Secure Password *
+                    </label>
+                    <InputGroup>
+                      <InputGroupInput
+                        type={showResetPassword ? "text" : "password"}
+                        value={newResetPassword}
+                        onChange={(e) => setNewResetPassword(e.target.value)}
+                        placeholder="Enter new secure password"
+                      />
+                      <InputGroupAddon
+                        align="inline-end"
+                        className="flex items-center gap-1"
+                      >
+                        <InputGroupButton
+                          size="icon-xs"
+                          type="button"
+                          onClick={() => {
+                            const securePw = generateSecurePassword()
+                            setNewResetPassword(securePw)
+                            setShowResetPassword(true)
+                            navigator.clipboard.writeText(securePw)
+                            toast.success(
+                              "Secure password generated and copied to clipboard!"
+                            )
+                          }}
+                          title="Generate Secure Password"
+                        >
+                          <Sparkles className="size-4 text-primary" />
+                        </InputGroupButton>
+                        <InputGroupButton
+                          size="icon-xs"
+                          type="button"
+                          onClick={() =>
+                            setShowResetPassword(!showResetPassword)
+                          }
+                        >
+                          {showResetPassword ? (
+                            <EyeOff className="size-4" />
+                          ) : (
+                            <Eye className="size-4" />
+                          )}
+                        </InputGroupButton>
+                      </InputGroupAddon>
+                    </InputGroup>
+                  </div>
+
+                  {newResetPassword && (
+                    <PasswordStrength
+                      password={newResetPassword}
+                      className="mt-2"
+                    />
+                  )}
+                </div>
+
+                <Button
+                  type="button"
+                  onClick={handleDirectPasswordReset}
+                  disabled={
+                    isResetSubmitting || !isStrongPassword(newResetPassword)
+                  }
+                >
+                  {isResetSubmitting ? (
+                    <Spinner className="h-4 w-4" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                  Update Password Immediately
+                </Button>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="otp" className="space-y-4">
+              <div className="relative space-y-4 overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm transition-all hover:border-amber-500/20">
+                <div className="absolute top-0 left-0 h-full w-1 bg-amber-500" />
+                <div>
+                  <h4 className="flex items-center gap-1.5 text-sm font-bold text-foreground">
+                    Trigger OTP Password Reset Link
+                  </h4>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Generate a temporary OTP code and dispatch a secure reset
+                    link directly to the user's registered email address.
+                  </p>
+                </div>
+
+                {!resetPasswordUser?.email ? (
+                  <div className="flex gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-500">
+                    <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div>
+                      <span className="font-bold">
+                        Email Verification Disabled
+                      </span>
+                      <p className="mt-0.5 text-muted-foreground">
+                        This user account does not have a configured email
+                        address. Direct password change must be used.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between rounded-lg border border-border bg-muted/50 p-2.5 text-xs">
+                      <span className="text-muted-foreground">
+                        Destination Email:
+                      </span>
+                      <span className="font-mono font-medium">
+                        {resetPasswordUser.email}
+                      </span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleSendOtpEmail}
+                      disabled={isResetSubmitting}
+                    >
+                      {isResetSubmitting ? (
+                        <Spinner className="h-4 w-4" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4" />
+                      )}
+                      Send Reset Link Email
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <div className="mt-2 flex justify-end gap-3 border-t border-border pt-4">
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => setIsResetPasswordOpen(false)}
+            >
+              Cancel
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
@@ -923,7 +1326,7 @@ export default function UsersDirectoryPage() {
       fallback={
         <div className="flex min-h-svh items-center justify-center bg-background text-foreground">
           <div className="flex flex-col items-center gap-4">
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <Spinner className="h-10 w-10 text-primary" />
             <p className="animate-pulse text-sm font-medium tracking-wide text-muted-foreground">
               Loading users directory...
             </p>

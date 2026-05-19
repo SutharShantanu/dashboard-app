@@ -381,15 +381,24 @@ function DashboardPageContent() {
     const gradeIndex = columns.indexOf("Grade")
     const colIndex = columns.indexOf(columnName)
 
+    const user = session?.user as any
+    const hasPerSheet = user?.perSheetPermissions && Object.keys(user.perSheetPermissions).length > 0
+    const hasCustomCols = user?.allowedColumns && user?.allowedColumns !== "*"
+    const isCustomizedAdmin = user?.role === "admin" && (hasPerSheet || hasCustomCols)
+
+    if (isCustomizedAdmin) {
+      return allowedColumns.includes(columnName)
+    }
+
     if (gradeIndex !== -1 && colIndex !== -1) {
-      if (session?.user?.role === "admin") {
+      if (user?.role === "admin") {
         return colIndex <= gradeIndex
       } else {
         return colIndex > gradeIndex
       }
     }
 
-    if (session?.user?.role === "admin") return true
+    if (user?.role === "admin") return true
     return allowedColumns.includes(columnName)
   }
 

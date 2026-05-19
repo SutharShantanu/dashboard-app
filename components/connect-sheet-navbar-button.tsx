@@ -2,7 +2,7 @@
 
 import React, { useState } from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
-import { Plus, Loader2, X, Link as LinkIcon, Database } from "lucide-react"
+import { Plus, X, Link as LinkIcon, Database } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -24,6 +24,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DriveBrowser } from "@/components/drive-browser"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
+import { Spinner } from "./ui/spinner"
 
 export function ConnectSheetNavbarButton({ isAdmin }: { isAdmin: boolean }) {
   const searchParams = useSearchParams()
@@ -208,7 +209,7 @@ export function ConnectSheetNavbarButton({ isAdmin }: { isAdmin: boolean }) {
                   </Button>
                   <Button type="submit" disabled={isConnecting}>
                     {isConnecting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Spinner className="h-4 w-4" />
                     ) : (
                       <Plus className="h-4 w-4" />
                     )}

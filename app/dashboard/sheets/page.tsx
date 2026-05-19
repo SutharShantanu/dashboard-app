@@ -14,7 +14,6 @@ import {
   Plus,
   Trash2,
   ExternalLink,
-  Loader2,
   AlertCircle,
   Link as LinkIcon,
   Globe,
@@ -344,7 +343,7 @@ export default function SheetsManagementPage() {
   if (status === "loading" || isInitialLoading) {
     return (
       <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
-        <Loader2 className="animate-spin" />
+        <Spinner className="h-8 w-8" />
       </div>
     )
   }
@@ -537,7 +536,7 @@ export default function SheetsManagementPage() {
                         <Cloud className="h-6 w-6 text-muted-foreground" />
                       </div>
                       <div>
-                        <CardTitle className="text-lg flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2 text-lg">
                           Google Drive
                           {isGoogleConnected ? (
                             <Badge variant="secondary" className="gap-1.5">
@@ -557,7 +556,7 @@ export default function SheetsManagementPage() {
                       </div>
                     </div>
                     <div>
-                      {!isGoogleConnected && (                        
+                      {!isGoogleConnected && (
                         <Button
                           onClick={() =>
                             signIn("google", {
@@ -566,9 +565,7 @@ export default function SheetsManagementPage() {
                           }
                         >
                           <Plus className="h-4 w-4" />
-                          <span className="hidden sm:inline">
-                            Connect Now
-                          </span>
+                          <span className="hidden sm:inline">Connect Now</span>
                           <span className="sm:hidden">Connect</span>
                         </Button>
                       )}

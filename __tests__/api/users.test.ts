@@ -73,15 +73,43 @@ describe("Users API & Sub-Admin Directory Security", () => {
       expect(res.status).toBe(403);
     });
 
-    test("allows admins to list users", async () => {
+    test("allows standard admins to list users", async () => {
       vi.mocked(getServerSession).mockResolvedValueOnce({
-        user: { username: "admin", displayName: "Admin", role: "admin" },
+        user: { username: "standard_admin", displayName: "Standard Admin", role: "admin" },
       });
 
       vi.mocked(sheets.getUsers).mockResolvedValueOnce([
         {
-          username: "admin",
-          displayName: "Admin",
+          username: "target_sub",
+          displayName: "Target Sub",
+          email: "target@sub.com",
+          passwordHash: "hash",
+          role: "sub-admin",
+          allowedColumns: "Comments,Notes",
+          isActive: "TRUE",
+          createdAt: "2026-05-11",
+          createdBy: "admin",
+        },
+      ]);
+
+      const req = new Request("http://localhost:3000/api/users");
+      const res = await GET(req);
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.users).toHaveLength(1);
+      expect(body.users[0].username).toBe("target_sub");
+    });
+
+    test("allows SabaAdmin to list users", async () => {
+      vi.mocked(getServerSession).mockResolvedValueOnce({
+        user: { username: "SabaAdmin", displayName: "Saba Administrator", role: "admin" },
+      });
+
+      vi.mocked(sheets.getUsers).mockResolvedValueOnce([
+        {
+          username: "SabaAdmin",
+          displayName: "Saba Administrator",
           email: "admin@domain.com",
           passwordHash: "hash",
           role: "admin",
@@ -97,30 +125,35 @@ describe("Users API & Sub-Admin Directory Security", () => {
 
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body).toHaveLength(1);
-      expect(body[0].username).toBe("admin");
+      expect(body.users).toHaveLength(1);
+      expect(body.users[0].username).toBe("SabaAdmin");
     });
   });
 
   describe("POST /api/users", () => {
-    test("rejects non-admins", async () => {
+    test("rejects standard sub-admins with 403", async () => {
       vi.mocked(getServerSession).mockResolvedValueOnce({
         user: { username: "sub", role: "sub-admin" },
       });
 
       const req = new Request("http://localhost:3000/api/users", {
         method: "POST",
-        body: JSON.stringify({ username: "new_sub" }),
+        body: JSON.stringify({
+          username: "new_sub",
+          displayName: "New Sub",
+          password: "plain_password",
+          role: "sub-admin"
+        }),
       });
       const res = await POST(req);
 
       expect(res.status).toBe(403);
     });
 
-    test("allows admins to create a new user with bcrypt hash", async () => {
+    test("allows standard admins to create sub-admin users", async () => {
       vi.mocked(bcrypt.hash).mockResolvedValue("hashed_pwd_abc" as any);
       vi.mocked(getServerSession).mockResolvedValueOnce({
-        user: { username: "admin", displayName: "Admin", role: "admin" },
+        user: { username: "standard_admin", displayName: "Standard Admin", role: "admin" },
       });
 
       const req = new Request("http://localhost:3000/api/users", {
@@ -146,10 +179,67 @@ describe("Users API & Sub-Admin Directory Security", () => {
           role: "sub-admin",
           allowedColumns: "Comments,Notes",
           isActive: "TRUE",
-          createdBy: "admin",
+          createdBy: "standard_admin",
         }),
+        "standard_admin",
         "admin",
-        "Admin",
+        expect.any(String)
+      );
+    });
+
+    test("rejects standard admins attempting to create admin users with 403", async () => {
+      vi.mocked(getServerSession).mockResolvedValueOnce({
+        user: { username: "standard_admin", displayName: "Standard Admin", role: "admin" },
+      });
+
+      const req = new Request("http://localhost:3000/api/users", {
+        method: "POST",
+        body: JSON.stringify({
+          username: "new_admin",
+          displayName: "New Admin",
+          password: "plain_password",
+          role: "admin",
+        }),
+      });
+      const res = await POST(req);
+
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.error).toContain("Standard admins can only create 'sub-admin' users");
+    });
+
+    test("allows SabaAdmin to create a new user with bcrypt hash", async () => {
+      vi.mocked(bcrypt.hash).mockResolvedValue("hashed_pwd_abc" as any);
+      vi.mocked(getServerSession).mockResolvedValueOnce({
+        user: { username: "SabaAdmin", displayName: "Saba Administrator", role: "admin" },
+      });
+
+      const req = new Request("http://localhost:3000/api/users", {
+        method: "POST",
+        body: JSON.stringify({
+          username: "new_sub",
+          displayName: "New Sub Admin",
+          password: "plain_password",
+          role: "sub-admin",
+          allowedColumns: "Comments,Notes",
+        }),
+      });
+      const res = await POST(req);
+
+      expect(res.status).toBe(201);
+      expect(bcrypt.hash).toHaveBeenCalledWith("plain_password", 12);
+      expect(sheets.createUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          username: "new_sub",
+          displayName: "New Sub Admin",
+          email: "",
+          passwordHash: "hashed_pwd_abc",
+          role: "sub-admin",
+          allowedColumns: "Comments,Notes",
+          isActive: "TRUE",
+          createdBy: "SabaAdmin",
+        }),
+        "SabaAdmin",
         "admin",
         expect.any(String)
       );
@@ -157,7 +247,7 @@ describe("Users API & Sub-Admin Directory Security", () => {
   });
 
   describe("PATCH /api/users/[username]", () => {
-    test("rejects non-admins", async () => {
+    test("rejects sub-admins editing other users with 403", async () => {
       vi.mocked(getServerSession).mockResolvedValueOnce({
         user: { username: "sub", role: "sub-admin" },
       });
@@ -171,9 +261,167 @@ describe("Users API & Sub-Admin Directory Security", () => {
       expect(res.status).toBe(403);
     });
 
-    test("allows admins to update user settings", async () => {
+    test("allows standard admins to update sub-admin settings", async () => {
       vi.mocked(getServerSession).mockResolvedValueOnce({
-        user: { username: "admin", displayName: "Admin", role: "admin" },
+        user: { username: "standard_admin", displayName: "Standard Admin", role: "admin" },
+      });
+      vi.mocked(sheets.getUsers).mockResolvedValueOnce([
+        {
+          username: "target_sub",
+          role: "sub-admin",
+          displayName: "Target Sub",
+          email: "target@sub.com",
+          passwordHash: "hash",
+          allowedColumns: "Comments,Notes",
+          isActive: "TRUE",
+          createdAt: "2026-05-11",
+          createdBy: "admin"
+        }
+      ]);
+
+      const req = new Request("http://localhost:3000/api/users/target_sub", {
+        method: "PATCH",
+        body: JSON.stringify({
+          displayName: "Updated Sub Name",
+          allowedColumns: "Comments,Notes",
+          isActive: "FALSE",
+        }),
+      });
+      const res = await PATCH(req, { params: { username: "target_sub" } });
+
+      expect(res.status).toBe(200);
+      expect(sheets.updateUser).toHaveBeenCalledWith(
+        "target_sub",
+        {
+          displayName: "Updated Sub Name",
+          allowedColumns: "Comments,Notes",
+          isActive: "FALSE",
+        },
+        "standard_admin",
+        "admin",
+        expect.any(String)
+      );
+    });
+
+    test("rejects standard admins editing other admin users with 403", async () => {
+      vi.mocked(getServerSession).mockResolvedValueOnce({
+        user: { username: "standard_admin", displayName: "Standard Admin", role: "admin" },
+      });
+      vi.mocked(sheets.getUsers).mockResolvedValueOnce([
+        {
+          username: "other_admin",
+          role: "admin",
+          displayName: "Other Admin",
+          email: "other@admin.com",
+          passwordHash: "hash",
+          allowedColumns: "all",
+          isActive: "TRUE",
+          createdAt: "2026-05-11",
+          createdBy: "system"
+        }
+      ]);
+
+      const req = new Request("http://localhost:3000/api/users/other_admin", {
+        method: "PATCH",
+        body: JSON.stringify({
+          displayName: "Updated Admin Name",
+        }),
+      });
+      const res = await PATCH(req, { params: { username: "other_admin" } });
+
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.error).toContain("Standard admins can only modify sub-admin users");
+    });
+
+    test("rejects standard admins editing SabaAdmin with 403", async () => {
+      vi.mocked(getServerSession).mockResolvedValueOnce({
+        user: { username: "standard_admin", displayName: "Standard Admin", role: "admin" },
+      });
+      vi.mocked(sheets.getUsers).mockResolvedValueOnce([
+        {
+          username: "SabaAdmin",
+          role: "admin",
+          displayName: "Saba Administrator",
+          email: "admin@domain.com",
+          passwordHash: "hash",
+          allowedColumns: "all",
+          isActive: "TRUE",
+          createdAt: "2026-05-11",
+          createdBy: "system"
+        }
+      ]);
+
+      const req = new Request("http://localhost:3000/api/users/SabaAdmin", {
+        method: "PATCH",
+        body: JSON.stringify({
+          displayName: "Updated Saba Name",
+        }),
+      });
+      const res = await PATCH(req, { params: { username: "SabaAdmin" } });
+
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.error).toContain("Standard admins can only modify sub-admin users");
+    });
+
+    test("rejects standard admins changing sub-admin user role with 403", async () => {
+      vi.mocked(getServerSession).mockResolvedValueOnce({
+        user: { username: "standard_admin", displayName: "Standard Admin", role: "admin" },
+      });
+      vi.mocked(sheets.getUsers).mockResolvedValueOnce([
+        {
+          username: "target_sub",
+          role: "sub-admin",
+          displayName: "Target Sub",
+          email: "target@sub.com",
+          passwordHash: "hash",
+          allowedColumns: "Comments,Notes",
+          isActive: "TRUE",
+          createdAt: "2026-05-11",
+          createdBy: "admin"
+        }
+      ]);
+
+      const req = new Request("http://localhost:3000/api/users/target_sub", {
+        method: "PATCH",
+        body: JSON.stringify({
+          role: "admin",
+        }),
+      });
+      const res = await PATCH(req, { params: { username: "target_sub" } });
+
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.error).toContain("Standard admins cannot change user roles");
+    });
+
+    test("allows standard admins to self-update their own displayName", async () => {
+      vi.mocked(getServerSession).mockResolvedValueOnce({
+        user: { username: "standard_admin", displayName: "Standard Admin", role: "admin" },
+      });
+
+      const req = new Request("http://localhost:3000/api/users/standard_admin", {
+        method: "PATCH",
+        body: JSON.stringify({
+          displayName: "New Admin Display Name",
+        }),
+      });
+      const res = await PATCH(req, { params: { username: "standard_admin" } });
+
+      expect(res.status).toBe(200);
+      expect(sheets.updateUser).toHaveBeenCalledWith(
+        "standard_admin",
+        { displayName: "New Admin Display Name" },
+        "standard_admin",
+        "admin",
+        expect.any(String)
+      );
+    });
+
+    test("allows SabaAdmin to update another user's settings", async () => {
+      vi.mocked(getServerSession).mockResolvedValueOnce({
+        user: { username: "SabaAdmin", displayName: "Saba Administrator", role: "admin" },
       });
 
       const req = new Request("http://localhost:3000/api/users/target_sub", {
@@ -194,8 +442,122 @@ describe("Users API & Sub-Admin Directory Security", () => {
           allowedColumns: "Comments,Notes",
           isActive: "FALSE",
         },
+        "SabaAdmin",
         "admin",
-        "Admin",
+        expect.any(String)
+      );
+    });
+
+    test("allows standard users to update their own displayName", async () => {
+      vi.mocked(getServerSession).mockResolvedValueOnce({
+        user: { username: "sub", displayName: "Sub", role: "sub-admin" },
+      });
+
+      const req = new Request("http://localhost:3000/api/users/sub", {
+        method: "PATCH",
+        body: JSON.stringify({
+          displayName: "New Display Name",
+        }),
+      });
+      const res = await PATCH(req, { params: { username: "sub" } });
+
+      expect(res.status).toBe(200);
+      expect(sheets.updateUser).toHaveBeenCalledWith(
+        "sub",
+        { displayName: "New Display Name" },
+        "sub",
+        "sub-admin",
+        expect.any(String)
+      );
+    });
+
+    test("ignores extra fields and allows standard users to self-update displayName", async () => {
+      vi.mocked(getServerSession).mockResolvedValueOnce({
+        user: { username: "sub", displayName: "Sub", role: "sub-admin" },
+      });
+
+      const req = new Request("http://localhost:3000/api/users/sub", {
+        method: "PATCH",
+        body: JSON.stringify({
+          displayName: "New Display Name",
+          role: "admin", // ignored on self-update
+        }),
+      });
+      const res = await PATCH(req, { params: { username: "sub" } });
+
+      expect(res.status).toBe(200);
+      expect(sheets.updateUser).toHaveBeenCalledWith(
+        "sub",
+        { displayName: "New Display Name" },
+        "sub",
+        "sub-admin",
+        expect.any(String)
+      );
+    });
+
+    test("rejects role downgrade for SabaAdmin", async () => {
+      vi.mocked(getServerSession).mockResolvedValueOnce({
+        user: { username: "SabaAdmin", displayName: "Saba Administrator", role: "admin" },
+      });
+
+      const req = new Request("http://localhost:3000/api/users/SabaAdmin", {
+        method: "PATCH",
+        body: JSON.stringify({
+          role: "sub-admin",
+        }),
+      });
+      const res = await PATCH(req, { params: { username: "SabaAdmin" } });
+
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.error).toContain("SabaAdmin's role must always remain 'admin'");
+    });
+
+    test("rejects deactivation/suspension for SabaAdmin", async () => {
+      vi.mocked(getServerSession).mockResolvedValueOnce({
+        user: { username: "SabaAdmin", displayName: "Saba Administrator", role: "admin" },
+      });
+
+      const req = new Request("http://localhost:3000/api/users/SabaAdmin", {
+        method: "PATCH",
+        body: JSON.stringify({
+          isActive: "FALSE",
+        }),
+      });
+      const res = await PATCH(req, { params: { username: "SabaAdmin" } });
+
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.error).toContain("SabaAdmin must always remain active");
+    });
+
+    test("allows SabaAdmin to self-update displayName, email, and password", async () => {
+      vi.mocked(getServerSession).mockResolvedValueOnce({
+        user: { username: "SabaAdmin", displayName: "Saba Administrator", role: "admin" },
+      });
+      vi.mocked(bcrypt.hash).mockResolvedValueOnce("hashed_new_pwd" as any);
+
+      const req = new Request("http://localhost:3000/api/users/SabaAdmin", {
+        method: "PATCH",
+        body: JSON.stringify({
+          displayName: "New Saba Name",
+          email: "new_saba@domain.com",
+          password: "new_password",
+          role: "admin", // ignored/not treated as change
+          isActive: "TRUE", // ignored/not treated as change
+        }),
+      });
+      const res = await PATCH(req, { params: { username: "SabaAdmin" } });
+
+      expect(res.status).toBe(200);
+      expect(sheets.updateUser).toHaveBeenCalledWith(
+        "sabaadmin",
+        {
+          displayName: "New Saba Name",
+          email: "new_saba@domain.com",
+          passwordHash: "hashed_new_pwd",
+        },
+        "SabaAdmin",
         "admin",
         expect.any(String)
       );

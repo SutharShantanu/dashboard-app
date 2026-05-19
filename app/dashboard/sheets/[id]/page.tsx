@@ -13,7 +13,6 @@ import {
   Download,
   Share2,
   MoreHorizontal,
-  Loader2,
   AlertCircle,
   Users,
   CheckCircle2,
@@ -58,6 +57,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { Spinner } from "@/components/ui/spinner"
 
 export default function SheetDetailPage() {
   const params = useParams()
@@ -362,7 +362,7 @@ export default function SheetDetailPage() {
     return (
       <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
         <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <Spinner className="h-8 w-8 text-primary" />
           <p className="text-sm text-muted-foreground">
             Loading sheet content...
           </p>
@@ -407,7 +407,7 @@ export default function SheetDetailPage() {
           className="gap-1.5"
         >
           {syncMutation.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Spinner className="h-4 w-4" />
           ) : (
             <RefreshCw className="h-4 w-4" />
           )}

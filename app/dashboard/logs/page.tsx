@@ -5,10 +5,11 @@ import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, RefreshCw } from "lucide-react"
+import { RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { PageHeader } from "@/components/page-header"
+import { Spinner } from "@/components/ui/spinner"
 
 export default function LogsPage() {
   const { data: session, status } = useSession()
@@ -43,7 +44,7 @@ export default function LogsPage() {
   if (status === "loading" || loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="animate-spin h-8 w-8 text-primary" />
+        <Spinner className="h-8 w-8 text-primary" />
       </div>
     )
   }

@@ -4,7 +4,8 @@ import * as React from "react"
 import { Dialog as SheetPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
+import { type VariantProps } from "class-variance-authority"
 import { XIcon } from "lucide-react"
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
@@ -18,9 +19,24 @@ function SheetTrigger({
 }
 
 function SheetClose({
+  className,
+  variant,
+  size,
+  asChild,
   ...props
-}: React.ComponentProps<typeof SheetPrimitive.Close>) {
-  return <SheetPrimitive.Close data-slot="sheet-close" {...props} />
+}: React.ComponentProps<typeof SheetPrimitive.Close> &
+  VariantProps<typeof buttonVariants>) {
+  return (
+    <SheetPrimitive.Close
+      data-slot="sheet-close"
+      className={cn(
+        !asChild && buttonVariants({ variant, size }),
+        className
+      )}
+      asChild={asChild}
+      {...props}
+    />
+  )
 }
 
 function SheetPortal({

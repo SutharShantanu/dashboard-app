@@ -4,7 +4,8 @@ import * as React from "react"
 import { Dialog as DialogPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
+import { type VariantProps } from "class-variance-authority"
 import { XIcon } from "lucide-react"
 import { useDialogUrlActive } from "@/hooks/useDialogUrlActive"
 
@@ -15,25 +16,31 @@ function Dialog({
   name = "dialog",
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root> & { name?: string }) {
-  const isControlled = controlledOpen !== undefined;
-  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(Boolean(defaultOpen));
-  const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const isControlled = controlledOpen !== undefined
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(
+    Boolean(defaultOpen)
+  )
+  const open = isControlled ? controlledOpen : uncontrolledOpen
 
-  useDialogUrlActive(Boolean(open), name);
+  useDialogUrlActive(Boolean(open), name)
 
   const handleOpenChange = React.useCallback(
     (nextOpen: boolean) => {
       if (!isControlled) {
-        setUncontrolledOpen(nextOpen);
+        setUncontrolledOpen(nextOpen)
       }
-      onOpenChange?.(nextOpen);
+      onOpenChange?.(nextOpen)
     },
-    [isControlled, onOpenChange],
-  );
+    [isControlled, onOpenChange]
+  )
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={handleOpenChange} {...props} />
-  );
+    <DialogPrimitive.Root
+      open={open}
+      onOpenChange={handleOpenChange}
+      {...props}
+    />
+  )
 }
 
 function DialogTrigger({
@@ -49,9 +56,24 @@ function DialogPortal({
 }
 
 function DialogClose({
+  className,
+  variant,
+  size,
+  asChild,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Close>) {
-  return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
+}: React.ComponentProps<typeof DialogPrimitive.Close> &
+  VariantProps<typeof buttonVariants>) {
+  return (
+    <DialogPrimitive.Close
+      data-slot="dialog-close"
+      className={cn(
+        !asChild && buttonVariants({ variant, size }),
+        className
+      )}
+      asChild={asChild}
+      {...(props as React.ComponentProps<typeof DialogPrimitive.Close>)}
+    />
+  )
 }
 
 function DialogOverlay({
@@ -89,13 +111,13 @@ function DialogContent({
         )}
         {...props}
       >
-        <div className="overflow-y-auto max-h-[85vh] flex flex-col">
+        <div className="flex max-h-[85vh] flex-col overflow-y-auto">
           {children}
         </div>
         {showCloseButton && (
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button
-              variant="ghost"
+              variant="destructive"
               className="absolute top-2 right-2 z-50"
               size="icon-sm"
             >
@@ -113,7 +135,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-1 text-left", className)}
+      className={cn("flex flex-col gap-1 bg-card p-4 text-left", className)}
       {...props}
     />
   )

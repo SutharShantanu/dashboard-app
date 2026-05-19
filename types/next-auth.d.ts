@@ -8,6 +8,7 @@ declare module "next-auth" {
       displayName: string;
       role: "admin" | "sub-admin";
       allowedColumns: string;
+      perSheetPermissions?: Record<string, string[]>;
     } & DefaultSession["user"];
   }
 
@@ -17,6 +18,7 @@ declare module "next-auth" {
     displayName: string;
     role: "admin" | "sub-admin";
     allowedColumns: string;
+    perSheetPermissions?: Record<string, string[]>;
   }
 }
 
@@ -26,5 +28,7 @@ declare module "next-auth/jwt" {
     displayName: string;
     role: "admin" | "sub-admin";
     allowedColumns: string;
+    perSheetPermissions?: Record<string, string[]>;
   }
 }
+

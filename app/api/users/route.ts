@@ -12,9 +12,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.role !== "admin" && session.user.role !== "sub-admin") {
+    const userRole = (session.user as any).role;
+    const currentUsername = session.user.username;
+
+    if (currentUsername !== "SabaAdmin" && userRole !== "admin") {
       return NextResponse.json(
-        { error: "Forbidden: Admins and Sub-admins only" },
+        { error: "Forbidden: Only admins can manage the user directory" },
         { status: 403 }
       );
     }
@@ -39,9 +42,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.role !== "admin") {
+    const userRole = (session.user as any).role;
+    const currentUsername = session.user.username;
+
+    if (currentUsername !== "SabaAdmin" && userRole !== "admin") {
       return NextResponse.json(
-        { error: "Forbidden: Admins only" },
+        { error: "Forbidden: Only admins can manage the user directory" },
         { status: 403 }
       );
     }
@@ -53,6 +59,13 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "Missing required fields (username, displayName, password, role)" },
         { status: 400 }
+      );
+    }
+
+    if (currentUsername !== "SabaAdmin" && role !== "sub-admin") {
+      return NextResponse.json(
+        { error: "Forbidden: Standard admins can only create 'sub-admin' users" },
+        { status: 403 }
       );
     }
 

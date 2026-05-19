@@ -9,11 +9,58 @@ vi.mock("next-auth/next", () => ({
   getServerSession: vi.fn(),
 }));
 
-vi.mock("../../lib/sheets", () => ({
-  getStudents: vi.fn(),
-  updateStudentCell: vi.fn(),
-  getDbMode: vi.fn().mockReturnValue({ isSimulated: false, isConfigured: true }),
-}));
+vi.mock("../../lib/sheets", () => {
+  const resolveUserAllowedColumns = (
+    user: any,
+    activeSheet: string,
+    allColumns: string[]
+  ) => {
+    const hasPerSheetConfig = user.perSheetPermissions && Object.keys(user.perSheetPermissions).length > 0;
+    
+    if (hasPerSheetConfig) {
+      let sheetPerms: string[] | undefined = undefined;
+      const keys = Object.keys(user.perSheetPermissions!);
+      const matchKey = keys.find(k => k.toLowerCase() === activeSheet.toLowerCase());
+      if (matchKey) {
+        sheetPerms = user.perSheetPermissions![matchKey];
+      }
+      
+      if (sheetPerms && Array.isArray(sheetPerms)) {
+        if (sheetPerms.includes("*")) {
+          return [...allColumns];
+        }
+        return allColumns.filter(col => sheetPerms.includes(col));
+      }
+      return [];
+    }
+
+    if (user.allowedColumns && user.allowedColumns !== "*" && user.allowedColumns !== "all") {
+      const list = user.allowedColumns.split(",").map((c: string) => c.trim());
+      return allColumns.filter(col => list.includes(col));
+    }
+
+    if (user.role === "admin") {
+      return [...allColumns];
+    } else {
+      const gradeIndex = allColumns.indexOf("Grade");
+      if (gradeIndex !== -1) {
+        return allColumns.filter((_, idx) => idx > gradeIndex);
+      } else {
+        if (user.allowedColumns === "*") {
+          return [...allColumns];
+        }
+        return [];
+      }
+    }
+  };
+
+  return {
+    resolveUserAllowedColumns,
+    getStudents: vi.fn(),
+    updateStudentCell: vi.fn(),
+    getDbMode: vi.fn().mockReturnValue({ isSimulated: false, isConfigured: true }),
+  };
+});
 
 describe("Students API Gating & Security", () => {
   beforeEach(() => {
@@ -94,19 +141,20 @@ describe("Students API Gating & Security", () => {
 
       const req = new Request("http://localhost:3000/api/students/1", {
         method: "PATCH",
-        body: JSON.stringify({ column: "Score", value: "99" }),
+        body: JSON.stringify({ column: "Extra1", value: "99" }),
       });
       const res = await PATCH(req, { params: { id: "1" } });
 
       expect(res.status).toBe(200);
       expect(sheets.updateStudentCell).toHaveBeenCalledWith(
         "1",
-        "Score",
+        "Extra1",
         "99",
         "admin_user",
-        "Admin User",
         "admin",
-        expect.any(String)
+        expect.any(String),
+        undefined,
+        undefined
       );
     });
 
@@ -208,9 +256,10 @@ describe("Students API Gating & Security", () => {
         "Comments",
         "Good student",
         "sub_user",
-        "Sub User",
         "sub-admin",
-        expect.any(String)
+        expect.any(String),
+        undefined,
+        undefined
       );
     });
   });

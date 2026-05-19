@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../../../lib/auth";
-import { updateStudentCell, getStudents } from "../../../../lib/sheets";
+import { updateStudentCell, getStudents, resolveUserAllowedColumns } from "../../../../lib/sheets";
 
 export async function PATCH(
   request: Request,
@@ -17,7 +17,7 @@ export async function PATCH(
     const resolvedParams = await context.params;
     const { id } = resolvedParams;
     const body = await request.json();
-    const { column, value } = body;
+    const { column, value, sheet, spreadsheetId } = body;
 
     if (!column) {
       return NextResponse.json(
@@ -27,32 +27,28 @@ export async function PATCH(
     }
 
     // Verify column edit authorization
-    const role = session.user.role;
-    if (role !== "admin") {
-      const { columns } = await getStudents();
-      const gradeIndex = columns.indexOf("Grade");
-      const targetIndex = columns.indexOf(column);
+    const { columns } = await getStudents(sheet, spreadsheetId);
+    const activeSheetName = sheet || "Students";
+    const allowedCols = resolveUserAllowedColumns(session.user, activeSheetName, columns);
 
-      // Sub-admins cannot edit Grade (M) or any column to its left
-      if (gradeIndex !== -1 && targetIndex !== -1 && targetIndex <= gradeIndex) {
-        return NextResponse.json(
-          {
-            error: `Forbidden: Sub-admins are only allowed to edit columns to the right of the 'Grade' column (column M).`,
-          },
-          { status: 403 }
-        );
-      }
+    const gradeIndex = columns.indexOf("Grade");
+    const targetIndex = columns.indexOf(column);
 
-      const allowedCols = session.user.allowedColumns
-        ? session.user.allowedColumns.split(",").map((c) => c.trim())
-        : [];
+    // Sub-admins cannot edit Grade (M) or any column to its left
+    if (session.user.role !== "admin" && gradeIndex !== -1 && targetIndex !== -1 && targetIndex <= gradeIndex) {
+      return NextResponse.json(
+        {
+          error: `Forbidden: Sub-admins are only allowed to edit columns to the right of the 'Grade' column (column M).`,
+        },
+        { status: 403 }
+      );
+    }
 
-      if (!allowedCols.includes(column)) {
-        return NextResponse.json(
-          { error: `You are not permitted to edit the '${column}' column.` },
-          { status: 403 }
-        );
-      }
+    if (!allowedCols.includes(column)) {
+      return NextResponse.json(
+        { error: `You are not permitted to edit the '${column}' column.` },
+        { status: 403 }
+      );
     }
 
     // Safely retrieve caller IP address
@@ -65,9 +61,10 @@ export async function PATCH(
       column,
       value === undefined || value === null ? "" : String(value),
       session.user.username,
-      session.user.displayName,
       session.user.role,
-      ip
+      ip,
+      sheet,
+      spreadsheetId
     );
 
     return NextResponse.json({ success: true });

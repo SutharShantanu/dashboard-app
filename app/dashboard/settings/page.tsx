@@ -16,7 +16,6 @@ import {
   Bell,
   User as UserIcon,
   Shield,
-  Loader2,
   FileText,
   Link as LinkIcon,
   Database,
@@ -51,14 +50,14 @@ import {
   FieldSet,
 } from "@/components/ui/field"
 import { PasswordStrength, isStrongPassword } from "@/components/password-strength"
+import { Spinner } from "@/components/ui/spinner"
 
-const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, "Current password is required"),
-  newPassword: z.string().min(6, "New password must be at least 6 characters"),
+const updateProfileSchema = z.object({
+  displayName: z.string().min(1, "Display name is required"),
 })
 
 export default function SettingsPage() {
-  const { data: session, status } = useSession()
+  const { data: session, status, update } = useSession()
   const router = useRouter()
   const pathname = usePathname()
 
@@ -80,31 +79,28 @@ export default function SettingsPage() {
   const searchParams = useSearchParams()
   const user = session?.user as any
 
-  const [loading, setLoading] = useState(false)
   const [logs, setLogs] = useState<any[]>([])
   const [loadingLogs, setLoadingLogs] = useState(false)
 
-  // Dialog state from URL
-  const [isDialogOpen, setIsDialogOpen] = useState(
-    searchParams.get("dialog") === "change-password" ||
-    searchParams.get("changePassword") === "open"
-  )
-
   const {
-    control,
-    handleSubmit,
-    reset,
-    watch,
-    formState: { errors },
-  } = useForm<z.infer<typeof changePasswordSchema>>({
-    resolver: zodResolver(changePasswordSchema),
+    control: profileControl,
+    handleSubmit: handleProfileSubmit,
+    reset: resetProfile,
+    formState: { errors: profileErrors, isSubmitting: isProfileSubmitting },
+  } = useForm<z.infer<typeof updateProfileSchema>>({
+    resolver: zodResolver(updateProfileSchema),
     defaultValues: {
-      currentPassword: "",
-      newPassword: "",
+      displayName: "",
     },
   })
 
-  const newPasswordValue = watch("newPassword", "")
+  useEffect(() => {
+    if (user?.displayName || user?.name) {
+      resetProfile({
+        displayName: user.displayName || user.name || "",
+      })
+    }
+  }, [user, resetProfile])
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -134,33 +130,34 @@ export default function SettingsPage() {
 
   const isGoogleUser = user?.image || user?.email?.includes("gmail.com")
 
-  const onSubmit = async (values: z.infer<typeof changePasswordSchema>) => {
-    setLoading(true)
+  const onProfileSubmit = async (values: z.infer<typeof updateProfileSchema>) => {
     try {
       const res = await fetch(
-        `/api/users/${user.username || user.name}/change-password`,
+        `/api/users/${user.username || user.name}`,
         {
-          method: "POST",
+          method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(values),
+          body: JSON.stringify({ displayName: values.displayName.trim() }),
         }
       )
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Failed to change password")
-      toast.success("Password changed successfully")
-      reset()
-      setIsDialogOpen(false)
+      if (!res.ok) throw new Error(data.error || "Failed to update profile")
+      
+      // Dynamic NextAuth session update
+      await update({
+        displayName: values.displayName.trim(),
+      })
+
+      toast.success("Profile display name updated successfully")
     } catch (err: any) {
       toast.error(err.message)
-    } finally {
-      setLoading(false)
     }
   }
 
   if (status === "loading") {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="animate-spin" />
+        <Spinner className="h-8 w-8" />
       </div>
     )
   }
@@ -275,13 +272,30 @@ export default function SettingsPage() {
                 </Alert>
               )}
 
-              {!isGoogleUser && (
-                <div className="border-t pt-6">
-                  <Button onClick={() => setIsDialogOpen(true)} variant="outline">
-                    <KeyRound className="h-4 w-4" /> Change Password
+              <div className="border-t pt-6">
+                <form onSubmit={handleProfileSubmit(onProfileSubmit)} className="space-y-4 max-w-md">
+                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Update Profile</h4>
+                  <FieldSet>
+                    <FieldGroup>
+                      <Controller
+                        control={profileControl}
+                        name="displayName"
+                        render={({ field }) => (
+                          <Field data-invalid={!!profileErrors.displayName}>
+                            <FieldLabel htmlFor="displayName">Display Name</FieldLabel>
+                            <Input id="displayName" type="text" placeholder="Enter display name" {...field} />
+                            <FieldError errors={[profileErrors.displayName]} />
+                          </Field>
+                        )}
+                      />
+                    </FieldGroup>
+                  </FieldSet>
+                  <Button type="submit" disabled={isProfileSubmitting}>
+                    {isProfileSubmitting && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
+                    Save Changes
                   </Button>
-                </div>
-              )}
+                </form>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -316,9 +330,9 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-4">
                     {user?.image ? (
                       <img
-                        src={user.image}
-                        alt={user.name}
-                        className="h-10 w-10 rounded-full"
+                         src={user.image}
+                         alt={user.name}
+                         className="h-10 w-10 rounded-full"
                       />
                     ) : (
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-xl font-bold text-primary">
@@ -396,7 +410,7 @@ export default function SettingsPage() {
             <CardContent>
               {loadingLogs ? (
                 <div className="flex justify-center py-10">
-                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <Spinner className="h-6 w-6" />
                 </div>
               ) : logs.length === 0 ? (
                 <p className="rounded-lg border-2 border-dashed py-10 text-center text-sm text-muted-foreground">
@@ -495,60 +509,6 @@ export default function SettingsPage() {
           </TabsContent>
         )}
       </Tabs>
-
-      {/* Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen} name="changePassword">
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Change Password</DialogTitle>
-            <DialogDescription>
-              Enter your current password and a new one.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <FieldSet>
-              <FieldGroup>
-                <Controller
-                  control={control}
-                  name="currentPassword"
-                  render={({ field }) => (
-                    <Field data-invalid={!!errors.currentPassword}>
-                      <FieldLabel htmlFor="currentPassword">
-                        Current Password
-                      </FieldLabel>
-                      <Input id="currentPassword" type="password" {...field} />
-                      <FieldError errors={[errors.currentPassword]} />
-                    </Field>
-                  )}
-                />
-                <Controller
-                  control={control}
-                  name="newPassword"
-                  render={({ field }) => (
-                    <Field data-invalid={!!errors.newPassword}>
-                      <FieldLabel htmlFor="newPassword">
-                        New Password
-                      </FieldLabel>
-                      <Input id="newPassword" type="password" {...field} />
-                      <PasswordStrength
-                        password={newPasswordValue || ""}
-                        className="mt-2"
-                      />
-                      <FieldError errors={[errors.newPassword]} />
-                    </Field>
-                  )}
-                />
-              </FieldGroup>
-            </FieldSet>
-            <DialogFooter>
-              <Button type="submit" disabled={loading || !isStrongPassword(newPasswordValue)}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Update Password
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
