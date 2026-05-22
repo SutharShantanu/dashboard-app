@@ -10,7 +10,9 @@ import { Badge } from "@/components/ui/badge"
 import { AlertCircle, CheckCircle2, KeyRound, Database, Bell, User as UserIcon } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { toast } from "sonner"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { getAvatarUrl } from "@/lib/utils"
 
 interface SettingsDialogProps {
   open: boolean
@@ -21,11 +23,19 @@ interface SettingsDialogProps {
 export function SettingsDialog({ open, onOpenChange, user }: SettingsDialogProps) {
   const router = useRouter()
   
+  const searchParams = useSearchParams()
+  
   // Is this user from Google SSO or Credentials?
   // We check if the user has an image (avatar usually comes from Google) or if we injected a provider flag.
   // Assuming lack of avatar or specific domain implies credentials for now, but ideally we'd pass the provider.
   const isGoogleUser = user?.image || user?.email?.includes("gmail.com") // Mock heuristic if provider is not in session
-  const [activeTab, setActiveTab] = useState("profile")
+  const activeTab = searchParams?.get("settingsTab") || "profile"
+
+  const handleTabChange = (val: string) => {
+    const params = new URLSearchParams(window.location.search)
+    params.set("settingsTab", val)
+    router.replace(`${window.location.pathname}?${params.toString()}`, { scroll: false })
+  }
 
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -81,7 +91,7 @@ export function SettingsDialog({ open, onOpenChange, user }: SettingsDialogProps
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} name="settings">
       <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
@@ -90,7 +100,7 @@ export function SettingsDialog({ open, onOpenChange, user }: SettingsDialogProps
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-4">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full mt-4">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="profile"><UserIcon className="w-4 h-4 mr-2"/> Profile</TabsTrigger>
             {user?.role === "admin" && (
@@ -102,9 +112,12 @@ export function SettingsDialog({ open, onOpenChange, user }: SettingsDialogProps
           <TabsContent value="profile" className="space-y-6 pt-4">
             <div className="space-y-4">
               <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xl font-bold">
-                  {user?.name?.[0]?.toUpperCase() || "U"}
-                </div>
+                <Avatar className="h-16 w-16 border border-border">
+                  <AvatarImage src={getAvatarUrl(user?.username || user?.name || "", user?.role || "")} alt={user?.name} />
+                  <AvatarFallback className="bg-primary/10 text-primary text-xl font-bold">
+                    {user?.name?.[0]?.toUpperCase() || "U"}
+                  </AvatarFallback>
+                </Avatar>
                 <div>
                   <h3 className="text-lg font-medium">{user?.name}</h3>
                   <p className="text-sm text-muted-foreground">{user?.email}</p>

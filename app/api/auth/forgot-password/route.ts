@@ -22,6 +22,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Server-side safe cooldown rate limiting: 60 seconds cooldown derived from otpExpiry
+    if (user.otpExpiry) {
+      const lastSentTime = new Date(user.otpExpiry).getTime() - 10 * 60 * 1000;
+      const timePassed = Date.now() - lastSentTime;
+      const cooldown = 60 * 1000; // 60 seconds cooldown
+      if (timePassed < cooldown) {
+        const secondsLeft = Math.ceil((cooldown - timePassed) / 1000);
+        return NextResponse.json(
+          { error: `Please wait ${secondsLeft} seconds before requesting another code.` },
+          { status: 429 }
+        );
+      }
+    }
+
     const otp = generateOtp();
     // Expiry 10 minutes from now
     const expiry = new Date(Date.now() + 10 * 60000).toISOString();

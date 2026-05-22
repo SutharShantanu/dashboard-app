@@ -75,6 +75,7 @@ export default function LoginPage() {
       username: "",
       password: "",
     },
+    mode: "onTouched",
   })
 
   const onSubmit = async (values: z.infer<typeof loginSchema>) => {
@@ -136,7 +137,7 @@ export default function LoginPage() {
               </Alert>
             )}
 
-            <form onSubmit={handleSubmit(onSubmit)}>
+            <form onSubmit={handleSubmit(onSubmit)} noValidate>
               <FieldSet>
                 <FieldGroup>
                   <Field data-invalid={!!errors.username}>

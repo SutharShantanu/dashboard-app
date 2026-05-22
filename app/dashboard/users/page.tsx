@@ -98,6 +98,8 @@ import {
   AlertTitle,
   AlertDescription,
 } from "@/components/ui/alert"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { getAvatarUrl } from "@/lib/utils"
 
 interface User {
   username: string
@@ -184,6 +186,7 @@ function UsersDirectoryContent() {
   const resetPasswordForm = useForm<ResetPasswordFormValues>({
     resolver: zodResolver(resetPasswordSchema),
     defaultValues: { newPassword: "", showPassword: false },
+    mode: "onTouched",
   })
 
   // Tab inside the reset-password dialog — kept in sync with the URL.
@@ -256,6 +259,7 @@ function UsersDirectoryContent() {
       perSheetPermissions: {},
       isActive: "TRUE",
     },
+    mode: "onTouched",
   })
 
   const watchedRole = watch("role")
@@ -642,6 +646,29 @@ function UsersDirectoryContent() {
       {
         accessorKey: "displayName",
         header: "Display Name",
+        cell: ({ row }) => {
+          const user = row.original
+          const avatarUrl = getAvatarUrl(user.username, user.role)
+          const initials = user.displayName
+            ? user.displayName
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase()
+            : user.username.slice(0, 2).toUpperCase()
+          return (
+            <div className="flex items-center gap-2">
+              <Avatar className="h-8 w-8 border border-border">
+                <AvatarImage src={avatarUrl} alt={user.displayName} />
+                <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <span className="font-medium text-foreground">{user.displayName}</span>
+            </div>
+          )
+        },
       },
       {
         accessorKey: "email",
@@ -976,10 +1003,11 @@ function UsersDirectoryContent() {
             </p>
           </DialogHeader>
 
-          <form
+           <form
             onSubmit={
               isViewMode ? (e) => e.preventDefault() : handleSubmit(onSubmit)
             }
+            noValidate
           >
             {isViewMode ? (
               <div className="space-y-5 overflow-y-auto p-5">
@@ -987,10 +1015,21 @@ function UsersDirectoryContent() {
                 <div className="relative overflow-hidden rounded-xl border border-border bg-gradient-to-br from-card to-card/60 p-5 shadow-sm">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-lg font-bold text-primary shadow-inner">
-                        {watch("displayName")?.substring(0, 2).toUpperCase() || "US"}
+                      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center">
+                        <Avatar className="h-14 w-14 rounded-xl border border-border">
+                          <AvatarImage
+                            src={getAvatarUrl(
+                              watch("username") || "",
+                              watch("role") || ""
+                            )}
+                            alt={watch("displayName")}
+                          />
+                          <AvatarFallback className="rounded-xl bg-primary/10 text-primary text-lg font-bold">
+                            {watch("displayName")?.substring(0, 2).toUpperCase() || "US"}
+                          </AvatarFallback>
+                        </Avatar>
                         <span
-                          className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card ${
+                          className={`absolute -bottom-0.5 -right-0.5 z-10 h-3.5 w-3.5 rounded-full border-2 border-card ${
                             watch("isActive") === "TRUE" ? "bg-emerald-500" : "bg-rose-500"
                           }`}
                         />
@@ -1397,6 +1436,7 @@ function UsersDirectoryContent() {
                   </div>
 
                   <form
+                    noValidate
                     onSubmit={resetPasswordForm.handleSubmit(async (values) => {
                       if (!resetPasswordUser) return
                       const promise = async () => {

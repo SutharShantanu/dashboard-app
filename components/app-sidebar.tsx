@@ -75,6 +75,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { NavUser } from "@/components/nav-user"
+import { getAvatarUrl } from "@/lib/utils"
 import {
   TooltipProvider,
   Tooltip,
@@ -539,8 +540,9 @@ export function AppSidebar({
             user={{
               name: user.displayName || user.username,
               email: `${user.username}@aegis.local`,
-              avatar: "",
+              avatar: getAvatarUrl(user.username, user.role),
               role: user.role,
+              username: user.username,
             }}
           />
         </SidebarFooter>

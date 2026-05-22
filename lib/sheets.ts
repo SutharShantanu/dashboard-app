@@ -233,7 +233,9 @@ export async function getUsers(): Promise<User[]> {
     perSheetPermissions: u.perSheetPermissions,
     isActive: u.isActive ? "TRUE" : "FALSE",
     createdAt: u.createdAt.toISOString(),
-    createdBy: u.createdBy
+    createdBy: u.createdBy,
+    otpCode: u.otpCode,
+    otpExpiry: u.otpExpiry ? u.otpExpiry.toISOString() : undefined
   }));
 }
 

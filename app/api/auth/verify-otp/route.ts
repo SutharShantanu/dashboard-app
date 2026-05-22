@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, otp, newPassword } = await req.json();
+    const { email, otp, newPassword, checkOnly } = await req.json();
 
     if (!email || !otp) {
       return NextResponse.json(
@@ -37,6 +37,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (checkOnly) {
+      return NextResponse.json({ success: true, message: "OTP is valid." });
+    }
+
     // OTP is valid. Clear it out.
     const updates: any = {
       otpCode: "",
@@ -57,7 +61,7 @@ export async function POST(req: NextRequest) {
       updates
     );
 
-    return NextResponse.json({ success: true, message });
+    return NextResponse.json({ success: true, message, username: user.username });
   } catch (error: any) {
     console.error("Verify OTP API error:", error);
     return NextResponse.json(

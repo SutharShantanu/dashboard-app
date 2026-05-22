@@ -43,9 +43,11 @@ function InputOTPGroup({ className, ...props }: React.ComponentProps<"div">) {
 function InputOTPSlot({
   index,
   className,
+  placeholder,
   ...props
 }: React.ComponentProps<"div"> & {
   index: number
+  placeholder?: string
 }) {
   const inputOTPContext = React.useContext(OTPInputContext)
   const { char, hasFakeCaret, isActive } = inputOTPContext?.slots[index] ?? {}
@@ -56,11 +58,15 @@ function InputOTPSlot({
       data-active={isActive}
       className={cn(
         "relative flex size-8 items-center justify-center border-y border-r border-input text-xs transition-all outline-none first:rounded-none first:border-l last:rounded-none aria-invalid:border-destructive data-[active=true]:z-10 data-[active=true]:border-ring data-[active=true]:ring-1 data-[active=true]:ring-ring/50 data-[active=true]:aria-invalid:border-destructive data-[active=true]:aria-invalid:ring-destructive/20 dark:bg-input/30 dark:data-[active=true]:aria-invalid:ring-destructive/40",
+        "data-[success=true]:z-10 data-[success=true]:border-emerald-500 data-[success=true]:ring-1 data-[success=true]:ring-emerald-500/20 data-[success=true]:text-emerald-600 dark:data-[success=true]:text-emerald-400 dark:data-[success=true]:border-emerald-400",
+        "aria-invalid:z-10 aria-invalid:ring-1 aria-invalid:ring-destructive/20 aria-invalid:text-destructive dark:aria-invalid:text-destructive/80 dark:aria-invalid:border-destructive",
         className
       )}
       {...props}
     >
-      {char}
+      {char || (!isActive && placeholder && (
+        <span className="text-muted-foreground/50">{placeholder}</span>
+      ))}
       {hasFakeCaret && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="h-4 w-px animate-caret-blink bg-foreground duration-1000" />

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import {
   BadgeCheck,
   Bell,
@@ -11,7 +11,8 @@ import {
   Settings,
 } from "lucide-react"
 import { signOut } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
+import { SettingsDialog } from "@/components/settings-dialog"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -38,10 +39,29 @@ export function NavUser({
     email: string
     avatar: string
     role?: string
+    username?: string
   }
 }) {
   const { isMobile } = useSidebar()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const pathname = usePathname()
+
+  const isSettingsOpen = searchParams?.get("settings") === "open"
+  const setIsSettingsOpen = React.useCallback((open: boolean) => {
+    const params = new URLSearchParams(window.location.search)
+    if (open) {
+      params.set("settings", "open")
+      if (!params.get("settingsTab")) {
+        params.set("settingsTab", "profile")
+      }
+      router.push(`${window.location.pathname}?${params.toString()}`, { scroll: false })
+    } else {
+      params.delete("settings")
+      params.delete("settingsTab")
+      router.push(`${window.location.pathname}?${params.toString()}`, { scroll: false })
+    }
+  }, [router])
 
   return (
     <SidebarMenu>
@@ -93,7 +113,7 @@ export function NavUser({
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem
-                onClick={() => router.push("/dashboard/settings")}
+                onClick={() => setIsSettingsOpen(true)}
               >
                 <Settings />
                 <span>Profile & Settings</span>
@@ -110,6 +130,11 @@ export function NavUser({
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
+      <SettingsDialog
+        open={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+        user={user}
+      />
     </SidebarMenu>
   )
 }

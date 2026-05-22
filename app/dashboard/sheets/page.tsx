@@ -65,14 +65,6 @@ import {
 } from "@/components/ui/empty"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { format, formatDistanceToNow } from "date-fns"
-import { DriveBrowser } from "@/components/drive-browser"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
 import { Spinner } from "@/components/ui/spinner"
 
 export default function SheetsManagementPage() {
@@ -82,12 +74,18 @@ export default function SheetsManagementPage() {
   const activeTab = searchParams?.get("tab") || "connections"
   const user = session?.user as any
 
-  const [loading, setLoading] = useState(false)
   const [connectedSheets, setConnectedSheets] = useState<any[]>([])
-  const [sheetUrl, setSheetUrl] = useState("")
-  const [sheetTitle, setSheetTitle] = useState("")
   const [isInitialLoading, setIsInitialLoading] = useState(true)
-  const [isDriveOpen, setIsDriveOpen] = useState(false)
+
+  useEffect(() => {
+    const handleSheetConnected = () => {
+      fetchSheets()
+    }
+    window.addEventListener("sheet_connected", handleSheetConnected)
+    return () => {
+      window.removeEventListener("sheet_connected", handleSheetConnected)
+    }
+  }, [])
   const [isGoogleConnected, setIsGoogleConnected] = useState<boolean | null>(
     null
   )
@@ -135,40 +133,7 @@ export default function SheetsManagementPage() {
     }
   }
 
-  const handleConnectSheet = async (
-    e?: React.FormEvent,
-    customData?: { url: string; title: string }
-  ) => {
-    if (e) e.preventDefault()
-    setLoading(true)
 
-    const urlToUse = customData?.url || sheetUrl
-    const titleToUse = customData?.title || sheetTitle
-
-    const promise = async () => {
-      const res = await fetch("/api/connected-sheets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: urlToUse, title: titleToUse }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Failed to connect sheet")
-
-      setSheetUrl("")
-      setSheetTitle("")
-      setConnectedSheets((prev) => [...prev, data.newSheet])
-      window.dispatchEvent(new Event("sheet_connected"))
-      setIsDriveOpen(false)
-      return data
-    }
-
-    toast.promise(promise(), {
-      loading: "Connecting spreadsheet to sync engine...",
-      success: (data) => `Successfully linked "${data.newSheet.title}"`,
-      error: (err) => err.message || "Failed to connect spreadsheet",
-      finally: () => setLoading(false),
-    })
-  }
 
   const handleDeleteSheet = async (spreadsheetId: string) => {
     const promise = async () => {
@@ -335,10 +300,7 @@ export default function SheetsManagementPage() {
     [handleDeleteSheet]
   )
 
-  const handleDriveSelect = (file: any) => {
-    const url = `https://docs.google.com/spreadsheets/d/${file.id}/edit`
-    handleConnectSheet(undefined, { url, title: file.name })
-  }
+
 
   if (status === "loading" || isInitialLoading) {
     return (
@@ -424,79 +386,26 @@ export default function SheetsManagementPage() {
                       error: "Failed to refresh connections.",
                     })
                   }}
-                  disabled={loading || isInitialLoading}
+                  disabled={isInitialLoading}
                 >
                   <RefreshCcw
-                    className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                    className="h-4 w-4"
                   />
                   <span className="hidden sm:inline">Refresh</span>
                 </Button>
-                <Dialog open={isDriveOpen} onOpenChange={setIsDriveOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline">
-                      <Plus className="h-4 w-4" />
-                      <span className="hidden sm:inline">Add Sheet</span>
-                      <span className="sm:hidden">Add</span>
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add New Spreadsheet</DialogTitle>
-                    </DialogHeader>
-                    <Tabs defaultValue="url" className="w-full">
-                      <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="url">Via URL</TabsTrigger>
-                        <TabsTrigger value="drive">Browse Drive</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="url" className="space-y-4 py-4">
-                        <form
-                          onSubmit={handleConnectSheet}
-                          className="grid gap-4"
-                        >
-                          <div className="grid gap-2">
-                            <Label htmlFor="sheetUrl">Google Sheet URL</Label>
-                            <Input
-                              id="sheetUrl"
-                              placeholder="https://docs.google.com/spreadsheets/d/..."
-                              value={sheetUrl}
-                              onChange={(e) => setSheetUrl(e.target.value)}
-                              required
-                            />
-                          </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor="sheetTitle">
-                              Display Name (Optional)
-                            </Label>
-                            <Input
-                              id="sheetTitle"
-                              placeholder="e.g. 2024 Admissions Data"
-                              value={sheetTitle}
-                              onChange={(e) => setSheetTitle(e.target.value)}
-                            />
-                          </div>
-                          <Button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full"
-                          >
-                            {loading ? (
-                              <Spinner className="h-4 w-4" />
-                            ) : (
-                              <Plus className="h-4 w-4" />
-                            )}
-                            Connect Spreadsheet
-                          </Button>
-                        </form>
-                      </TabsContent>
-                      <TabsContent value="drive" className="py-4">
-                        <DriveBrowser
-                          onSelect={handleDriveSelect}
-                          onClose={() => setIsDriveOpen(false)}
-                        />
-                      </TabsContent>
-                    </Tabs>
-                  </DialogContent>
-                </Dialog>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const params = new URLSearchParams(window.location.search)
+                    params.set("addSheet", "open")
+                    params.set("addSheetTab", "url")
+                    router.push(`${window.location.pathname}?${params.toString()}`, { scroll: false })
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden sm:inline">Add Sheet</span>
+                  <span className="sm:hidden">Add</span>
+                </Button>
               </div>
             </CardHeader>
             <CardContent>

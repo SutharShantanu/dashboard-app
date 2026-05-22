@@ -1324,7 +1324,7 @@ function DashboardPageContent() {
       {/* =========================================================================
             MODAL 1: ADD STUDENT (ADMIN ONLY) - using shadcn/ui Dialog
             ========================================================================= */}
-      <Dialog open={isAddStudentOpen} onOpenChange={setIsAddStudentOpen}>
+      <Dialog open={isAddStudentOpen} onOpenChange={setIsAddStudentOpen} name="addStudent">
         <DialogContent className="max-w-2xl rounded-3xl p-6 sm:p-8">
           <DialogHeader>
             <DialogTitle className="text-xl font-extrabold">

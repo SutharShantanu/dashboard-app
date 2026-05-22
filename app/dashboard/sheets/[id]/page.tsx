@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/card"
 import { PageHeader } from "@/components/page-header"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { getAvatarUrl } from "@/lib/utils"
 import {
   Tooltip,
   TooltipContent,
@@ -186,15 +187,15 @@ export default function SheetDetailPage() {
         color: isActive
           ? "bg-green-500"
           : "bg-gray-300 dark:bg-gray-700 text-muted-foreground",
-        avatar: "",
+        avatar: getAvatarUrl(u.username, u.role),
         isActive,
         role: u.role,
       }
     })
 
     // Add current user if not in allUsers
-    if (session?.user?.email) {
-      const currentUsername = session.user.email.split("@")[0]
+    if (session?.user) {
+      const currentUsername = (session.user as any).username || session.user.email?.split("@")[0] || "user"
       const alreadyIncluded = allUsers.some(
         (u) => u.username === currentUsername
       )
@@ -207,9 +208,9 @@ export default function SheetDetailPage() {
             .substring(0, 2)
             .toUpperCase(),
           color: "bg-green-500", // Current user is active
-          avatar: session.user.image || "",
+          avatar: getAvatarUrl(currentUsername, (session.user as any).role),
           isActive: true,
-          role: session.user.role,
+          role: (session.user as any).role,
         })
       } else {
         // If already included, make sure they are marked as active
@@ -221,9 +222,7 @@ export default function SheetDetailPage() {
         if (userIndex !== -1) {
           renderedUsers[userIndex].isActive = true
           renderedUsers[userIndex].color = "bg-green-500"
-          if (session.user.image) {
-            renderedUsers[userIndex].avatar = session.user.image
-          }
+          renderedUsers[userIndex].avatar = getAvatarUrl(currentUsername, (session.user as any).role)
         }
       }
     }

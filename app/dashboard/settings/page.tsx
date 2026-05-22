@@ -92,6 +92,7 @@ export default function SettingsPage() {
     defaultValues: {
       displayName: "",
     },
+    mode: "onTouched",
   })
 
   useEffect(() => {
@@ -273,7 +274,7 @@ export default function SettingsPage() {
               )}
 
               <div className="border-t pt-6">
-                <form onSubmit={handleProfileSubmit(onProfileSubmit)} className="space-y-4 max-w-md">
+                <form onSubmit={handleProfileSubmit(onProfileSubmit)} className="space-y-4 max-w-md" noValidate>
                   <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Update Profile</h4>
                   <FieldSet>
                     <FieldGroup>
