@@ -20,6 +20,10 @@ import {
   Pencil,
   Trash2,
   Sparkles,
+  User,
+  Type,
+  AtSign,
+  Mailbox,
 } from "lucide-react"
 
 import { ColumnDef } from "@tanstack/react-table"
@@ -93,13 +97,27 @@ import { z } from "zod"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Field, FieldLabel, FieldError } from "@/components/ui/field"
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import {
-  Alert,
-  AlertTitle,
-  AlertDescription,
-} from "@/components/ui/alert"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+  AvatarBadge,
+} from "@/components/ui/avatar"
+import { BadgeDot } from "@/components/ui/badge-dot"
+import {
+  Item,
+  ItemGroup,
+  ItemMedia,
+  ItemContent,
+  ItemTitle,
+  ItemDescription,
+} from "@/components/ui/item"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
 import { getAvatarUrl } from "@/lib/utils"
+import Link from "next/link"
+import { CopyButton } from "@/components/ui/copy-button"
 
 interface User {
   username: string
@@ -150,7 +168,11 @@ function generateSecurePassword(): string {
 }
 
 function UsersDirectoryContent() {
-  const { data: session, status: sessionStatus, update: updateSession } = useSession()
+  const {
+    data: session,
+    status: sessionStatus,
+    update: updateSession,
+  } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -177,7 +199,8 @@ function UsersDirectoryContent() {
       .string()
       .min(1, "Password is required")
       .refine(isStrongPassword, {
-        message: "Password must be at least 8 chars with uppercase, number & symbol",
+        message:
+          "Password must be at least 8 chars with uppercase, number & symbol",
       }),
     showPassword: z.boolean().optional(),
   })
@@ -439,7 +462,10 @@ function UsersDirectoryContent() {
         perSheetPermissions: {},
       })
       // Refresh the session JWT so header immediately shows the new displayName
-      if (isEditMode && data.username?.toLowerCase() === currentUsername?.toLowerCase()) {
+      if (
+        isEditMode &&
+        data.username?.toLowerCase() === currentUsername?.toLowerCase()
+      ) {
         await updateSession({ displayName: data.displayName })
       }
       fetchUsers()
@@ -520,8 +546,6 @@ function UsersDirectoryContent() {
     resetPasswordForm.reset({ newPassword: "", showPassword: false })
     setIsResetPasswordOpen(true)
   }
-
-
 
   const handleSendOtpEmail = async () => {
     if (!resetPasswordUser || !resetPasswordUser.email) return
@@ -661,11 +685,13 @@ function UsersDirectoryContent() {
             <div className="flex items-center gap-2">
               <Avatar className="h-8 w-8 border border-border">
                 <AvatarImage src={avatarUrl} alt={user.displayName} />
-                <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">
+                <AvatarFallback className="text-tiny bg-primary/10 font-bold text-primary">
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              <span className="font-medium text-foreground">{user.displayName}</span>
+              <span className="font-medium text-foreground">
+                {user.displayName}
+              </span>
             </div>
           )
         },
@@ -709,7 +735,7 @@ function UsersDirectoryContent() {
               <HoverCardTrigger asChild>
                 <Badge
                   variant="outline"
-                  className="cursor-help font-mono text-tiny"
+                  className="text-tiny cursor-help font-mono"
                 >
                   {isAdmin
                     ? "All Access"
@@ -725,16 +751,16 @@ function UsersDirectoryContent() {
               >
                 {presetName && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">
+                    <span className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
                       Preset
                     </span>
-                    <Badge variant="secondary" className="text-[10px]">
+                    <Badge variant="secondary" className="text-tiny">
                       {presetName}
                     </Badge>
                   </div>
                 )}
                 <div>
-                  <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">
+                  <span className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
                     {isAdmin ? "Access" : "Allowed Columns"}
                   </span>
                   <div className="mt-1.5 flex flex-wrap gap-1">
@@ -1003,129 +1029,160 @@ function UsersDirectoryContent() {
             </p>
           </DialogHeader>
 
-           <form
+          <form
             onSubmit={
               isViewMode ? (e) => e.preventDefault() : handleSubmit(onSubmit)
             }
             noValidate
           >
             {isViewMode ? (
-              <div className="space-y-5 overflow-y-auto p-5">
-                {/* Identity Hero Card */}
-                <div className="relative overflow-hidden rounded-xl border border-border bg-gradient-to-br from-card to-card/60 p-5 shadow-sm">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center">
-                        <Avatar className="h-14 w-14 rounded-xl border border-border">
-                          <AvatarImage
-                            src={getAvatarUrl(
-                              watch("username") || "",
-                              watch("role") || ""
-                            )}
-                            alt={watch("displayName")}
-                          />
-                          <AvatarFallback className="rounded-xl bg-primary/10 text-primary text-lg font-bold">
-                            {watch("displayName")?.substring(0, 2).toUpperCase() || "US"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span
-                          className={`absolute -bottom-0.5 -right-0.5 z-10 h-3.5 w-3.5 rounded-full border-2 border-card ${
-                            watch("isActive") === "TRUE" ? "bg-emerald-500" : "bg-rose-500"
-                          }`}
-                        />
+              <ScrollArea className="h-fit max-h-[65vh]">
+                <div className="space-y-4 p-2">
+                  {/* Identity Hero Card */}
+                  <Card className="overflow-hidden border shadow-none ring-0">
+                    <CardContent>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-12 w-12">
+                            <AvatarImage
+                              src={getAvatarUrl(
+                                watch("username") || "",
+                                watch("role") || ""
+                              )}
+                              alt={watch("displayName")}
+                            />
+                            <AvatarFallback>
+                              {watch("displayName")
+                                ?.substring(0, 2)
+                                .toUpperCase() || "US"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="grid flex-1 text-left text-sm leading-tight">
+                            <span className="truncate font-medium text-foreground">
+                              {watch("displayName")}
+                            </span>
+                            <span className="truncate font-mono text-xs text-muted-foreground">
+                              @{watch("username")}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 flex-col items-end gap-1.5">
+                          <Badge
+                            variant={
+                              watch("isActive") === "TRUE"
+                                ? "success-light"
+                                : "destructive-light"
+                            }
+                          >
+                            <BadgeDot
+                              variant={
+                                watch("isActive") === "TRUE"
+                                  ? "success"
+                                  : "destructive"
+                              }
+                            />
+                            {watch("isActive") === "TRUE"
+                              ? "Active"
+                              : "Suspended"}
+                          </Badge>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="text-base font-bold leading-tight text-foreground">
+                    </CardContent>
+                  </Card>
+
+                  {/* Identity Info — Item list */}
+                  <ItemGroup className="grid grid-cols-2 gap-1">
+                    <Item variant="muted" className="border">
+                      <ItemMedia
+                        variant="icon"
+                        className="text-muted-foreground"
+                      >
+                        <AtSign />
+                      </ItemMedia>
+                      <ItemContent>
+                        <ItemTitle className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
+                          Username
+                        </ItemTitle>
+                        <ItemDescription className="font-mono font-semibold text-foreground">
+                          {watch("username")}
+                        </ItemDescription>
+                      </ItemContent>
+                    </Item>
+                    <Item variant="muted">
+                      <ItemMedia
+                        variant="icon"
+                        className="text-muted-foreground"
+                      >
+                        <Type />
+                      </ItemMedia>
+                      <ItemContent>
+                        <ItemTitle className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
+                          Display Name
+                        </ItemTitle>
+                        <ItemDescription className="font-semibold text-foreground">
                           {watch("displayName")}
-                        </h4>
-                        <p className="mt-0.5 font-mono text-xs text-muted-foreground">
-                          @{watch("username")}
-                        </p>
+                        </ItemDescription>
+                      </ItemContent>
+                    </Item>
+                    <Item variant="muted" className="col-span-2 w-full">
+                      <ItemMedia
+                        variant="icon"
+                        className="text-muted-foreground"
+                      >
+                        <Mailbox />
+                      </ItemMedia>
+                      <ItemContent>
+                        <ItemTitle className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
+                          Email Address
+                        </ItemTitle>
+                        <ItemDescription className="font-semibold text-foreground flex justify-between">
+                          {watch("email") ? (
+                            <>
+                              {watch("email")}
+                              <CopyButton size="icon-xs" content={watch("email")} />
+                            </>
+                          ) : (
+                            <span className="italic text-muted-foreground">
+                              Not provided
+                            </span>
+                          )}
+                        </ItemDescription>
+                      </ItemContent>
+                    </Item>
+                  </ItemGroup>
+
+                  {watchedRole === "sub-admin" && (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <Separator className="flex-1" />
+                        <span className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
+                          Sheet &amp; Column Permissions
+                        </span>
+                        {watch("permissionPreset") && (
+                          <Badge variant="outline" className="text-tiny">
+                            {presets.find(
+                              (p) => p.id === watch("permissionPreset")
+                            )?.name ?? "Custom Preset"}
+                          </Badge>
+                        )}
+                        <Separator className="flex-1" />
                       </div>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1.5">
-                      <Badge
-                        variant={watch("isActive") === "TRUE" ? "default" : "destructive"}
-                        className={
-                          watch("isActive") === "TRUE"
-                            ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400"
-                            : "border border-rose-500/20 bg-rose-500/10 text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
-                        }
-                      >
-                        <span
-                          className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${
-                            watch("isActive") === "TRUE" ? "bg-emerald-500" : "bg-rose-500"
-                          }`}
-                        />
-                        {watch("isActive") === "TRUE" ? "Active" : "Suspended"}
-                      </Badge>
-                      <Badge
-                        variant={watch("role") === "admin" ? "default" : "secondary"}
-                        className="capitalize text-[10px] tracking-wide"
-                      >
-                        {watch("role") === "admin" ? "⚡ Admin" : "🔒 Sub-Admin"}
-                      </Badge>
-                    </div>
-                  </div>
+                      <Card className="border shadow-none ring-0">
+                        <CardContent className="p-4">
+                          <PermissionSelector
+                            sheets={sheetsWithColumns}
+                            value={watch("perSheetPermissions") || {}}
+                            onChange={() => {}}
+                            presets={presets}
+                            onPresetSelect={() => {}}
+                            disabled={true}
+                          />
+                        </CardContent>
+                      </Card>
+                    </>
+                  )}
                 </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="space-y-1 rounded-lg border border-border bg-muted/30 p-3.5">
-                    <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">
-                      Username
-                    </span>
-                    <p className="font-mono text-sm font-semibold text-foreground">
-                      {watch("username")}
-                    </p>
-                  </div>
-                  <div className="space-y-1 rounded-lg border border-border bg-muted/30 p-3.5">
-                    <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">
-                      Display Name
-                    </span>
-                    <p className="text-sm font-semibold text-foreground">
-                      {watch("displayName")}
-                    </p>
-                  </div>
-                  <div className="space-y-1 rounded-lg border border-border bg-muted/30 p-3.5 sm:col-span-2">
-                    <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">
-                      Email Address
-                    </span>
-                    <p className="text-sm font-semibold text-foreground">
-                      {watch("email") ? (
-                        <a
-                          href={`mailto:${watch("email")}`}
-                          className="text-primary underline underline-offset-2 hover:opacity-80"
-                        >
-                          {watch("email")}
-                        </a>
-                      ) : (
-                        <span className="font-normal italic text-muted-foreground">Not provided</span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-                {watchedRole === "sub-admin" && (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 border-b border-border/40 pb-2">
-                      <span className="text-tiny font-bold uppercase tracking-widest text-muted-foreground">
-                        Sheet &amp; Column Permissions
-                      </span>
-                      {watch("permissionPreset") && (
-                        <Badge variant="outline" className="ml-auto text-[10px]">
-                          {presets.find((p) => p.id === watch("permissionPreset"))?.name ?? "Custom Preset"}
-                        </Badge>
-                      )}
-                    </div>
-                    <PermissionSelector
-                      sheets={sheetsWithColumns}
-                      value={watch("perSheetPermissions") || {}}
-                      onChange={() => {}}
-                      presets={presets}
-                      onPresetSelect={() => {}}
-                      disabled={true}
-                    />
-                  </div>
-                )}
-              </div>
+              </ScrollArea>
             ) : (
               <div className="space-y-6 overflow-y-auto p-4">
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -1354,10 +1411,10 @@ function UsersDirectoryContent() {
               </div>
             )}
 
-            <div className="flex justify-end gap-3 border-t border-border bg-popover p-4 pt-4 sm:p-6">
+            <DialogFooter>
               {isViewMode ? (
                 <Button
-                  variant="outline"
+                  variant="destructive"
                   type="button"
                   onClick={() => setIsAddUserOpen(false)}
                 >
@@ -1366,7 +1423,7 @@ function UsersDirectoryContent() {
               ) : (
                 <>
                   <Button
-                    variant="outline"
+                    variant="destructive"
                     type="button"
                     onClick={() => setIsAddUserOpen(false)}
                   >
@@ -1384,7 +1441,7 @@ function UsersDirectoryContent() {
                   </Button>
                 </>
               )}
-            </div>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -1417,7 +1474,7 @@ function UsersDirectoryContent() {
           <Tabs
             value={resetPasswordTab}
             onValueChange={setResetPasswordTab}
-            className="w-fit m-2"
+            className="m-2 w-fit"
           >
             <TabsList className="grid w-fit grid-cols-2">
               <TabsTrigger value="direct">Direct Password</TabsTrigger>
@@ -1425,13 +1482,15 @@ function UsersDirectoryContent() {
             </TabsList>
 
             <TabsContent value="direct">
-              <Card className="border ring-0 shadow-none">
+              <Card className="border shadow-none ring-0">
                 <CardContent className="space-y-4">
                   <div>
-                    <h4 className="text-sm font-bold text-foreground">Direct Password Change</h4>
+                    <h4 className="text-sm font-bold text-foreground">
+                      Direct Password Change
+                    </h4>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      Update the password immediately. The user will be required to use this new
-                      password on their next login.
+                      Update the password immediately. The user will be required
+                      to use this new password on their next login.
                     </p>
                   </div>
 
@@ -1445,12 +1504,16 @@ function UsersDirectoryContent() {
                           {
                             method: "PATCH",
                             headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ password: values.newPassword }),
+                            body: JSON.stringify({
+                              password: values.newPassword,
+                            }),
                           }
                         )
                         const result = await res.json()
                         if (!res.ok)
-                          throw new Error(result.error || "Failed to reset password.")
+                          throw new Error(
+                            result.error || "Failed to reset password."
+                          )
                         setIsResetPasswordOpen(false)
                         fetchUsers()
                         return result
@@ -1458,7 +1521,8 @@ function UsersDirectoryContent() {
                       toast.promise(promise(), {
                         loading: `Updating password for ${resetPasswordUser.username}...`,
                         success: "Password updated successfully.",
-                        error: (err) => err.message || "Failed to reset password.",
+                        error: (err) =>
+                          err.message || "Failed to reset password.",
                       })
                     })}
                     className="space-y-4"
@@ -1467,20 +1531,29 @@ function UsersDirectoryContent() {
                       name="newPassword"
                       control={resetPasswordForm.control}
                       render={({ field }) => (
-                        <Field data-invalid={!!resetPasswordForm.formState.errors.newPassword}>
-                          <FieldLabel className="text-tiny font-bold uppercase tracking-wider text-muted-foreground">
+                        <Field
+                          data-invalid={
+                            !!resetPasswordForm.formState.errors.newPassword
+                          }
+                        >
+                          <FieldLabel className="text-tiny font-bold tracking-wider text-muted-foreground uppercase">
                             New Secure Password *
                           </FieldLabel>
                           <InputGroup>
                             <InputGroupInput
                               {...field}
                               type={
-                                resetPasswordForm.watch("showPassword") ? "text" : "password"
+                                resetPasswordForm.watch("showPassword")
+                                  ? "text"
+                                  : "password"
                               }
                               placeholder="Enter new secure password"
                               autoComplete="new-password"
                             />
-                            <InputGroupAddon align="inline-end" className="flex items-center gap-1">
+                            <InputGroupAddon
+                              align="inline-end"
+                              className="flex items-center gap-1"
+                            >
                               <InputGroupButton
                                 size="icon-xs"
                                 type="button"
@@ -1488,9 +1561,14 @@ function UsersDirectoryContent() {
                                 onClick={() => {
                                   const pw = generateSecurePassword()
                                   field.onChange(pw)
-                                  resetPasswordForm.setValue("showPassword", true)
+                                  resetPasswordForm.setValue(
+                                    "showPassword",
+                                    true
+                                  )
                                   navigator.clipboard.writeText(pw)
-                                  toast.success("Secure password generated & copied!")
+                                  toast.success(
+                                    "Secure password generated & copied!"
+                                  )
                                 }}
                               >
                                 <Sparkles className="size-4 text-primary" />
@@ -1518,7 +1596,9 @@ function UsersDirectoryContent() {
                             className="mt-2"
                           />
                           <FieldError
-                            errors={[resetPasswordForm.formState.errors.newPassword]}
+                            errors={[
+                              resetPasswordForm.formState.errors.newPassword,
+                            ]}
                           />
                         </Field>
                       )}
@@ -1541,30 +1621,34 @@ function UsersDirectoryContent() {
             </TabsContent>
 
             <TabsContent value="otp">
-              <Card className="border ring-0 shadow-none">
+              <Card className="border shadow-none ring-0">
                 <CardContent className="space-y-4">
                   <div>
-                    <h4 className="text-sm font-bold text-foreground">Trigger OTP Password Reset Link</h4>
+                    <h4 className="text-sm font-bold text-foreground">
+                      Trigger OTP Password Reset Link
+                    </h4>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      Generate a temporary OTP code and dispatch a secure reset link directly to
-                      the user's registered email address.
+                      Generate a temporary OTP code and dispatch a secure reset
+                      link directly to the user's registered email address.
                     </p>
                   </div>
 
                   {!resetPasswordUser?.email ? (
                     <Alert className="border-amber-500/30 bg-amber-500/5 text-amber-600 dark:text-amber-400">
                       <ShieldAlert className="size-4" />
-                      <AlertTitle className="font-bold">Email Not Configured</AlertTitle>
+                      <AlertTitle className="font-bold">
+                        Email Not Configured
+                      </AlertTitle>
                       <AlertDescription className="text-amber-600/80 dark:text-amber-400/80">
-                        This account has no registered email address. Use the Direct
-                        Password tab instead.
+                        This account has no registered email address. Use the
+                        Direct Password tab instead.
                       </AlertDescription>
                     </Alert>
                   ) : (
                     <div className="space-y-3">
                       <Card className="border shadow-none">
                         <CardContent className="flex items-center justify-between p-3">
-                          <span className="text-tiny font-bold uppercase tracking-wider text-muted-foreground">
+                          <span className="text-tiny font-bold tracking-wider text-muted-foreground uppercase">
                             Destination
                           </span>
                           <Badge variant="outline" className="font-mono">

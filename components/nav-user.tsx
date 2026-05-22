@@ -48,20 +48,27 @@ export function NavUser({
   const pathname = usePathname()
 
   const isSettingsOpen = searchParams?.get("settings") === "open"
-  const setIsSettingsOpen = React.useCallback((open: boolean) => {
-    const params = new URLSearchParams(window.location.search)
-    if (open) {
-      params.set("settings", "open")
-      if (!params.get("settingsTab")) {
-        params.set("settingsTab", "profile")
+  const setIsSettingsOpen = React.useCallback(
+    (open: boolean) => {
+      const params = new URLSearchParams(window.location.search)
+      if (open) {
+        params.set("settings", "open")
+        if (!params.get("settingsTab")) {
+          params.set("settingsTab", "profile")
+        }
+        router.push(`${window.location.pathname}?${params.toString()}`, {
+          scroll: false,
+        })
+      } else {
+        params.delete("settings")
+        params.delete("settingsTab")
+        router.push(`${window.location.pathname}?${params.toString()}`, {
+          scroll: false,
+        })
       }
-      router.push(`${window.location.pathname}?${params.toString()}`, { scroll: false })
-    } else {
-      params.delete("settings")
-      params.delete("settingsTab")
-      router.push(`${window.location.pathname}?${params.toString()}`, { scroll: false })
-    }
-  }, [router])
+    },
+    [router]
+  )
 
   return (
     <SidebarMenu>
@@ -73,9 +80,9 @@ export function NavUser({
               variant="outline"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <Avatar className="h-8 w-8 rounded-lg">
+              <Avatar className="h-8 w-8">
                 <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="bg-primary font-bold text-primary-foreground">
+                <AvatarFallback>
                   {user.name?.[0]?.toUpperCase() || "U"}
                 </AvatarFallback>
               </Avatar>
@@ -112,9 +119,7 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem
-                onClick={() => setIsSettingsOpen(true)}
-              >
+              <DropdownMenuItem onClick={() => setIsSettingsOpen(true)}>
                 <Settings />
                 <span>Profile & Settings</span>
               </DropdownMenuItem>
