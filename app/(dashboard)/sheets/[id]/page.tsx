@@ -25,6 +25,11 @@ import { Badge } from "@/components/ui/badge"
 import { BadgeDot } from "@/components/ui/badge-dot"
 import { ExportDropdown } from "@/components/export-dropdown"
 import { DataTable } from "@/components/ui/data-table"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group"
 import type { ColumnDef } from "@tanstack/react-table"
 import {
   Table,
@@ -50,7 +55,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { PageHeader } from "@/components/page-header"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarGroup, AvatarImage } from "@/components/ui/avatar"
 import { getAvatarUrl } from "@/lib/utils"
 import {
   Tooltip,
@@ -195,7 +200,10 @@ export default function SheetDetailPage() {
 
     // Add current user if not in allUsers
     if (session?.user) {
-      const currentUsername = (session.user as any).username || session.user.email?.split("@")[0] || "user"
+      const currentUsername =
+        (session.user as any).username ||
+        session.user.email?.split("@")[0] ||
+        "user"
       const alreadyIncluded = allUsers.some(
         (u) => u.username === currentUsername
       )
@@ -222,7 +230,10 @@ export default function SheetDetailPage() {
         if (userIndex !== -1) {
           renderedUsers[userIndex].isActive = true
           renderedUsers[userIndex].color = "bg-green-500"
-          renderedUsers[userIndex].avatar = getAvatarUrl(currentUsername, (session.user as any).role)
+          renderedUsers[userIndex].avatar = getAvatarUrl(
+            currentUsername,
+            (session.user as any).role
+          )
         }
       }
     }
@@ -238,6 +249,15 @@ export default function SheetDetailPage() {
   const tableColumns = useMemo<ColumnDef<any>[]>(() => {
     return columns.map((col: string, index: number) => {
       const colId = col || `col_${index}`
+
+      // Calculate max length of values in this column dynamically based on content
+      const maxCharLength = Math.max(
+        col ? col.length : 0,
+        ...data.map((row: any) => String(row[col] || "").length)
+      )
+      // Allow a minimum of 8ch and add 4ch for safety (input padding, read-only icons, font variations)
+      const minWidthCh = `${Math.max(maxCharLength + 4, 8)}ch`
+
       return {
         id: colId,
         accessorFn: (row: any) => row[col],
@@ -268,11 +288,14 @@ export default function SheetDetailPage() {
             : ""
 
           return (
-            <div className="group relative">
+            <div
+              className="group relative w-full"
+              style={{ minWidth: minWidthCh }}
+            >
               <Input
                 key={`${studentId}:${colId}:${value}`}
                 defaultValue={value || ""}
-                size={Math.max(value?.toString().length || 0, 5)}
+                style={{ minWidth: minWidthCh }}
                 onBlur={(e) => {
                   if (!isLocked && e.target.value !== value) {
                     handleSave(studentId, colName, e.target.value)
@@ -284,7 +307,7 @@ export default function SheetDetailPage() {
                   }
                 }}
                 disabled={isLocked}
-                className={`h-8 w-auto border-transparent bg-transparent transition-colors hover:border-input focus:border-primary focus:bg-background ${userColor} ${isLocked ? "cursor-not-allowed opacity-70" : "cursor-text"}`}
+                className={`h-8 w-full border-transparent bg-transparent transition-colors hover:border-input focus:border-primary focus:bg-background ${userColor} ${isLocked ? "cursor-not-allowed opacity-70" : "cursor-text"}`}
               />
               {isLocked && (
                 <div className="absolute top-1/2 right-2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100">
@@ -307,24 +330,13 @@ export default function SheetDetailPage() {
     })
   }, [
     columns,
+    data,
     editingCell,
     editValue,
     allowedColumns,
     realActiveUsers,
     allUsers,
   ])
-
-  const handleSort = (key: string) => {
-    let direction: "asc" | "desc" = "asc"
-    if (
-      sortConfig &&
-      sortConfig.key === key &&
-      sortConfig.direction === "asc"
-    ) {
-      direction = "desc"
-    }
-    setSortConfig({ key, direction })
-  }
 
   const filteredAndSortedData = useMemo(() => {
     let result = [...data]
@@ -414,37 +426,36 @@ export default function SheetDetailPage() {
         </Button>
 
         <TooltipProvider>
-          <div className="flex -space-x-2">
+          <AvatarGroup className="backdrop-blur-sm">
             {activeUsersToRender.map((user) => (
               <Tooltip key={user.id}>
                 <TooltipTrigger asChild>
                   <Avatar
-                    className={`h-8 w-8 border-2 border-background ${user.isActive ? "ring-2 ring-emerald-500" : "opacity-50 grayscale"}`}
+                    className={`h-8 w-8 ${user.isActive ? "ring-2 ring-success" : "opacity-50 grayscale"}`}
                   >
                     <AvatarImage src={user.avatar} />
-                    <AvatarFallback
-                      className={`${user.color} text-xs text-white`}
-                    >
+                    <AvatarFallback className={`${user.color} text-xs`}>
                       {user.fallback}
                     </AvatarFallback>
                   </Avatar>
                 </TooltipTrigger>
-                <TooltipContent>
+                <TooltipContent className="flex flex-col gap-0 items-start">
                   <p className="text-xs font-semibold">{user.name}</p>
-                  <p className="text-tiny text-muted-foreground capitalize">
+                  <p className="text-tiny p-0 text-muted-foreground capitalize">
                     {user.role}
                   </p>
-                  <p className="text-tiny text-muted-foreground">
+                  <Badge variant={"secondary"}>
+                    <BadgeDot variant="success" />
                     {user.isActive ? "Active now" : "Offline"}
-                  </p>
+                  </Badge>
                 </TooltipContent>
               </Tooltip>
             ))}
-          </div>
+          </AvatarGroup>
         </TooltipProvider>
         <Badge variant="secondary" className="gap-1 text-xs">
-          <BadgeDot variant="success" pulse />
-          {activeUsersToRender.length} Active
+          <Users className="h-3 w-3" />
+          {activeUsersToRender.length} Users
         </Badge>
       </PageHeader>
 

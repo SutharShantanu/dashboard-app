@@ -153,7 +153,7 @@ export function AppSidebar({
     connectedSheets.forEach((s) => {
       items.push({
         title: s.title,
-        url: `/dashboard/sheets/${s.spreadsheetId}`,
+        url: `/sheets/${s.spreadsheetId}`,
         icon: Database,
       })
     })
@@ -162,12 +162,12 @@ export function AppSidebar({
       items.push(
         {
           title: "Manage Sheets",
-          url: "/dashboard/sheets?tab=connections",
+          url: "/sheets?tab=connections",
           icon: Database,
         },
         {
           title: "Integrations",
-          url: "/dashboard/sheets?tab=integrations",
+          url: "/sheets?tab=integrations",
           icon: Globe,
         }
       )
@@ -176,14 +176,14 @@ export function AppSidebar({
     if (user.username === "SabaAdmin") {
       items.push({
         title: "Users Directory",
-        url: "/dashboard/users",
+        url: "/users",
         icon: Users,
       })
     }
 
     items.push({
       title: "Activity Logs",
-      url: "/dashboard/logs",
+      url: "/logs",
       icon: History,
     })
 
@@ -368,14 +368,14 @@ export function AppSidebar({
                                 asChild
                                 isActive={
                                   pathname ===
-                                    `/dashboard/sheets/${s.spreadsheetId}` ||
+                                    `/sheets/${s.spreadsheetId}` ||
                                   (pathname === "/dashboard" &&
                                     activeSpreadsheetId === s.spreadsheetId)
                                 }
                                 tooltip={s.title}
                               >
                                 <Link
-                                  href={`/dashboard/sheets/${s.spreadsheetId}`}
+                                  href={`/sheets/${s.spreadsheetId}`}
                                 >
                                   <Database className="h-3.5 w-3.5 text-primary" />
                                   <span className="truncate">{s.title}</span>
@@ -467,12 +467,12 @@ export function AppSidebar({
                       <SidebarMenuButton
                         asChild
                         isActive={
-                          pathname === "/dashboard/sheets" &&
+                          pathname === "/sheets" &&
                           (tab === "connections" || !tab)
                         }
                         tooltip="Manage Sheets"
                       >
-                        <Link href="/dashboard/sheets?tab=connections">
+                        <Link href="/sheets?tab=connections">
                           <Database className="h-4 w-4" />
                           <span>Manage Sheets</span>
                         </Link>
@@ -482,12 +482,12 @@ export function AppSidebar({
                       <SidebarMenuButton
                         asChild
                         isActive={
-                          pathname === "/dashboard/sheets" &&
+                          pathname === "/sheets" &&
                           tab === "integrations"
                         }
                         tooltip="Integrations"
                       >
-                        <Link href="/dashboard/sheets?tab=integrations">
+                        <Link href="/sheets?tab=integrations">
                           <Globe className="h-4 w-4" />
                           <span>Integrations</span>
                         </Link>
@@ -496,11 +496,11 @@ export function AppSidebar({
                     <SidebarMenuItem>
                       <SidebarMenuButton
                         asChild
-                        isActive={pathname === "/dashboard/users"}
+                        isActive={pathname === "/users"}
                         tooltip="Users Directory"
                       >
                         <Link
-                          href={`/dashboard/users${activeSpreadsheetId ? `?spreadsheetId=${encodeURIComponent(activeSpreadsheetId)}` : ""}`}
+                          href={`/users${activeSpreadsheetId ? `?spreadsheetId=${encodeURIComponent(activeSpreadsheetId)}` : ""}`}
                         >
                           <Users className="h-4 w-4" />
                           <span>Users Directory</span>
@@ -512,10 +512,10 @@ export function AppSidebar({
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
-                    isActive={pathname === "/dashboard/logs"}
+                    isActive={pathname === "/logs"}
                     tooltip="Activity Logs"
                   >
-                    <Link href="/dashboard/logs">
+                    <Link href="/logs">
                       <History className="h-4 w-4" />
                       <span>Activity Logs</span>
                     </Link>

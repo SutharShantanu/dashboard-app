@@ -508,6 +508,28 @@ export async function addConnectedSheet(url: string, title: string, addedBy: str
     createdAt: new Date()
   });
 
+  // Auto-grant the user who added this sheet full access to all its columns.
+  // This ensures SabaAdmin (and any admin who connects a sheet) always has
+  // perSheetPermissions["<sheetName>"] = ["*"] set by default.
+  try {
+    const escapedAdder = addedBy.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const adderUser = await User.findOne({
+      username: { $regex: new RegExp(`^${escapedAdder}$`, "i") }
+    });
+    if (adderUser) {
+      // Merge with existing perSheetPermissions (preserve other sheets' permissions)
+      const currentPerms: Record<string, string[]> = adderUser.perSheetPermissions
+        ? Object.fromEntries((adderUser.perSheetPermissions as Map<string, string[]>).entries())
+        : {};
+      currentPerms[sheetName] = ["*"];
+      adderUser.perSheetPermissions = new Map(Object.entries(currentPerms));
+      await adderUser.save();
+    }
+  } catch (permErr) {
+    console.error("[addConnectedSheet] Failed to auto-grant perSheetPermissions:", permErr);
+    // Non-fatal: sheet was still connected successfully
+  }
+
   await appendAuditLog({
     timestamp: new Date().toISOString(),
     actor: addedBy,
@@ -597,16 +619,10 @@ export function resolveUserAllowedColumns(
   if (user.role === "admin") {
     return [...allColumns];
   } else {
-    // sub-admin defaults to columns to the right of 'Grade'
-    const gradeIndex = allColumns.indexOf("Grade");
-    if (gradeIndex !== -1) {
-      return allColumns.filter((_, idx) => idx > gradeIndex);
-    } else {
-      if (user.allowedColumns === "*") {
-        return [...allColumns];
-      }
-      return [];
+    if (user.allowedColumns === "*") {
+      return [...allColumns];
     }
+    return [];
   }
 }
 

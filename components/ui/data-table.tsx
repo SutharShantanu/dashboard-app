@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
+import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -28,6 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
+import { Empty, EmptyHeader, EmptyDescription } from "@/components/ui/empty"
 import {
   InputGroup,
   InputGroupAddon,
@@ -98,6 +100,8 @@ export interface DataTableProps<TData, TValue> {
   toolbar?: React.ReactNode
   /** Allow cell content to wrap (default: false → whitespace-nowrap) */
   allowWrap?: boolean
+  /** Initial column visibility state */
+  initialColumnVisibility?: Record<string, boolean>
 }
 
 // ─── Sorting Icon Helper ───────────────────────────────────────────────────────
@@ -276,11 +280,74 @@ export function DataTable<TData, TValue>({
   columnFilters: columnFilterDefs,
   toolbar,
   allowWrap = false,
+  initialColumnVisibility,
 }: DataTableProps<TData, TValue>) {
-  const [globalFilter, setGlobalFilter] = useState("")
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  const initialFilters = useMemo(() => {
+    try {
+      const urlFilters = searchParams.get("filters")
+      if (urlFilters) {
+        return JSON.parse(decodeURIComponent(urlFilters)) as Filter[]
+      }
+    } catch (e) {
+      console.error("Failed to parse filters from URL:", e)
+    }
+    return []
+  }, []) // run once on mount
+
+  const initialGlobalFilter = useMemo(() => {
+    return searchParams.get("q") || ""
+  }, []) // run once on mount
+
+  const [globalFilter, setGlobalFilter] = useState(initialGlobalFilter)
   const [sorting, setSorting] = useState<SortingState>([])
-  const [filters, setFilters] = useState<Filter[]>([])
+  const [filters, setFilters] = useState<Filter[]>(initialFilters)
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize })
+
+  // 1. Sync from internal state changes TO URL parameters
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString())
+
+    if (filters.length > 0) {
+      params.set("filters", encodeURIComponent(JSON.stringify(filters)))
+    } else {
+      params.delete("filters")
+    }
+
+    if (globalFilter) {
+      params.set("q", globalFilter)
+    } else {
+      params.delete("q")
+    }
+
+    const currentString = searchParams.toString()
+    const newString = params.toString()
+
+    if (currentString !== newString) {
+      router.replace(`${pathname}?${newString}`, { scroll: false })
+    }
+  }, [filters, globalFilter, pathname, router, searchParams])
+
+  // 2. Sync from URL parameters TO internal state changes (handles back/forward browser buttons)
+  useEffect(() => {
+    try {
+      const urlFiltersStr = searchParams.get("filters") || ""
+      const urlFilters = urlFiltersStr ? (JSON.parse(decodeURIComponent(urlFiltersStr)) as Filter[]) : []
+      if (JSON.stringify(filters) !== JSON.stringify(urlFilters)) {
+        setFilters(urlFilters)
+      }
+    } catch (e) {
+      console.error("Failed to sync filters from URL:", e)
+    }
+
+    const urlQ = searchParams.get("q") || ""
+    if (globalFilter !== urlQ) {
+      setGlobalFilter(urlQ)
+    }
+  }, [searchParams])
 
   const columnFiltersState = useMemo<ColumnFiltersState>(() => {
     const grouped: Record<string, Filter[]> = {}
@@ -495,6 +562,9 @@ export function DataTable<TData, TValue>({
     getPaginationRowModel: enablePagination
       ? getPaginationRowModel()
       : undefined!,
+    initialState: {
+      columnVisibility: initialColumnVisibility,
+    },
     state: {
       globalFilter,
       columnFilters: columnFiltersState,
@@ -663,9 +733,15 @@ export function DataTable<TData, TValue>({
                 <TableRow>
                   <TableCell
                     colSpan={columnsWithIndex.length}
-                    className="h-24 text-center text-sm text-muted-foreground"
+                    className="p-0"
                   >
-                    No results.
+                    <Empty className="border-0 py-12">
+                      <EmptyHeader className="gap-1">
+                        <EmptyDescription className="text-xs text-muted-foreground">
+                          No results.
+                        </EmptyDescription>
+                      </EmptyHeader>
+                    </Empty>
                   </TableCell>
                 </TableRow>
               )}

@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
+import { formatDateTime } from "@/lib/date.tsx"
 import { ColumnDef } from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -11,12 +12,7 @@ import {
   DataTableColumnFilter,
   DataTableFilterOption,
 } from "@/components/ui/data-table"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+
 import { Monitor, Smartphone, Tablet, MapPin, Globe } from "lucide-react"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -72,7 +68,7 @@ const columns: ColumnDef<LogEntry>[] = [
     header: "Timestamp",
     cell: ({ row }) => (
       <span className="font-mono text-xs whitespace-nowrap text-muted-foreground">
-        {new Date(row.getValue("timestamp")).toLocaleString()}
+        {formatDateTime(row.getValue("timestamp"))}
       </span>
     ),
   },
@@ -135,13 +131,12 @@ const columns: ColumnDef<LogEntry>[] = [
     header: "Action",
     filterFn: "equals",
     cell: ({ row }) => {
-      const action = String(row.getValue("action") || "").toLowerCase()
+      const action = String(row.original.action || "").toLowerCase()
       let variant:
-        | "default"
         | "secondary"
-        | "outline"
         | "destructive-light"
-        | "success-light" = "secondary"
+        | "warning-light"
+        | "success-light" = "warning-light"
 
       if (action.includes("delete") || action.includes("remove")) {
         variant = "destructive-light"
@@ -159,10 +154,9 @@ const columns: ColumnDef<LogEntry>[] = [
       return (
         <Badge
           variant={variant}
-          size="xs"
-          className="shrink-0 text-tiny uppercase select-none"
+          className="uppercase"
         >
-          {row.getValue("action")}
+          {row.original.action || "unknown"}
         </Badge>
       )
     },
@@ -177,47 +171,21 @@ const columns: ColumnDef<LogEntry>[] = [
       if (action === "LOGIN" && details.includes(" · ")) {
         const p = parseLoginDetails(details)
         return (
-          <TooltipProvider delayDuration={200}>
             <div className="flex min-w-[200px] flex-col gap-1 text-xs">
               <span className="font-medium text-foreground">{p.method}</span>
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground">
                 {(p.browser || p.os || p.device) && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="flex cursor-default items-center gap-1">
-                        <DeviceIcon device={p.device} />
-                        {[p.browser, p.os].filter(Boolean).join(" / ")}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="top"
-                      className="max-w-xs text-xs break-all"
-                    >
-                      <p className="mb-0.5 font-semibold">Session Info</p>
-                      {p.device && <p>Device: {p.device}</p>}
-                      {p.browser && <p>Browser: {p.browser}</p>}
-                      {p.os && <p>OS: {p.os}</p>}
-                      {row.original.userAgent && (
-                        <p className="mt-1 text-[10px] leading-tight break-all text-muted-foreground">
-                          UA: {row.original.userAgent}
-                        </p>
-                      )}
-                    </TooltipContent>
-                  </Tooltip>
+                  <span className="flex items-center gap-1">
+                    <DeviceIcon device={p.device} />
+                    {[p.browser, p.os].filter(Boolean).join(" / ")}
+                  </span>
                 )}
 
                 {p.location && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="flex cursor-default items-center gap-1">
-                        <MapPin className="h-3 w-3 shrink-0" />
-                        {p.location}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="text-xs">
-                      <p>IP: {p.ip ?? row.original.ip ?? "Unknown"}</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3 shrink-0" />
+                    {p.location}
+                  </span>
                 )}
 
                 {!p.location && (p.ip ?? row.original.ip) && (
@@ -228,7 +196,6 @@ const columns: ColumnDef<LogEntry>[] = [
                 )}
               </div>
             </div>
-          </TooltipProvider>
         )
       }
 
@@ -306,7 +273,7 @@ export function LogsDataTable({ logs }: LogsDataTableProps) {
     const unique = Array.from(
       new Set(logs.map((l) => l.actorDisplayName || l.actor).filter(Boolean))
     ).sort()
-    return unique.map((u) => ({ label: u, value: u }))
+    return unique.map((u) => ({ label: u as string, value: u as string }))
   }, [logs])
 
   // Build unique browser options for the filter dropdown
@@ -314,7 +281,7 @@ export function LogsDataTable({ logs }: LogsDataTableProps) {
     const unique = Array.from(
       new Set(logs.map((l) => parseLoginDetails(l.details).browser).filter(Boolean))
     ).sort()
-    return unique.map((b) => ({ label: b, value: b }))
+    return unique.map((b) => ({ label: b as string, value: b as string }))
   }, [logs])
 
   // Build unique OS options for the filter dropdown
@@ -322,7 +289,7 @@ export function LogsDataTable({ logs }: LogsDataTableProps) {
     const unique = Array.from(
       new Set(logs.map((l) => parseLoginDetails(l.details).os).filter(Boolean))
     ).sort()
-    return unique.map((o) => ({ label: o, value: o }))
+    return unique.map((o) => ({ label: o as string, value: o as string }))
   }, [logs])
 
   // Build unique device options for the filter dropdown
@@ -330,7 +297,7 @@ export function LogsDataTable({ logs }: LogsDataTableProps) {
     const unique = Array.from(
       new Set(logs.map((l) => parseLoginDetails(l.details).device).filter(Boolean))
     ).sort()
-    return unique.map((d) => ({ label: d, value: d }))
+    return unique.map((d) => ({ label: d as string, value: d as string }))
   }, [logs])
 
   const columnFilterDefs = useMemo<DataTableColumnFilter[]>(

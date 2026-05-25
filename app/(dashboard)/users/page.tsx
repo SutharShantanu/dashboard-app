@@ -10,7 +10,7 @@ import React, {
 import { useSession } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useTabUrlSync } from "@/hooks/useTabUrlSync"
-import { format } from "date-fns"
+import { DateCell } from "@/lib/date.tsx"
 import { toast } from "sonner"
 import {
   Search,
@@ -749,7 +749,7 @@ function UsersDirectoryContent() {
         accessorKey: "username",
         header: "Username",
         cell: ({ row }) => (
-          <span className="font-bold">{row.original.username}</span>
+          <span className="">{row.original.username}</span>
         ),
       },
       {
@@ -768,9 +768,9 @@ function UsersDirectoryContent() {
             : user.username.slice(0, 2).toUpperCase()
           return (
             <div className="flex items-center gap-2">
-              <Avatar className="h-8 w-8 border border-border">
+              <Avatar className="h-8 w-8">
                 <AvatarImage src={avatarUrl} alt={user.displayName} />
-                <AvatarFallback className="text-tiny bg-primary/10 font-bold text-primary">
+                <AvatarFallback>
                   {initials}
                 </AvatarFallback>
               </Avatar>
@@ -791,8 +791,8 @@ function UsersDirectoryContent() {
         header: "Role",
         cell: ({ row }) => (
           <Badge
-            variant={row.original.role === "admin" ? "default" : "secondary"}
-            className="capitalize"
+            variant={row.original.role === "admin" ? "primary-light" : "warning-light"}
+            className="uppercase"
           >
             {row.original.role || "sub-admin"}
           </Badge>
@@ -868,10 +868,7 @@ function UsersDirectoryContent() {
       {
         accessorKey: "createdAt",
         header: "Created At",
-        cell: ({ row }) =>
-          row.original.createdAt
-            ? format(new Date(row.original.createdAt), "MMM d, yyyy HH:mm")
-            : "-",
+        cell: ({ row }) => <DateCell value={row.original.createdAt} />,
       },
       {
         accessorKey: "isActive",
@@ -879,7 +876,7 @@ function UsersDirectoryContent() {
         cell: ({ row }) => (
           <Badge
             variant={
-              row.original.isActive === "TRUE" ? "default" : "destructive"
+              row.original.isActive === "TRUE" ? "success-light" : "destructive-light"
             }
             className="text-xs font-bold tracking-wider uppercase"
           >
@@ -1233,34 +1230,94 @@ function UsersDirectoryContent() {
                   </Item>
                 </ItemGroup>
 
-                {watchedRole === "sub-admin" && (
+                {/* Unified Sheet Access — works for both admin and sub-admin */}
+                {sheetsWithColumns.length > 0 && (
                   <>
                     <div className="flex items-center gap-3">
                       <Separator className="flex-1" />
                       <span className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
-                        Sheet &amp; Column Permissions
+                        Sheet Access
                       </span>
-                      {watch("permissionPreset") && (
-                        <Badge variant="outline" className="text-tiny">
-                          {presets.find(
-                            (p) => p.id === watch("permissionPreset")
-                          )?.name ?? "Custom Preset"}
+                      {watchedRole === "admin" ? (
+                        <Badge variant="success-light" className="text-tiny">
+                          <BadgeDot variant="success" />
+                          Full Access to All
                         </Badge>
+                      ) : (
+                        watch("permissionPreset") && (
+                          <Badge variant="outline" className="text-tiny">
+                            {presets.find(
+                              (p) => p.id === watch("permissionPreset")
+                            )?.name ?? "Custom Preset"}
+                          </Badge>
+                        )
                       )}
                       <Separator className="flex-1" />
                     </div>
-                    <Card className="border shadow-none ring-0">
-                      <CardContent className="p-4">
-                        <PermissionSelector
-                          sheets={sheetsWithColumns}
-                          value={watch("perSheetPermissions") || {}}
-                          onChange={() => {}}
-                          presets={presets}
-                          onPresetSelect={() => {}}
-                          disabled={true}
-                        />
-                      </CardContent>
-                    </Card>
+
+                    <ItemGroup className="gap-1.5">
+                      {sheetsWithColumns.map((sheet: any) => {
+                        const isAdmin = watchedRole === "admin"
+                        const grantedCols: string[] =
+                          isAdmin
+                            ? sheet.columns
+                            : (watch("perSheetPermissions") || {})[sheet.id] ?? []
+                        const hasAccess = isAdmin || grantedCols.length > 0
+
+                        return (
+                          <Item
+                            key={sheet.id}
+                            variant="muted"
+                            className={`border flex-col items-start gap-2 ${!hasAccess ? "opacity-50" : ""}`}
+                          >
+                            {/* Sheet header row */}
+                            <div className="flex w-full items-center gap-2">
+                              <ItemMedia variant="icon" className="text-muted-foreground shrink-0">
+                                <Key className="size-4" />
+                              </ItemMedia>
+                              <ItemContent className="flex-1 min-w-0">
+                                <ItemTitle className="font-medium text-foreground text-xs">
+                                  {sheet.title}
+                                </ItemTitle>
+                                <ItemDescription className="font-mono text-[10px]">
+                                  {sheet.id}
+                                </ItemDescription>
+                              </ItemContent>
+                              {isAdmin ? (
+                                <Badge variant="success-light" className="text-tiny shrink-0">
+                                  All Columns
+                                </Badge>
+                              ) : hasAccess ? (
+                                <Badge variant="success-light" className="text-tiny shrink-0">
+                                  <BadgeDot variant="success" />
+                                  {grantedCols.length} column{grantedCols.length !== 1 ? "s" : ""}
+                                </Badge>
+                              ) : (
+                                <Badge variant="destructive-light" className="text-tiny shrink-0">
+                                  <BadgeDot variant="destructive" />
+                                  No Access
+                                </Badge>
+                              )}
+                            </div>
+
+                            {/* Granted column chips — only for sub-admin with access */}
+                            {!isAdmin && hasAccess && (
+                              <div className="flex flex-wrap gap-1 pl-8 w-full">
+                                {grantedCols.map((col: string) => (
+                                  <Badge
+                                    key={col}
+                                    variant="secondary"
+                                    className="text-[10px] font-mono py-0 h-5"
+                                  >
+                                    {col}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                          </Item>
+                        )
+                      })}
+                    </ItemGroup>
                   </>
                 )}
               </div>
@@ -1537,6 +1594,42 @@ function UsersDirectoryContent() {
                         />
                       </div>
                     </>
+                  )}
+
+                  {watchedRole === "admin" && connectedSheets.length > 0 && (
+                    <div className="col-span-1 md:col-span-3 space-y-3">
+                      <div className="flex items-center gap-3">
+                        <Separator className="flex-1" />
+                        <span className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
+                          Sheet Access
+                        </span>
+                        <Badge variant="success-light" className="text-tiny">
+                          <BadgeDot variant="success" />
+                          Full Access to All
+                        </Badge>
+                        <Separator className="flex-1" />
+                      </div>
+                      <ItemGroup className="gap-1">
+                        {connectedSheets.map((sheet: any) => (
+                          <Item key={sheet.spreadsheetId} variant="muted" className="border">
+                            <ItemMedia variant="icon" className="text-muted-foreground">
+                              <Key className="size-4" />
+                            </ItemMedia>
+                            <ItemContent>
+                              <ItemTitle className="font-medium text-foreground text-xs">
+                                {sheet.title}
+                              </ItemTitle>
+                              <ItemDescription className="font-mono text-[10px]">
+                                {sheet.spreadsheetId}
+                              </ItemDescription>
+                            </ItemContent>
+                            <Badge variant="success-light" className="text-tiny shrink-0">
+                              All Columns
+                            </Badge>
+                          </Item>
+                        ))}
+                      </ItemGroup>
+                    </div>
                   )}
                 </div>
               </div>

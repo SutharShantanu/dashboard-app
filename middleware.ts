@@ -7,8 +7,8 @@ export default withAuth(
     const path = req.nextUrl.pathname;
 
     // Check sub-admin permissions
-    // Sub-admins should not be able to access the sub-admin management UI (/dashboard/users)
-    if (path.startsWith("/dashboard/users") && token?.role !== "admin") {
+    // Sub-admins should not be able to access the sub-admin management UI (/users)
+    if (path.startsWith("/users") && token?.role !== "admin") {
       return NextResponse.redirect(new URL("/dashboard", req.url));
     }
   },
@@ -23,5 +23,11 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: [
+    "/dashboard/:path*",
+    "/sheets/:path*",
+    "/settings/:path*",
+    "/users/:path*",
+    "/logs/:path*",
+  ],
 };

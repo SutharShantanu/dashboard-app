@@ -364,10 +364,10 @@ function FilterInput<T = unknown>({
   return (
     <InputGroup
       className={cn(
-        "w-36",
-        context.size == "sm" && "h-7!",
-        context.size == "default" && "h-8!",
-        context.size == "lg" && "h-9!",
+        "w-fit",
+        context.size == "sm" && "",
+        context.size == "default" && "",
+        context.size == "lg" && "",
         className
       )}
     >
@@ -387,9 +387,9 @@ function FilterInput<T = unknown>({
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         className={cn(
-          context.size == "sm" && "h-7! text-xs",
-          context.size == "default" && "h-8!",
-          context.size == "lg" && "h-9!"
+          context.size == "sm" && "text-xs",
+          context.size == "default" && "",
+          context.size == "lg" && ""
         )}
         {...props}
       />
@@ -1366,7 +1366,11 @@ function FilterValueSelector<T = unknown>({
     }
 
     return (
-      <Popover>
+      <Popover onOpenChange={(open) => {
+        if (open) {
+          setShowTimeView(false)
+        }
+      }}>
         <PopoverTrigger asChild>
           <Button
             className="group/pick-date w-fit justify-between text-xs font-medium rounded-none"
@@ -1437,57 +1441,111 @@ function FilterValueSelector<T = unknown>({
           ) : (
             /* Calendar picker with year/month caption selector overrides */
             <div className="flex flex-col gap-3">
-              <Calendar
-                classNames={{
-                  month_caption: "ms-2.5 justify-start",
-                  nav: "flex items-center w-full absolute inset-x-0 justify-end pointer-events-none [&>button]:pointer-events-auto",
-                }}
-                components={{
-                  CaptionLabel: (props: CaptionLabelProps) => (
-                    <CaptionLabel
-                      isYearView={isYearView}
-                      setIsYearView={(val) => {
-                        setIsYearView(val)
-                        if (!val) setSelectedYear(null)
-                      }}
-                      {...props}
-                    />
-                  ),
-                  MonthGrid: (props: MonthGridProps) => {
-                    return (
-                      <MonthGrid
-                        className={props.className}
-                        currentMonth={month.getMonth()}
-                        currentYear={month.getFullYear()}
-                        endDate={endDate}
+              {isRangeMode ? (
+                <Calendar
+                  mode="range"
+                  selected={dateRange}
+                  onSelect={handleSelectDateRange as any}
+                  classNames={{
+                    month_caption: "ms-2.5 justify-start",
+                    nav: "flex items-center w-full absolute inset-x-0 justify-end pointer-events-none [&>button]:pointer-events-auto",
+                  }}
+                  components={{
+                    CaptionLabel: (props: any) => (
+                      <CaptionLabel
                         isYearView={isYearView}
-                        onMonthSelect={(selectedMonth: Date) => {
-                          setMonth(selectedMonth)
-                          setIsYearView(false)
-                          setSelectedYear(null)
+                        setIsYearView={(val) => {
+                          setIsYearView(val)
+                          if (!val) setSelectedYear(null)
                         }}
-                        setIsYearView={setIsYearView}
-                        startDate={startDate}
-                        years={years}
-                        selectedYear={selectedYear}
-                        setSelectedYear={setSelectedYear}
-                      >
-                        {props.children}
-                      </MonthGrid>
-                    )
-                  },
-                }}
-                defaultMonth={new Date()}
-                endMonth={endDate}
-                mode={isRangeMode ? "range" : "single"}
-                month={month}
-                onMonthChange={setMonth}
-                onSelect={isRangeMode ? (handleSelectDateRange as any) : (handleSelectSingleDate as any)}
-                selected={isRangeMode ? dateRange : startDateVal}
-                startMonth={startDate}
-                numberOfMonths={2}
-                className="p-0 border rounded-none bg-card"
-              />
+                        {...props}
+                      />
+                    ),
+                    MonthGrid: (props: any) => {
+                      return (
+                        <MonthGrid
+                          className={props.className}
+                          currentMonth={month.getMonth()}
+                          currentYear={month.getFullYear()}
+                          endDate={endDate}
+                          isYearView={isYearView}
+                          onMonthSelect={(selectedMonth: Date) => {
+                            setMonth(selectedMonth)
+                            setIsYearView(false)
+                            setSelectedYear(null)
+                          }}
+                          setIsYearView={setIsYearView}
+                          startDate={startDate}
+                          years={years}
+                          selectedYear={selectedYear}
+                          setSelectedYear={setSelectedYear}
+                        >
+                          {props.children}
+                        </MonthGrid>
+                      )
+                    },
+                  }}
+                  defaultMonth={new Date()}
+                  endMonth={endDate}
+                  month={month}
+                  onMonthChange={setMonth}
+                  startMonth={startDate}
+                  numberOfMonths={2}
+                  className="p-0 border rounded-none bg-card"
+                />
+              ) : (
+                <Calendar
+                  mode="single"
+                  selected={startDateVal}
+                  onSelect={handleSelectSingleDate as any}
+                  classNames={{
+                    month_caption: "ms-2.5 justify-start",
+                    nav: "flex items-center w-full absolute inset-x-0 justify-end pointer-events-none [&>button]:pointer-events-auto",
+                  }}
+                  components={{
+                    CaptionLabel: (props: any) => (
+                      <CaptionLabel
+                        isYearView={isYearView}
+                        setIsYearView={(val) => {
+                          setIsYearView(val)
+                          if (!val) setSelectedYear(null)
+                        }}
+                        {...props}
+                      />
+                    ),
+                    MonthGrid: (props: any) => {
+                      return (
+                        <MonthGrid
+                          className={props.className}
+                          currentMonth={month.getMonth()}
+                          currentYear={month.getFullYear()}
+                          endDate={endDate}
+                          isYearView={isYearView}
+                          onMonthSelect={(selectedMonth: Date) => {
+                            setMonth(selectedMonth)
+                            setIsYearView(false)
+                            setSelectedYear(null)
+                          }}
+                          setIsYearView={setIsYearView}
+                          startDate={startDate}
+                          years={years}
+                          selectedYear={selectedYear}
+                          setSelectedYear={setSelectedYear}
+                        >
+                          {props.children}
+                        </MonthGrid>
+                      )
+                    },
+                  }}
+                  defaultMonth={new Date()}
+                  endMonth={endDate}
+                  month={month}
+                  onMonthChange={setMonth}
+                  startMonth={startDate}
+                  numberOfMonths={2}
+                  className="p-0 border rounded-none bg-card"
+                />
+              )}
             </div>
           )}
         </PopoverContent>

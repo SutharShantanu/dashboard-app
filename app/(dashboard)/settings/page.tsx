@@ -60,6 +60,7 @@ import { LogsDataTable } from "@/components/logs-data-table"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getAvatarUrl } from "@/lib/utils"
 import Image from "next/image"
+import { GoogleConnectionCard } from "@/components/google-connection-card"
 
 const updateProfileSchema = z.object({
   displayName: z.string().min(1, "Display name is required"),
@@ -460,79 +461,18 @@ export default function SettingsPage() {
         <TabsContent value="integrations" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Google Integration</CardTitle>
+              <CardTitle>Integrations</CardTitle>
               <CardDescription>
-                Connect your account to Google to access Google Sheets.
+                Manage your integrations with other services.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {isGoogleUser ? (
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    {user?.image ? (
-                      <Image
-                        src={user.image}
-                        alt={user.name}
-                        width={40}
-                        height={40}
-                        className="h-10 w-10 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-xl font-bold text-primary">
-                        {user?.name?.[0]?.toUpperCase() || "U"}
-                      </div>
-                    )}
-                    <div>
-                      <p className="font-medium">{user?.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {user?.email}
-                      </p>
-                    </div>
-                  </div>
-                  <Badge variant="success-light">Connected</Badge>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center space-y-4 py-6">
-                  <Alert
-                    variant="destructive"
-                    className="border-destructive/20 bg-destructive/5"
-                  >
-                    <AlertCircle className="h-5 w-5" />
-                    <AlertTitle className="text-lg font-bold">
-                      Google Connection Required
-                    </AlertTitle>
-                    <AlertDescription className="mt-1">
-                      The account isn't connected to Google. Kindly connect and
-                      then you can choose the sheet.
-                    </AlertDescription>
-                  </Alert>
-                  <Button
-                    onClick={() =>
-                      signIn("google", {
-                        callbackUrl: "/dashboard/settings?tab=integrations",
-                      })
-                    }
-                    className="w-fit"
-                  >
-                    <svg
-                      className="h-4 w-4"
-                      aria-hidden="true"
-                      focusable="false"
-                      data-prefix="fab"
-                      data-icon="google"
-                      role="img"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 488 512"
-                    >
-                      <path
-                        fill="currentColor"
-                        d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"
-                      ></path>
-                    </svg>
-                    Connect Account
-                  </Button>
-                </div>
-              )}
+              <div className="grid grid-cols-3 gap-2">
+                <GoogleConnectionCard
+                  isGoogleConnected={isGoogleUser}
+                  callbackUrl="/settings?tab=integrations"
+                />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -582,7 +522,7 @@ export default function SettingsPage() {
                     </div>
                     <Button
                       variant="outline"
-                      onClick={() => router.push("/dashboard/users")}
+                      onClick={() => router.push("/users")}
                     >
                       Manage Users
                     </Button>
@@ -675,9 +615,7 @@ export default function SettingsPage() {
               form="changePasswordForm"
               disabled={isPasswordSubmitting}
             >
-              {isPasswordSubmitting && (
-                <Spinner className="h-4 w-4" />
-              )}
+              {isPasswordSubmitting && <Spinner className="h-4 w-4" />}
               {isPasswordSubmitting ? "Updating…" : "Update Password"}
             </Button>
           </DialogFooter>

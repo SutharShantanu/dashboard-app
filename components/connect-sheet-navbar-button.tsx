@@ -2,6 +2,7 @@
 
 import React, { useState } from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { Plus, X, Link as LinkIcon, Database, AlertCircle } from "lucide-react"
 import {
   Dialog,
@@ -55,6 +56,7 @@ export function ConnectSheetNavbarButton({ isAdmin }: { isAdmin: boolean }) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
+  const { update: updateSession } = useSession()
 
   const isOpen = searchParams?.get("addSheet") === "open"
   const activeTab = searchParams?.get("addSheetTab") || "url"
@@ -162,6 +164,8 @@ export function ConnectSheetNavbarButton({ isAdmin }: { isAdmin: boolean }) {
       success: (data: any) => {
         reset()
         setIsOpen(false)
+        // Refresh the session so perSheetPermissions is updated in the JWT
+        updateSession()
         // Dispatch event so sidebar instantly updates
         window.dispatchEvent(new Event("sheet_connected"))
         return `Google Sheet "${data.newSheet?.title || values.title || "Untitled"}" connected successfully!`
@@ -180,6 +184,8 @@ export function ConnectSheetNavbarButton({ isAdmin }: { isAdmin: boolean }) {
       loading: "Syncing data to Database...",
       success: (data: any) => {
         setIsOpen(false)
+        // Refresh the session so perSheetPermissions is updated in the JWT
+        updateSession()
         window.dispatchEvent(new Event("sheet_connected"))
         return `Google Sheet "${data.newSheet?.title || file.name}" connected successfully!`
       },

@@ -64,7 +64,7 @@ function BreadcrumbContent() {
   // Build the breadcrumb elements based on the pathname
   const renderBreadcrumbs = () => {
     // 1. Settings Route
-    if (pathname === "/dashboard/settings") {
+    if (pathname === "/settings") {
       const activeTabLabel = getSettingsTabLabel(tab);
       return (
         <BreadcrumbList>
@@ -76,7 +76,7 @@ function BreadcrumbContent() {
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/dashboard/settings?tab=profile">Settings</Link>
+              <Link href="/settings?tab=profile">Settings</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
@@ -87,8 +87,8 @@ function BreadcrumbContent() {
       );
     }
 
-    // 2. Sheet Detail Route (/dashboard/sheets/[id])
-    if (pathname.startsWith("/dashboard/sheets/") && pathname !== "/dashboard/sheets") {
+    // 2. Sheet Detail Route (/sheets/[id])
+    if (pathname.startsWith("/sheets/") && pathname !== "/sheets") {
       const pathParts = pathname.split("/");
       const sheetId = pathParts[pathParts.length - 1];
       const matchedSheet = connectedSheets.find((s: any) => s.spreadsheetId === sheetId);
@@ -104,7 +104,7 @@ function BreadcrumbContent() {
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/dashboard/sheets?tab=connections">Sheet Management</Link>
+              <Link href="/sheets?tab=connections">Sheet Management</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
@@ -116,7 +116,7 @@ function BreadcrumbContent() {
     }
 
     // 3. Sheet Management Page
-    if (pathname === "/dashboard/sheets") {
+    if (pathname === "/sheets") {
       const activeTabLabel = getSheetsTabLabel(tab);
       return (
         <BreadcrumbList>
@@ -128,7 +128,7 @@ function BreadcrumbContent() {
           <BreadcrumbSeparator />
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/dashboard/sheets?tab=connections">Sheet Management</Link>
+              <Link href="/sheets?tab=connections">Sheet Management</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
@@ -140,7 +140,7 @@ function BreadcrumbContent() {
     }
 
     // 4. Users Directory Page
-    if (pathname === "/dashboard/users") {
+    if (pathname === "/users") {
       return (
         <BreadcrumbList>
           <BreadcrumbItem>
@@ -157,7 +157,7 @@ function BreadcrumbContent() {
     }
 
     // 5. Activity Logs Page
-    if (pathname === "/dashboard/logs") {
+    if (pathname === "/logs") {
       return (
         <BreadcrumbList>
           <BreadcrumbItem>

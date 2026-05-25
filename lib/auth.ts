@@ -96,13 +96,34 @@ export const authOptions: NextAuthOptions = {
         token.perSheetPermissions = (user as any).perSheetPermissions;
         token.name = (user as any).displayName;
       }
-      if (trigger === "update" && session) {
-        if (session.displayName !== undefined) {
+      if (trigger === "update") {
+        // If explicit values are provided (e.g. profile update), use them
+        if (session?.displayName !== undefined) {
           token.displayName = session.displayName;
           token.name = session.displayName;
         }
-        if (session.allowedColumns !== undefined) token.allowedColumns = session.allowedColumns;
-        if (session.perSheetPermissions !== undefined) token.perSheetPermissions = session.perSheetPermissions;
+        if (session?.allowedColumns !== undefined) token.allowedColumns = session.allowedColumns;
+        if (session?.perSheetPermissions !== undefined) token.perSheetPermissions = session.perSheetPermissions;
+
+        // Always re-fetch perSheetPermissions from DB to pick up any changes
+        // (e.g. new sheet access auto-granted by addConnectedSheet)
+        if (token.username) {
+          try {
+            await connectToDatabase();
+            const escapedUsername = (token.username as string).replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const freshUser = await User.findOne({
+              username: { $regex: new RegExp(`^${escapedUsername}$`, "i") }
+            });
+            if (freshUser) {
+              token.allowedColumns = freshUser.allowedColumns;
+              token.perSheetPermissions = freshUser.perSheetPermissions
+                ? Object.fromEntries((freshUser.perSheetPermissions as Map<string, string[]>).entries())
+                : {};
+            }
+          } catch (dbErr) {
+            console.error("[auth jwt update] Failed to refresh permissions from DB:", dbErr);
+          }
+        }
       }
       return token;
     },

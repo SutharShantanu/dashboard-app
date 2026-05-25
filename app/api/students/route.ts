@@ -21,9 +21,24 @@ export async function GET(request: Request) {
     const activeSheetName = sheet || "Students";
     const allowedCols = resolveUserAllowedColumns(session.user, activeSheetName, columns);
 
+    let permittedCols = columns;
+    let filteredData = data;
+    if (session.user.role !== "admin") {
+      const systemCols = ["ID", "LastModifiedBy", "LastModifiedAt", "__rowIndex", "_id"];
+      permittedCols = columns.filter(col => allowedCols.includes(col) || systemCols.includes(col));
+      filteredData = data.map((row: any) => {
+        const filteredRow: any = {};
+        permittedCols.forEach(col => {
+          filteredRow[col] = row[col];
+        });
+        filteredRow._id = row._id; // Keep MongoDB ID
+        return filteredRow;
+      });
+    }
+
     return NextResponse.json({
-      data,
-      columns,
+      data: filteredData,
+      columns: permittedCols,
       allowedColumns: allowedCols,
       simulated: getDbMode().isSimulated,
       configured: getDbMode().isConfigured,

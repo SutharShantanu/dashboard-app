@@ -92,7 +92,7 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => router.push("/dashboard/settings?tab=profile")}>
+              <DropdownMenuItem onClick={() => router.push("/settings?tab=profile")}>
                 <Settings />
                 <span>Profile & Settings</span>
               </DropdownMenuItem>

@@ -380,9 +380,12 @@ function DashboardPageContent() {
     const colIndex = columns.indexOf(columnName)
 
     const user = session?.user as any
-    const hasPerSheet = user?.perSheetPermissions && Object.keys(user.perSheetPermissions).length > 0
+    const hasPerSheet =
+      user?.perSheetPermissions &&
+      Object.keys(user.perSheetPermissions).length > 0
     const hasCustomCols = user?.allowedColumns && user?.allowedColumns !== "*"
-    const isCustomizedAdmin = user?.role === "admin" && (hasPerSheet || hasCustomCols)
+    const isCustomizedAdmin =
+      user?.role === "admin" && (hasPerSheet || hasCustomCols)
 
     if (isCustomizedAdmin) {
       return allowedColumns.includes(columnName)
@@ -945,7 +948,6 @@ function DashboardPageContent() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 rounded-full"
                 onClick={handleManualRefresh}
                 disabled={isQueryFetching || isLogsFetching}
               >
@@ -1047,7 +1049,7 @@ function DashboardPageContent() {
                         return (
                           <TableHead
                             key={col}
-                            className=" font-semibold tracking-wider whitespace-nowrap"
+                            className="font-semibold tracking-wider whitespace-nowrap"
                           >
                             <div className="flex items-center justify-between gap-2">
                               <span>{col}</span>
@@ -1058,7 +1060,7 @@ function DashboardPageContent() {
                               ].includes(col) ? (
                                 <Badge
                                   variant="outline"
-                                  className="px-1.5 text-tiny uppercase"
+                                  className="text-tiny px-1.5 uppercase"
                                 >
                                   SYS
                                 </Badge>
@@ -1098,7 +1100,7 @@ function DashboardPageContent() {
                               )}
                               {focusInfo && (
                                 <div
-                                  className="pointer-events-none absolute -top-3 left-1 z-20 flex items-center gap-1 rounded px-1.5 py-0.5 text-tiny font-bold text-white shadow-sm"
+                                  className="text-tiny pointer-events-none absolute -top-3 left-1 z-20 flex items-center gap-1 rounded px-1.5 py-0.5 font-bold text-white shadow-sm"
                                   style={{ backgroundColor: focusInfo.color }}
                                 >
                                   <span>👤 {focusInfo.user}</span>
@@ -1211,33 +1213,23 @@ function DashboardPageContent() {
                     <Table noWrapper className="min-w-max">
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="">
-                            Timestamp
-                          </TableHead>
+                          <TableHead className="">Timestamp</TableHead>
                           <TableHead className="">Actor</TableHead>
                           <TableHead className="">Role</TableHead>
                           <TableHead className="">Action</TableHead>
                           <TableHead className="">
                             Target Student/User
                           </TableHead>
-                          <TableHead className="">
-                            Column Affected
-                          </TableHead>
-                          <TableHead className="">
-                            Old Value
-                          </TableHead>
-                          <TableHead className="">
-                            New Value
-                          </TableHead>
-                          <TableHead className="">
-                            IP Address
-                          </TableHead>
+                          <TableHead className="">Column Affected</TableHead>
+                          <TableHead className="">Old Value</TableHead>
+                          <TableHead className="">New Value</TableHead>
+                          <TableHead className="">IP Address</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {filteredLogs.map((log: AuditLog, index: number) => (
                           <TableRow key={index}>
-                            <TableCell className=" font-medium whitespace-nowrap text-muted-foreground">
+                            <TableCell className="font-medium whitespace-nowrap text-muted-foreground">
                               <div className="flex flex-col">
                                 <span>
                                   {formatDistanceToNow(
@@ -1253,10 +1245,10 @@ function DashboardPageContent() {
                                 </span>
                               </div>
                             </TableCell>
-                            <TableCell className=" font-bold whitespace-nowrap">
+                            <TableCell className="font-bold whitespace-nowrap">
                               {log.actorDisplayName} ({log.actor})
                             </TableCell>
-                            <TableCell className=" font-semibold text-primary capitalize">
+                            <TableCell className="font-semibold text-primary capitalize">
                               {log.actorRole}
                             </TableCell>
                             <TableCell className="">
@@ -1281,14 +1273,14 @@ function DashboardPageContent() {
                                 {log.action}
                               </Badge>
                             </TableCell>
-                            <TableCell className=" font-bold whitespace-nowrap">
+                            <TableCell className="font-bold whitespace-nowrap">
                               {log.targetRow}
                             </TableCell>
-                            <TableCell className=" font-semibold whitespace-nowrap">
+                            <TableCell className="font-semibold whitespace-nowrap">
                               {log.columnChanged}
                             </TableCell>
                             <TableCell
-                              className="max-w-[150px] truncate  font-medium"
+                              className="max-w-[150px] truncate font-medium"
                               title={log.oldValue}
                             >
                               {log.oldValue || (
@@ -1298,7 +1290,7 @@ function DashboardPageContent() {
                               )}
                             </TableCell>
                             <TableCell
-                              className="max-w-[150px] truncate  font-semibold"
+                              className="max-w-[150px] truncate font-semibold"
                               title={log.newValue}
                             >
                               {log.newValue || (
@@ -1307,7 +1299,7 @@ function DashboardPageContent() {
                                 </span>
                               )}
                             </TableCell>
-                            <TableCell className=" font-mono font-medium text-muted-foreground">
+                            <TableCell className="font-mono font-medium text-muted-foreground">
                               {log.ip}
                             </TableCell>
                           </TableRow>
@@ -1326,7 +1318,11 @@ function DashboardPageContent() {
       {/* =========================================================================
             MODAL 1: ADD STUDENT (ADMIN ONLY) - using shadcn/ui Dialog
             ========================================================================= */}
-      <Dialog open={isAddStudentOpen} onOpenChange={setIsAddStudentOpen} name="addStudent">
+      <Dialog
+        open={isAddStudentOpen}
+        onOpenChange={setIsAddStudentOpen}
+        name="addStudent"
+      >
         <DialogContent className="max-w-2xl rounded-3xl p-6 sm:p-8">
           <DialogHeader>
             <DialogTitle className="text-xl font-extrabold">

@@ -36,6 +36,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { BadgeDot } from "@/components/ui/badge-dot"
+import { GoogleConnectionCard } from "@/components/google-connection-card"
 import {
   Table,
   TableBody,
@@ -234,7 +235,7 @@ export default function SheetsManagementPage() {
           return (
             <div className="flex items-center justify-end gap-2">
               <Button variant="ghost" size="icon" asChild title="View Data">
-                <Link href={`/dashboard/sheets/${sheet.spreadsheetId}`}>
+                <Link href={`/sheets/${sheet.spreadsheetId}`}>
                   <Eye className="h-4 w-4" />
                 </Link>
               </Button>
@@ -352,7 +353,7 @@ export default function SheetsManagementPage() {
       <Tabs
         value={activeTab}
         onValueChange={(val) => {
-          router.push(`/dashboard/sheets?tab=${val}`)
+          router.push(`/sheets?tab=${val}`)
         }}
       >
         <TabsList>
@@ -438,49 +439,10 @@ export default function SheetsManagementPage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                    <div className="flex items-center gap-4">
-                      <div className="rounded-full bg-muted p-3">
-                        <Cloud className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                      <div>
-                        <CardTitle className="flex items-center gap-2 text-lg">
-                          Google Drive
-                          {isGoogleConnected ? (
-                            <Badge variant="secondary" className="gap-1.5">
-                              <BadgeDot variant="success" pulse />
-                              Connected
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="gap-1.5">
-                              <BadgeDot variant="destructive" pulse />
-                              Not Connected
-                            </Badge>
-                          )}
-                        </CardTitle>
-                        <CardDescription>
-                          Browse and link spreadsheets from your Drive.
-                        </CardDescription>
-                      </div>
-                    </div>
-                    <div>
-                      {!isGoogleConnected && (
-                        <Button
-                          onClick={() =>
-                            signIn("google", {
-                              callbackUrl: "/dashboard/sheets",
-                            })
-                          }
-                        >
-                          <Plus className="h-4 w-4" />
-                          <span className="hidden sm:inline">Connect Now</span>
-                          <span className="sm:hidden">Connect</span>
-                        </Button>
-                      )}
-                    </div>
-                  </CardHeader>
-                </Card>
+                <GoogleConnectionCard
+                  isGoogleConnected={isGoogleConnected}
+                  callbackUrl="/sheets"
+                />
               </div>
 
               {isGoogleConnected && googleResponse && (
