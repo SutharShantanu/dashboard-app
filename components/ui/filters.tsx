@@ -62,7 +62,7 @@ import {
   isBefore,
   startOfYear,
 } from "date-fns"
-import type { CaptionLabelProps, MonthGridProps } from "react-day-picker"
+import type { CaptionLabelProps, MonthGridProps, DateRange } from "react-day-picker"
 import { Dispatch, SetStateAction, HTMLAttributes } from "react"
 import { Calendar } from "@/components/ui/calendar"
 import { Separator } from "@/components/ui/separator"
@@ -1181,6 +1181,7 @@ function FilterValueSelector<T = unknown>({
   const dateId = useId()
   const [isYearView, setIsYearView] = useState(false)
   const [selectedYear, setSelectedYear] = useState<number | null>(null)
+  const [showTimeView, setShowTimeView] = useState(false)
   
   const today = new Date()
   const [month, setMonth] = useState(() => {
@@ -1210,7 +1211,10 @@ function FilterValueSelector<T = unknown>({
   }
 
   if (field.type === "date") {
-    const dateVal = values[0] ? new Date(String(values[0])) : undefined
+    const startDateVal = values[0] ? new Date(String(values[0])) : undefined
+    const endDateVal = values[1] ? new Date(String(values[1])) : undefined
+    const dateRange: DateRange = { from: startDateVal, to: endDateVal }
+
     const startTime =
       values[0] && String(values[0]).includes("T")
         ? String(values[0]).split("T")[1].slice(0, 8)
@@ -1220,47 +1224,78 @@ function FilterValueSelector<T = unknown>({
         ? String(values[1]).split("T")[1].slice(0, 8)
         : ""
 
-    const handleSelectDate = (newDate: Date | undefined) => {
+    const isRangeMode =
+      operator === "is" ||
+      operator === "is_not" ||
+      operator === "between" ||
+      operator === "not_between"
+
+    const handleSelectDateRange = (newRange: DateRange | undefined) => {
+      if (!newRange) {
+        onChange([])
+        return
+      }
+      const fromDate = newRange.from
+      const toDate = newRange.to
+
+      const startT = startTime || "00:00:00"
+      const endT = endTime || "23:59:59"
+
+      const fromStr = fromDate ? format(fromDate, "yyyy-MM-dd") : ""
+      const toStr = toDate ? format(toDate, "yyyy-MM-dd") : ""
+
+      const newValues: T[] = []
+      if (fromStr) {
+        newValues.push(`${fromStr}T${startT}` as T)
+      }
+      if (toStr) {
+        newValues.push(`${toStr}T${endT}` as T)
+      }
+
+      onChange(newValues)
+
+      // Transition to Time view when both dates are selected
+      if (fromDate && toDate) {
+        setShowTimeView(true)
+      }
+    }
+
+    const handleSelectSingleDate = (newDate: Date | undefined) => {
       if (!newDate) {
         onChange([])
         return
       }
       const startT = startTime || "00:00:00"
-      const endT = endTime || "23:59:59"
-
       const dateStr = format(newDate, "yyyy-MM-dd")
-
-      if (operator === "between") {
-        onChange([`${dateStr}T${startT}`, `${dateStr}T${endT}`] as T[])
-      } else {
-        onChange([`${dateStr}T${startT}`] as T[])
-      }
+      onChange([`${dateStr}T${startT}`] as T[])
+      setShowTimeView(true)
     }
 
     const handleStartTimeChange = (newStart: string) => {
-      const activeDate = dateVal || new Date()
+      const activeDate = startDateVal || new Date()
       const dateStr = format(activeDate, "yyyy-MM-dd")
       const startT = newStart || "00:00:00"
       const endT = endTime || "23:59:59"
 
-      if (operator === "between") {
-        onChange([`${dateStr}T${startT}`, `${dateStr}T${endT}`] as T[])
+      if (isRangeMode) {
+        const toStr = endDateVal ? format(endDateVal, "yyyy-MM-dd") : ""
+        const newValues: T[] = [`${dateStr}T${startT}` as T]
+        if (toStr) newValues.push(`${toStr}T${endT}` as T)
+        onChange(newValues)
       } else {
         onChange([`${dateStr}T${startT}`] as T[])
       }
     }
 
     const handleEndTimeChange = (newEnd: string) => {
-      const activeDate = dateVal || new Date()
-      const dateStr = format(activeDate, "yyyy-MM-dd")
+      const startActiveDate = startDateVal || new Date()
+      const endActiveDate = endDateVal || new Date()
+      const fromStr = format(startActiveDate, "yyyy-MM-dd")
+      const toStr = format(endActiveDate, "yyyy-MM-dd")
       const startT = startTime || "00:00:00"
       const endT = newEnd || "23:59:59"
 
-      if (operator === "between") {
-        onChange([`${dateStr}T${startT}`, `${dateStr}T${endT}`] as T[])
-      } else {
-        onChange([`${dateStr}T${startT}`] as T[])
-      }
+      onChange([`${fromStr}T${startT}`, `${toStr}T${endT}`] as T[])
     }
 
     const renderTimePicker = (label: string, timeStr: string, isStart: boolean) => {
@@ -1339,13 +1374,20 @@ function FilterValueSelector<T = unknown>({
             variant="outline"
           >
             <span
-              className={cn("truncate", !dateVal && "text-muted-foreground")}
+              className={cn("truncate", !startDateVal && "text-muted-foreground")}
             >
-              {dateVal
-                ? operator === "between"
-                  ? `${format(dateVal, "PPP")} ${startTime || "00:00:00"} - ${endTime || "23:59:59"}`
-                  : `${format(dateVal, "PPP")} ${startTime || "00:00:00"}`
-                : "Pick a date and time"}
+              {startDateVal ? (
+                isRangeMode && endDateVal ? (
+                  <>
+                    {format(startDateVal, "LLL dd, yyyy")} {startTime || "00:00:00"} -{" "}
+                    {format(endDateVal, "LLL dd, yyyy")} {endTime || "23:59:59"}
+                  </>
+                ) : (
+                  `${format(startDateVal, "LLL dd, yyyy")} ${startTime || "00:00:00"}`
+                )
+              ) : (
+                isRangeMode ? "Pick a date range" : "Pick a date and time"
+              )}
             </span>
             <CalendarIcon
               aria-hidden="true"
@@ -1355,78 +1397,99 @@ function FilterValueSelector<T = unknown>({
         </PopoverTrigger>
         <PopoverContent
           align="start"
-          className="z-50 flex flex-col md:flex-row gap-4 p-4 w-auto shadow-md border border-border rounded-none"
+          className={cn(
+            "z-50 p-4 shadow-md border border-border rounded-none",
+            showTimeView ? "w-[280px] sm:w-[320px]" : "w-auto"
+          )}
         >
-          {/* Calendar picker with year/month caption selector overrides */}
-          <div className="flex flex-col gap-3">
-            <Calendar
-              classNames={{
-                month_caption: "ms-2.5 justify-start",
-                nav: "flex items-center w-full absolute inset-x-0 justify-end pointer-events-none [&>button]:pointer-events-auto",
-              }}
-              components={{
-                CaptionLabel: (props: CaptionLabelProps) => (
-                  <CaptionLabel
-                    isYearView={isYearView}
-                    setIsYearView={(val) => {
-                      setIsYearView(val)
-                      if (!val) setSelectedYear(null)
-                    }}
-                    {...props}
-                  />
-                ),
-                MonthGrid: (props: MonthGridProps) => {
-                  return (
-                    <MonthGrid
-                      className={props.className}
-                      currentMonth={month.getMonth()}
-                      currentYear={month.getFullYear()}
-                      endDate={endDate}
+          {showTimeView ? (
+            <div className="flex flex-col gap-4 w-full">
+              {/* Back to Calendar Header */}
+              <div className="flex items-center justify-between border-b pb-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 rounded-none text-xs gap-1 px-2"
+                  onClick={() => setShowTimeView(false)}
+                >
+                  <ChevronDown className="h-4 w-4 rotate-90" />
+                  <span>Calendar</span>
+                </Button>
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">
+                  Select Time
+                </span>
+              </div>
+
+              {/* Time Pickers Panel */}
+              <div className="flex flex-col gap-4 justify-center w-full">
+                {isRangeMode ? (
+                  <div className="flex gap-4 justify-between w-full">
+                    {renderTimePicker("Start Time", startTime, true)}
+                    {renderTimePicker("End Time", endTime, false)}
+                  </div>
+                ) : (
+                  <div className="w-[120px] self-center">
+                    {renderTimePicker("Time", startTime, true)}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* Calendar picker with year/month caption selector overrides */
+            <div className="flex flex-col gap-3">
+              <Calendar
+                classNames={{
+                  month_caption: "ms-2.5 justify-start",
+                  nav: "flex items-center w-full absolute inset-x-0 justify-end pointer-events-none [&>button]:pointer-events-auto",
+                }}
+                components={{
+                  CaptionLabel: (props: CaptionLabelProps) => (
+                    <CaptionLabel
                       isYearView={isYearView}
-                      onMonthSelect={(selectedMonth: Date) => {
-                        setMonth(selectedMonth)
-                        setIsYearView(false)
-                        setSelectedYear(null)
+                      setIsYearView={(val) => {
+                        setIsYearView(val)
+                        if (!val) setSelectedYear(null)
                       }}
-                      setIsYearView={setIsYearView}
-                      startDate={startDate}
-                      years={years}
-                      selectedYear={selectedYear}
-                      setSelectedYear={setSelectedYear}
-                    >
-                      {props.children}
-                    </MonthGrid>
-                  )
-                },
-              }}
-              defaultMonth={new Date()}
-              endMonth={endDate}
-              mode="single"
-              month={month}
-              onMonthChange={setMonth}
-              onSelect={handleSelectDate}
-              selected={dateVal}
-              startMonth={startDate}
-              numberOfMonths={2}
-              className="p-0 border rounded-none bg-card"
-            />
-          </div>
-
-          {/* Time Picker Panel */}
-          <div className="hidden md:block w-px bg-border self-stretch" />
-
-          <div className="flex flex-col gap-4 justify-center min-w-[140px] md:max-w-[280px] self-center md:self-stretch">
-            {operator === "between" ? (
-              <div className="flex gap-4 w-[240px] md:w-[260px] justify-between">
-                {renderTimePicker("Start", startTime, true)}
-                {renderTimePicker("End", endTime, false)}
-              </div>
-            ) : (
-              <div className="w-[120px] self-center">
-                {renderTimePicker("Time", startTime, true)}
-              </div>
-            )}
-          </div>
+                      {...props}
+                    />
+                  ),
+                  MonthGrid: (props: MonthGridProps) => {
+                    return (
+                      <MonthGrid
+                        className={props.className}
+                        currentMonth={month.getMonth()}
+                        currentYear={month.getFullYear()}
+                        endDate={endDate}
+                        isYearView={isYearView}
+                        onMonthSelect={(selectedMonth: Date) => {
+                          setMonth(selectedMonth)
+                          setIsYearView(false)
+                          setSelectedYear(null)
+                        }}
+                        setIsYearView={setIsYearView}
+                        startDate={startDate}
+                        years={years}
+                        selectedYear={selectedYear}
+                        setSelectedYear={setSelectedYear}
+                      >
+                        {props.children}
+                      </MonthGrid>
+                    )
+                  },
+                }}
+                defaultMonth={new Date()}
+                endMonth={endDate}
+                mode={isRangeMode ? "range" : "single"}
+                month={month}
+                onMonthChange={setMonth}
+                onSelect={isRangeMode ? (handleSelectDateRange as any) : (handleSelectSingleDate as any)}
+                selected={isRangeMode ? dateRange : startDateVal}
+                startMonth={startDate}
+                numberOfMonths={2}
+                className="p-0 border rounded-none bg-card"
+              />
+            </div>
+          )}
         </PopoverContent>
       </Popover>
     )

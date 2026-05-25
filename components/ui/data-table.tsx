@@ -369,6 +369,16 @@ export function DataTable<TData, TValue>({
                 case "is":
                   if (isColDate) {
                     const cellTime = new Date(String(cellValue)).getTime()
+                    if (values.length >= 2) {
+                      const minTime = new Date(String(values[0])).getTime()
+                      const maxTime = new Date(String(values[1])).getTime()
+                      return cellTime >= minTime && cellTime <= maxTime
+                    }
+                    if (String(values[0]).endsWith("T00:00:00")) {
+                      const dayStart = new Date(String(values[0])).getTime()
+                      const dayEnd = dayStart + 24 * 60 * 60 * 1000 - 1
+                      return cellTime >= dayStart && cellTime <= dayEnd
+                    }
                     const filterTime = new Date(String(values[0])).getTime()
                     return cellTime === filterTime
                   }
@@ -376,6 +386,16 @@ export function DataTable<TData, TValue>({
                 case "is_not":
                   if (isColDate) {
                     const cellTime = new Date(String(cellValue)).getTime()
+                    if (values.length >= 2) {
+                      const minTime = new Date(String(values[0])).getTime()
+                      const maxTime = new Date(String(values[1])).getTime()
+                      return cellTime < minTime || cellTime > maxTime
+                    }
+                    if (String(values[0]).endsWith("T00:00:00")) {
+                      const dayStart = new Date(String(values[0])).getTime()
+                      const dayEnd = dayStart + 24 * 60 * 60 * 1000 - 1
+                      return cellTime < dayStart || cellTime > dayEnd
+                    }
                     const filterTime = new Date(String(values[0])).getTime()
                     return cellTime !== filterTime
                   }
