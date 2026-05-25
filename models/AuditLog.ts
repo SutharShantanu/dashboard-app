@@ -26,6 +26,7 @@ export interface IAuditLog extends Document {
   oldValue?: string;
   newValue?: string;
   ip?: string;
+  userAgent?: string;
   details: string;
 }
 
@@ -48,6 +49,7 @@ const AuditLogSchema: Schema = new Schema({
   oldValue: { type: String },
   newValue: { type: String },
   ip: { type: String },
+  userAgent: { type: String },
   details: { type: String, required: true }
 });
 

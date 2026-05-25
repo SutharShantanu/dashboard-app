@@ -29,20 +29,20 @@ export function PasswordStrength({ password = "", className }: PasswordStrengthP
 
   return (
     <div className={cn("space-y-3", className)}>
-      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {requirements.map((req, i) => {
           const isMet = req.test(password);
           return (
             <div key={i} className="flex items-center gap-2">
               {isMet ? (
-                <Check className="h-3.5 w-3.5 text-emerald-500" />
+                <Check className="h-3.5 w-3.5 min-w-3.5 text-success" />
               ) : (
-                <XCircle className="h-3.5 w-3.5 text-muted-foreground/40" />
+                <XCircle className="h-3.5 w-3.5 min-w-3.5 text-muted-foreground" />
               )}
               <span
                 className={cn(
-                  "text-tiny font-medium transition-colors",
-                  isMet ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
+                  "text-tiny font-medium transition-colors text-nowrap",
+                  isMet ? "text-success dark:text-success" : "text-muted-foreground"
                 )}
               >
                 {req.label}

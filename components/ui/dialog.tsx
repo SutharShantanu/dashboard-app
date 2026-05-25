@@ -8,6 +8,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { type VariantProps } from "class-variance-authority"
 import { XIcon } from "lucide-react"
 import { useDialogUrlActive } from "@/hooks/useDialogUrlActive"
+import { ScrollArea } from "./scroll-area"
 
 function Dialog({
   open: controlledOpen,
@@ -111,9 +112,9 @@ function DialogContent({
         )}
         {...props}
       >
-        <div className="flex max-h-[85vh] flex-col overflow-y-auto">
+        <ScrollArea className="flex max-h-[85vh] flex-col">
           {children}
-        </div>
+        </ScrollArea>
         {showCloseButton && (
           <DialogPrimitive.Close data-slot="dialog-close" asChild>
             <Button
@@ -135,7 +136,10 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col border-b border-border gap-1 bg-card p-2 text-left", className)}
+      className={cn(
+        "sticky top-0 z-40 flex flex-col border-b border-border gap-1 bg-card p-2 text-left",
+        className
+      )}
       {...props}
     />
   )
@@ -153,7 +157,7 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "flex flex-col-reverse gap-2 border-t border-border p-2 sm:flex-row sm:justify-end",
+        "sticky bottom-0 z-40 flex flex-col-reverse mt-2 gap-2 border-t border-border bg-popover p-2 sm:flex-row sm:justify-end",
         className
       )}
       {...props}

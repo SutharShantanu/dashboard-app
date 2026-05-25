@@ -285,13 +285,11 @@ function DashboardPageContent() {
       hash = username.charCodeAt(i) + ((hash << 5) - hash)
     }
     const colors = [
-      "#ef4444",
-      "#f97316",
-      "#10b981",
-      "#06b6d4",
-      "#3b82f6",
-      "#8b5cf6",
-      "#ec4899",
+      "var(--color-chart-1)",
+      "var(--color-chart-2)",
+      "var(--color-chart-3)",
+      "var(--color-chart-4)",
+      "var(--color-chart-5)",
     ]
     const color = colors[Math.abs(hash) % colors.length]
 
@@ -412,13 +410,11 @@ function DashboardPageContent() {
       hash = username.charCodeAt(i) + ((hash << 5) - hash)
     }
     const colors = [
-      "#ef4444",
-      "#f97316",
-      "#10b981",
-      "#06b6d4",
-      "#3b82f6",
-      "#8b5cf6",
-      "#ec4899",
+      "var(--color-chart-1)",
+      "var(--color-chart-2)",
+      "var(--color-chart-3)",
+      "var(--color-chart-4)",
+      "var(--color-chart-5)",
     ]
     const color = colors[Math.abs(hash) % colors.length]
 
@@ -641,7 +637,13 @@ function DashboardPageContent() {
     },
   } satisfies ChartConfig
 
-  const COLORS = ["#2563eb", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"]
+  const COLORS = [
+    "var(--color-chart-1)",
+    "var(--color-chart-2)",
+    "var(--color-chart-3)",
+    "var(--color-chart-4)",
+    "var(--color-chart-5)",
+  ]
 
   if (sessionStatus === "loading") {
     return (
@@ -1045,7 +1047,7 @@ function DashboardPageContent() {
                         return (
                           <TableHead
                             key={col}
-                            className="px-4 py-3.5 font-semibold tracking-wider whitespace-nowrap"
+                            className=" font-semibold tracking-wider whitespace-nowrap"
                           >
                             <div className="flex items-center justify-between gap-2">
                               <span>{col}</span>
@@ -1126,7 +1128,7 @@ function DashboardPageContent() {
                                     ? {
                                         borderColor: focusInfo.color,
                                         borderWidth: 2,
-                                        backgroundColor: `${focusInfo.color}15`,
+                                        backgroundColor: `color-mix(in srgb, ${focusInfo.color} 15%, transparent)`,
                                       }
                                     : {}
                                 }
@@ -1209,25 +1211,25 @@ function DashboardPageContent() {
                     <Table noWrapper className="min-w-max">
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="px-4 py-3.5">
+                          <TableHead className="">
                             Timestamp
                           </TableHead>
-                          <TableHead className="px-4 py-3.5">Actor</TableHead>
-                          <TableHead className="px-4 py-3.5">Role</TableHead>
-                          <TableHead className="px-4 py-3.5">Action</TableHead>
-                          <TableHead className="px-4 py-3.5">
+                          <TableHead className="">Actor</TableHead>
+                          <TableHead className="">Role</TableHead>
+                          <TableHead className="">Action</TableHead>
+                          <TableHead className="">
                             Target Student/User
                           </TableHead>
-                          <TableHead className="px-4 py-3.5">
+                          <TableHead className="">
                             Column Affected
                           </TableHead>
-                          <TableHead className="px-4 py-3.5">
+                          <TableHead className="">
                             Old Value
                           </TableHead>
-                          <TableHead className="px-4 py-3.5">
+                          <TableHead className="">
                             New Value
                           </TableHead>
-                          <TableHead className="px-4 py-3.5">
+                          <TableHead className="">
                             IP Address
                           </TableHead>
                         </TableRow>
@@ -1235,7 +1237,7 @@ function DashboardPageContent() {
                       <TableBody>
                         {filteredLogs.map((log: AuditLog, index: number) => (
                           <TableRow key={index}>
-                            <TableCell className="px-4 py-3.5 font-medium whitespace-nowrap text-muted-foreground">
+                            <TableCell className=" font-medium whitespace-nowrap text-muted-foreground">
                               <div className="flex flex-col">
                                 <span>
                                   {formatDistanceToNow(
@@ -1251,42 +1253,42 @@ function DashboardPageContent() {
                                 </span>
                               </div>
                             </TableCell>
-                            <TableCell className="px-4 py-3.5 font-bold whitespace-nowrap">
+                            <TableCell className=" font-bold whitespace-nowrap">
                               {log.actorDisplayName} ({log.actor})
                             </TableCell>
-                            <TableCell className="px-4 py-3.5 font-semibold text-primary capitalize">
+                            <TableCell className=" font-semibold text-primary capitalize">
                               {log.actorRole}
                             </TableCell>
-                            <TableCell className="px-4 py-3.5">
+                            <TableCell className="">
                               <Badge
                                 variant="outline"
                                 className={cn(
-                                  "px-2 py-0.5 text-tiny font-bold tracking-wider uppercase",
+                                  "text-tiny tracking-wider uppercase",
                                   log.action.includes("CREATE") &&
-                                    "border-green-500/20 bg-green-500/10 text-green-500",
+                                    "border-success/20 bg-success/10 text-success",
                                   log.action.includes("UPDATE") &&
-                                    "border-blue-500/20 bg-blue-500/10 text-blue-500",
+                                    "border-info/20 bg-info/10 text-info",
                                   log.action.includes("DELETE") &&
-                                    "border-red-500/20 bg-red-500/10 text-red-500",
+                                    "border-destructive/20 bg-destructive/10 text-destructive",
                                   log.action === "LOGIN" &&
-                                    "border-purple-500/20 bg-purple-500/10 text-purple-500",
+                                    "border-primary/20 bg-primary/10 text-primary",
                                   log.action === "LOGOUT" &&
-                                    "border-orange-500/20 bg-orange-500/10 text-orange-500",
+                                    "border-warning/20 bg-warning/10 text-warning",
                                   log.action.includes("CONNECT") &&
-                                    "border-cyan-500/20 bg-cyan-500/10 text-cyan-500"
+                                    "border-sky/20 bg-sky/10 text-sky"
                                 )}
                               >
                                 {log.action}
                               </Badge>
                             </TableCell>
-                            <TableCell className="px-4 py-3.5 font-bold whitespace-nowrap">
+                            <TableCell className=" font-bold whitespace-nowrap">
                               {log.targetRow}
                             </TableCell>
-                            <TableCell className="px-4 py-3.5 font-semibold whitespace-nowrap">
+                            <TableCell className=" font-semibold whitespace-nowrap">
                               {log.columnChanged}
                             </TableCell>
                             <TableCell
-                              className="max-w-[150px] truncate px-4 py-3.5 font-medium"
+                              className="max-w-[150px] truncate  font-medium"
                               title={log.oldValue}
                             >
                               {log.oldValue || (
@@ -1296,7 +1298,7 @@ function DashboardPageContent() {
                               )}
                             </TableCell>
                             <TableCell
-                              className="max-w-[150px] truncate px-4 py-3.5 font-semibold"
+                              className="max-w-[150px] truncate  font-semibold"
                               title={log.newValue}
                             >
                               {log.newValue || (
@@ -1305,7 +1307,7 @@ function DashboardPageContent() {
                                 </span>
                               )}
                             </TableCell>
-                            <TableCell className="px-4 py-3.5 font-mono font-medium text-muted-foreground">
+                            <TableCell className=" font-mono font-medium text-muted-foreground">
                               {log.ip}
                             </TableCell>
                           </TableRow>

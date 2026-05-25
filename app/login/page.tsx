@@ -92,6 +92,9 @@ export default function LoginPage() {
         setError(res.error)
         toast.error(res.error)
       } else {
+        // Fire-and-forget: log full session details (browser, OS, IP, location)
+        fetch("/api/auth/session-log", { method: "POST" }).catch(() => {});
+
         toast.success("Welcome back! Loading your dashboard...", {
           icon: <Sparkles className="h-4 w-4 animate-pulse text-emerald-500" />,
         })

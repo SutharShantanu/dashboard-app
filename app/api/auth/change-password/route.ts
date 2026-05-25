@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth"
-import { getUsers, updateUser } from "@/lib/sheets"
+import { getUsers, appendAuditLog } from "@/lib/sheets"
+import connectToDatabase from "@/lib/mongodb"
+import User from "@/models/User"
 import bcrypt from "bcryptjs"
 
 export async function POST(request: Request) {
@@ -48,12 +50,28 @@ export async function POST(request: Request) {
 
     const newPasswordHash = await bcrypt.hash(newPassword, 10)
 
-    const updatedUser = {
-      ...user,
-      passwordHash: newPasswordHash,
-    }
+    // Update ONLY the passwordHash field in the database
+    await connectToDatabase()
+    const escapedUsername = username.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")
+    await User.updateOne(
+      { username: { $regex: new RegExp(`^${escapedUsername}$`, "i") } },
+      { $set: { passwordHash: newPasswordHash } }
+    )
 
-    await updateUser(username, updatedUser)
+    // Log a dedicated PASSWORD_CHANGE audit entry
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "127.0.0.1"
+
+    await appendAuditLog({
+      timestamp: new Date().toISOString(),
+      actor: username,
+      actorDisplayName: (session.user as any).name ?? username,
+      actorRole: (session.user as any).role ?? "user",
+      action: "USER_UPDATE",
+      targetRow: username,
+      ip,
+      details: `Password changed successfully for user: ${username}`,
+    })
 
     return NextResponse.json({ message: "Password updated successfully." }, { status: 200 })
   } catch (error: any) {

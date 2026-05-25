@@ -67,6 +67,7 @@ export interface AuditLogInterface {
   oldValue?: string;
   newValue?: string;
   ip?: string;
+  userAgent?: string;
   details?: string;
 }
 
@@ -419,8 +420,10 @@ export async function getLogs(): Promise<AuditLog[]> {
     oldValue: l.oldValue,
     newValue: l.newValue,
     ip: l.ip,
+    userAgent: l.userAgent,
     details: l.details
   }));
+
 }
 
 export async function getSheetNames(): Promise<string[]> {
@@ -472,6 +475,7 @@ export async function appendAuditLog(log: AuditLog): Promise<void> {
     oldValue: log.oldValue || "",
     newValue: log.newValue || "",
     ip: log.ip || "127.0.0.1",
+    userAgent: log.userAgent || "",
     details: log.details || `Action: ${log.action} on ${log.targetRow}`,
   });
 }

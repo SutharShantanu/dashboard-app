@@ -49,13 +49,6 @@ import {
 import { Card } from "@/components/ui/card"
 import { Kbd } from "@/components/ui/kbd"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import {
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuContent,
@@ -72,7 +65,6 @@ import {
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { NavUser } from "@/components/nav-user"
 import { getAvatarUrl } from "@/lib/utils"
@@ -83,7 +75,6 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip"
 import { Spinner } from "./ui/spinner"
-import { Separator } from "./ui/separator"
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   user: {

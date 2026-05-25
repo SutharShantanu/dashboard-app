@@ -223,7 +223,7 @@ export function ConnectSheetNavbarButton({ isAdmin }: { isAdmin: boolean }) {
                 { scroll: false }
               )
             }}
-            className="m-2 flex flex-1 flex-col overflow-y-auto"
+            className="m-2 flex flex-1 flex-col"
           >
             <TabsList className="grid w-fit grid-cols-2">
               <TabsTrigger value="url">

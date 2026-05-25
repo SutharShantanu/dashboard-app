@@ -12,7 +12,6 @@ import {
 } from "lucide-react"
 import { signOut } from "next-auth/react"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
-import { SettingsDialog } from "@/components/settings-dialog"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -44,32 +43,6 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar()
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const pathname = usePathname()
-
-  const isSettingsOpen = searchParams?.get("settings") === "open"
-  const setIsSettingsOpen = React.useCallback(
-    (open: boolean) => {
-      const params = new URLSearchParams(window.location.search)
-      if (open) {
-        params.set("settings", "open")
-        if (!params.get("settingsTab")) {
-          params.set("settingsTab", "profile")
-        }
-        router.push(`${window.location.pathname}?${params.toString()}`, {
-          scroll: false,
-        })
-      } else {
-        params.delete("settings")
-        params.delete("settingsTab")
-        router.push(`${window.location.pathname}?${params.toString()}`, {
-          scroll: false,
-        })
-      }
-    },
-    [router]
-  )
-
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -119,7 +92,7 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => setIsSettingsOpen(true)}>
+              <DropdownMenuItem onClick={() => router.push("/dashboard/settings?tab=profile")}>
                 <Settings />
                 <span>Profile & Settings</span>
               </DropdownMenuItem>
@@ -135,11 +108,6 @@ export function NavUser({
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
-      <SettingsDialog
-        open={isSettingsOpen}
-        onOpenChange={setIsSettingsOpen}
-        user={user}
-      />
     </SidebarMenu>
   )
 }

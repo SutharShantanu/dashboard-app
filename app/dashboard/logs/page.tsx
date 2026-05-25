@@ -4,12 +4,12 @@ import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { PageHeader } from "@/components/page-header"
 import { Spinner } from "@/components/ui/spinner"
+import { LogsDataTable } from "@/components/logs-data-table"
 
 export default function LogsPage() {
   const { data: session, status } = useSession()
@@ -62,7 +62,7 @@ export default function LogsPage() {
           <div>
             <CardTitle>Logs</CardTitle>
             <CardDescription>
-              {user?.role === "admin" 
+              {user?.role === "admin"
                 ? "Showing all activity logs for all users."
                 : "Showing your activity logs."}
             </CardDescription>
@@ -78,42 +78,7 @@ export default function LogsPage() {
               No logs found.
             </p>
           ) : (
-            <div className="border rounded-md overflow-hidden">
-              <table className="min-w-full divide-y divide-border">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Timestamp</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Actor</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Action</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Details</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">IP</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {logs.map((log, index) => (
-                    <tr key={index}>
-                      <td className="px-4 py-2 text-xs text-muted-foreground whitespace-nowrap">
-                        {new Date(log.timestamp).toLocaleString()}
-                      </td>
-                      <td className="px-4 py-2 text-xs font-medium">
-                        {log.actor}
-                      </td>
-                      <td className="px-4 py-2 text-xs">
-                        <Badge variant={log.action === "LOGIN" ? "default" : log.action === "LOGOUT" ? "secondary" : "outline"}>
-                          {log.action}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-2 text-xs text-muted-foreground">
-                        {log.details}
-                      </td>
-                      <td className="px-4 py-2 text-xs text-muted-foreground">
-                        {log.ip || "N/A"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <LogsDataTable logs={logs} />
           )}
         </CardContent>
       </Card>

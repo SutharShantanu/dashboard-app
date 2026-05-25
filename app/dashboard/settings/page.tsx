@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { PasswordInput } from "@/components/ui/password-input"
 import { Badge } from "@/components/ui/badge"
 import {
   AlertCircle,
@@ -19,6 +20,7 @@ import {
   FileText,
   Link as LinkIcon,
   Database,
+  Pencil,
 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { toast } from "sonner"
@@ -49,11 +51,23 @@ import {
   FieldGroup,
   FieldSet,
 } from "@/components/ui/field"
-import { PasswordStrength, isStrongPassword } from "@/components/password-strength"
+import {
+  PasswordStrength,
+  isStrongPassword,
+} from "@/components/password-strength"
 import { Spinner } from "@/components/ui/spinner"
+import { LogsDataTable } from "@/components/logs-data-table"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { getAvatarUrl } from "@/lib/utils"
+import Image from "next/image"
 
 const updateProfileSchema = z.object({
   displayName: z.string().min(1, "Display name is required"),
+})
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z.string().min(6, "New password must be at least 6 characters"),
 })
 
 export default function SettingsPage() {
@@ -81,6 +95,28 @@ export default function SettingsPage() {
 
   const [logs, setLogs] = useState<any[]>([])
   const [loadingLogs, setLoadingLogs] = useState(false)
+  const [isEditingProfile, setIsEditingProfile] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(
+    searchParams.get("dialog") === "change-password" ||
+      searchParams.get("changePassword") === "open"
+  )
+
+  const {
+    control: passwordControl,
+    handleSubmit: handlePasswordSubmit,
+    reset: resetPassword,
+    watch: watchPassword,
+    formState: { errors: passwordErrors, isSubmitting: isPasswordSubmitting },
+  } = useForm<z.infer<typeof changePasswordSchema>>({
+    resolver: zodResolver(changePasswordSchema),
+    defaultValues: {
+      currentPassword: "",
+      newPassword: "",
+    },
+    mode: "onTouched",
+  })
+
+  const newPasswordValue = watchPassword("newPassword", "")
 
   const {
     control: profileControl,
@@ -131,28 +167,63 @@ export default function SettingsPage() {
 
   const isGoogleUser = user?.image || user?.email?.includes("gmail.com")
 
-  const onProfileSubmit = async (values: z.infer<typeof updateProfileSchema>) => {
+  const onProfileSubmit = async (
+    values: z.infer<typeof updateProfileSchema>
+  ) => {
     try {
-      const res = await fetch(
-        `/api/users/${user.username || user.name}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ displayName: values.displayName.trim() }),
-        }
-      )
+      const res = await fetch(`/api/users/${user.username || user.name}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName: values.displayName.trim() }),
+      })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to update profile")
-      
+
       // Dynamic NextAuth session update
       await update({
         displayName: values.displayName.trim(),
       })
 
       toast.success("Profile display name updated successfully")
+      setIsEditingProfile(false)
     } catch (err: any) {
       toast.error(err.message)
     }
+  }
+
+  const onPasswordSubmit = async (
+    values: z.infer<typeof changePasswordSchema>
+  ) => {
+    if (!isStrongPassword(values.newPassword)) {
+      toast.error("Password must meet all security requirements")
+      return
+    }
+
+    const request = fetch("/api/auth/change-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword,
+      }),
+    }).then(async (res) => {
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to change password")
+      return data
+    })
+
+    toast.promise(request, {
+      loading: "Updating password…",
+      success: () => {
+        resetPassword()
+        setIsDialogOpen(false)
+        return "Password changed successfully!"
+      },
+      error: (err: Error) => err.message,
+    })
+
+    // Await so react-hook-form's isSubmitting stays true until done
+    await request.catch(() => {})
   }
 
   if (status === "loading") {
@@ -179,11 +250,7 @@ export default function SettingsPage() {
         description="Manage your account settings, profile, and security preferences."
       />
 
-      <Tabs
-        value={currentTab}
-        onValueChange={handleTabChange}
-        className="space-y-6"
-      >
+      <Tabs value={currentTab} onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="profile">
             <UserIcon className="h-4 w-4" /> Profile
@@ -204,19 +271,69 @@ export default function SettingsPage() {
           )}
         </TabsList>
 
-        <TabsContent value="profile" className="space-y-6">
+        <TabsContent value="profile">
           <Card>
-            <CardHeader>
-              <CardTitle>Profile Information</CardTitle>
-              <CardDescription>
-                Update your personal details and how others see you.
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div className="space-y-1.5">
+                <CardTitle>Profile Information</CardTitle>
+                <CardDescription>
+                  Update your personal details and how others see you.
+                </CardDescription>
+              </div>
+              <div className="flex gap-2">
+                {isEditingProfile ? (
+                  <>
+                    <Button
+                      type="submit"
+                      form="profileForm"
+                      disabled={isProfileSubmitting}
+                      size="sm"
+                    >
+                      {isProfileSubmitting && <Spinner className="h-4 w-4" />}
+                      Save Changes
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        resetProfile({
+                          displayName: user.displayName || user.name || "",
+                        })
+                        setIsEditingProfile(false)
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditingProfile(true)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit Profile
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center gap-6">
-                <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-primary/20 bg-primary/10 text-2xl font-bold text-primary">
-                  {user?.name?.[0]?.toUpperCase() || "U"}
-                </div>
+                <Avatar className="h-20 w-20 border-2 border-primary/20">
+                  <AvatarImage
+                    src={
+                      user?.image ||
+                      getAvatarUrl(user?.username || user?.name, user?.role)
+                    }
+                    alt={user?.name || "User Avatar"}
+                    className="object-cover"
+                  />
+                  <AvatarFallback className="bg-primary/10 text-2xl font-bold text-primary">
+                    {user?.name?.[0]?.toUpperCase() || "U"}
+                  </AvatarFallback>
+                </Avatar>
                 <div className="space-y-1">
                   <h3 className="text-xl font-semibold">{user?.name}</h3>
                   <p className="text-sm text-muted-foreground">{user?.email}</p>
@@ -225,27 +342,16 @@ export default function SettingsPage() {
                       {user?.role || "User"}
                     </Badge>
                     {isGoogleUser ? (
-                      <Badge
-                        variant="outline"
-                        className="border-green-200 bg-green-50 text-green-700"
-                      >
-                        <CheckCircle2 className="mr-1 h-3 w-3" /> Verified via
-                        Google
+                      <Badge variant="success-light">
+                        <CheckCircle2 className="h-3 w-3" /> Verified via Google
                       </Badge>
                     ) : (
-                      <Badge
-                        variant="outline"
-                        className="border-orange-200 bg-orange-50 text-orange-700"
-                      >
-                        <AlertCircle className="mr-1 h-3 w-3" /> Credentials
-                        Login
+                      <Badge variant="warning-light">
+                        <AlertCircle className="h-3 w-3" /> Credentials Login
                       </Badge>
                     )}
                     {user?.role === "admin" && (
-                      <Badge
-                        variant="secondary"
-                        className="flex items-center gap-1.5 text-xs font-bold tracking-wider uppercase"
-                      >
+                      <Badge variant="secondary">
                         <Database className="h-3.5 w-3.5 text-muted-foreground" />
                         {dbMode || "Checking..."}
                       </Badge>
@@ -255,17 +361,17 @@ export default function SettingsPage() {
               </div>
 
               {!isGoogleUser && (
-                <Alert className="border-amber-200 bg-amber-50 text-amber-900">
-                  <AlertCircle className="h-4 w-4 text-amber-600" />
-                  <AlertTitle className="text-amber-800">
+                <Alert className="border-warning/20 bg-warning/10 text-warning-foreground">
+                  <AlertCircle className="h-4 w-4 text-warning" />
+                  <AlertTitle className="font-semibold text-warning-foreground">
                     Verify your identity
                   </AlertTitle>
-                  <AlertDescription className="text-amber-700">
+                  <AlertDescription className="text-warning-foreground/90">
                     Your account is not linked to Google. Please ensure your
                     email is correct for important updates.
                     <Button
                       variant="link"
-                      className="ml-1 h-auto p-0 font-bold text-amber-800 hover:text-amber-900"
+                      className="ml-1 h-auto p-0 font-bold text-warning hover:text-warning-foreground"
                     >
                       Verify Email
                     </Button>
@@ -274,27 +380,61 @@ export default function SettingsPage() {
               )}
 
               <div className="border-t pt-6">
-                <form onSubmit={handleProfileSubmit(onProfileSubmit)} className="space-y-4 max-w-md" noValidate>
-                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Update Profile</h4>
+                <form
+                  id="profileForm"
+                  onSubmit={handleProfileSubmit(onProfileSubmit)}
+                  className="max-w-md space-y-4"
+                  noValidate
+                >
+                  <h4 className="text-sm font-semibold tracking-wider text-muted-foreground uppercase">
+                    Update Profile
+                  </h4>
                   <FieldSet>
-                    <FieldGroup>
+                    <FieldGroup className="flex flex-row items-center gap-2">
                       <Controller
                         control={profileControl}
                         name="displayName"
                         render={({ field }) => (
                           <Field data-invalid={!!profileErrors.displayName}>
-                            <FieldLabel htmlFor="displayName">Display Name</FieldLabel>
-                            <Input id="displayName" type="text" placeholder="Enter display name" {...field} />
-                            <FieldError errors={[profileErrors.displayName]} />
+                            <FieldLabel htmlFor="displayName">
+                              Display Name
+                            </FieldLabel>
+                            <Input
+                              id="displayName"
+                              type="text"
+                              placeholder="Enter display name"
+                              {...field}
+                              readOnly={!isEditingProfile}
+                              className={
+                                !isEditingProfile ? "cursor-not-allowed" : ""
+                              }
+                            />
+                            {isEditingProfile && (
+                              <FieldError
+                                errors={[profileErrors.displayName]}
+                              />
+                            )}
                           </Field>
                         )}
                       />
+                      {!isGoogleUser && (
+                        <Field className="w-fit">
+                          <FieldLabel htmlFor="changePassword">
+                            Change Password
+                          </FieldLabel>
+                          <Button
+                            id="changePassword"
+                            type="button"
+                            onClick={() => setIsDialogOpen(true)}
+                            variant="outline"
+                          >
+                            <KeyRound className="h-4 w-4" />
+                            Change Password
+                          </Button>
+                        </Field>
+                      )}
                     </FieldGroup>
                   </FieldSet>
-                  <Button type="submit" disabled={isProfileSubmitting}>
-                    {isProfileSubmitting && <Spinner className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Changes
-                  </Button>
                 </form>
               </div>
             </CardContent>
@@ -330,10 +470,12 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     {user?.image ? (
-                      <img
-                         src={user.image}
-                         alt={user.name}
-                         className="h-10 w-10 rounded-full"
+                      <Image
+                        src={user.image}
+                        alt={user.name}
+                        width={40}
+                        height={40}
+                        className="h-10 w-10 rounded-full object-cover"
                       />
                     ) : (
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-xl font-bold text-primary">
@@ -347,12 +489,7 @@ export default function SettingsPage() {
                       </p>
                     </div>
                   </div>
-                  <Badge
-                    variant="outline"
-                    className="border-green-200 bg-green-50 text-green-700"
-                  >
-                    Connected
-                  </Badge>
+                  <Badge variant="success-light">Connected</Badge>
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center space-y-4 py-6">
@@ -418,48 +555,7 @@ export default function SettingsPage() {
                   No logs found.
                 </p>
               ) : (
-                <div className="overflow-hidden rounded-md border">
-                  <table className="min-w-full divide-y divide-border">
-                    <thead className="bg-muted/50">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">
-                          Timestamp
-                        </th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">
-                          Action
-                        </th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">
-                          Details
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {logs.map((log, index) => (
-                        <tr key={index}>
-                          <td className="px-4 py-2 text-xs whitespace-nowrap text-muted-foreground">
-                            {new Date(log.timestamp).toLocaleString()}
-                          </td>
-                          <td className="px-4 py-2 text-xs">
-                            <Badge
-                              variant={
-                                log.action === "LOGIN"
-                                  ? "default"
-                                  : log.action === "LOGOUT"
-                                    ? "secondary"
-                                    : "outline"
-                              }
-                            >
-                              {log.action}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-2 text-xs text-muted-foreground">
-                            {log.details}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <LogsDataTable logs={logs} />
               )}
             </CardContent>
           </Card>
@@ -510,6 +606,83 @@ export default function SettingsPage() {
           </TabsContent>
         )}
       </Tabs>
+
+      {/* Change Password Dialog */}
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        name="changePassword"
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Password</DialogTitle>
+            <DialogDescription>
+              Enter your current password and a new secure password.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            id="changePasswordForm"
+            onSubmit={handlePasswordSubmit(onPasswordSubmit)}
+            className="m-2"
+            noValidate
+          >
+            <FieldSet>
+              <FieldGroup>
+                <Controller
+                  control={passwordControl}
+                  name="currentPassword"
+                  render={({ field }) => (
+                    <Field data-invalid={!!passwordErrors.currentPassword}>
+                      <FieldLabel htmlFor="currentPassword">
+                        Current Password
+                      </FieldLabel>
+                      <PasswordInput
+                        id="currentPassword"
+                        placeholder="Enter current password"
+                        {...field}
+                      />
+                      <FieldError errors={[passwordErrors.currentPassword]} />
+                    </Field>
+                  )}
+                />
+                <Controller
+                  control={passwordControl}
+                  name="newPassword"
+                  render={({ field }) => (
+                    <Field data-invalid={!!passwordErrors.newPassword}>
+                      <FieldLabel htmlFor="newPassword">
+                        New Password
+                      </FieldLabel>
+                      <PasswordInput
+                        id="newPassword"
+                        placeholder="Enter new secure password"
+                        {...field}
+                      />
+                      <PasswordStrength
+                        password={newPasswordValue || ""}
+                        className="mt-2"
+                      />
+                      <FieldError errors={[passwordErrors.newPassword]} />
+                    </Field>
+                  )}
+                />
+              </FieldGroup>
+            </FieldSet>
+          </form>
+          <DialogFooter>
+            <Button
+              type="submit"
+              form="changePasswordForm"
+              disabled={isPasswordSubmitting}
+            >
+              {isPasswordSubmitting && (
+                <Spinner className="h-4 w-4" />
+              )}
+              {isPasswordSubmitting ? "Updating…" : "Update Password"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

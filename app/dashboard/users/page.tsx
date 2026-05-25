@@ -1,6 +1,12 @@
 "use client"
 
-import React, { useState, useEffect, Suspense, useMemo } from "react"
+import React, {
+  useState,
+  useEffect,
+  Suspense,
+  useMemo,
+  useCallback,
+} from "react"
 import { useSession } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useTabUrlSync } from "@/hooks/useTabUrlSync"
@@ -11,7 +17,6 @@ import {
   UserPlus,
   Users,
   Check,
-  X,
   Key,
   ShieldAlert,
   Eye,
@@ -49,19 +54,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
-  CardHeader,
   CardTitle,
   CardDescription,
   CardContent,
@@ -102,7 +98,6 @@ import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-  AvatarBadge,
 } from "@/components/ui/avatar"
 import { BadgeDot } from "@/components/ui/badge-dot"
 import {
@@ -116,7 +111,6 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { getAvatarUrl } from "@/lib/utils"
-import Link from "next/link"
 import { CopyButton } from "@/components/ui/copy-button"
 
 interface User {
@@ -185,13 +179,21 @@ function UsersDirectoryContent() {
   const [userSearchQuery, setUserSearchQuery] = useState<string>("")
 
   // Add User Modal State
-  const [isAddUserOpen, setIsAddUserOpen] = useState<boolean>(false)
+  const [isAddUserOpen, setIsAddUserOpen] = useState<boolean>(
+    () => searchParams.get("userModal") === "open"
+  )
   const [showPassword, setShowPassword] = useState<boolean>(false)
-  const [isEditMode, setIsEditMode] = useState(false)
-  const [isViewMode, setIsViewMode] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(
+    () => searchParams.get("mode") === "edit"
+  )
+  const [isViewMode, setIsViewMode] = useState(
+    () => searchParams.get("mode") === "view"
+  )
 
   // Reset Password Dialog State
-  const [isResetPasswordOpen, setIsResetPasswordOpen] = useState<boolean>(false)
+  const [isResetPasswordOpen, setIsResetPasswordOpen] = useState<boolean>(
+    () => searchParams.get("resetPassword") === "open"
+  )
   const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null)
 
   const resetPasswordSchema = z.object({
@@ -292,12 +294,22 @@ function UsersDirectoryContent() {
   const [sheetsWithColumns, setSheetsWithColumns] = useState<any[]>([])
   const [presets, setPresets] = useState<any[]>([])
   const [newPresetName, setNewPresetName] = useState("")
+  const [selectedSheet, setSelectedSheet] = useState("")
 
   // Inline editing allowed columns state
   const [editingAllowedColsUser, setEditingAllowedColsUser] = useState<
     string | null
   >(null)
   const [tempAllowedColsValue, setTempAllowedColsValue] = useState<string>("")
+  useEffect(() => {
+    if (isAddUserOpen) {
+      if (sheetsWithColumns.length > 0) {
+        setSelectedSheet((prev) => prev || sheetsWithColumns[0].id)
+      }
+    } else {
+      setSelectedSheet("")
+    }
+  }, [isAddUserOpen, sheetsWithColumns])
 
   useEffect(() => {
     if (sessionStatus === "authenticated") {
@@ -314,18 +326,157 @@ function UsersDirectoryContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionStatus])
 
+  const handleCloseUserModal = useCallback(() => {
+    const params = new URLSearchParams(window.location.search)
+    params.delete("userModal")
+    params.delete("mode")
+    params.delete("username")
+    router.push(`${window.location.pathname}?${params.toString()}`, {
+      scroll: false,
+    })
+    reset()
+  }, [router, reset])
+
+  const handleCloseResetPasswordModal = useCallback(() => {
+    const params = new URLSearchParams(window.location.search)
+    params.delete("resetPassword")
+    params.delete("username")
+    params.delete("tab")
+    router.push(`${window.location.pathname}?${params.toString()}`, {
+      scroll: false,
+    })
+  }, [router])
+
+  const handleOpenCreateModal = useCallback(() => {
+    const params = new URLSearchParams(window.location.search)
+    params.set("userModal", "open")
+    params.delete("mode")
+    params.delete("username")
+    router.push(`${window.location.pathname}?${params.toString()}`, {
+      scroll: false,
+    })
+  }, [router])
+
+  const handleEditUser = useCallback(
+    (user: User) => {
+      const params = new URLSearchParams(window.location.search)
+      params.set("userModal", "open")
+      params.set("mode", "edit")
+      params.set("username", user.username)
+      router.push(`${window.location.pathname}?${params.toString()}`, {
+        scroll: false,
+      })
+    },
+    [router]
+  )
+
+  const handleViewUser = useCallback(
+    (user: User) => {
+      const params = new URLSearchParams(window.location.search)
+      params.set("userModal", "open")
+      params.set("mode", "view")
+      params.set("username", user.username)
+      router.push(`${window.location.pathname}?${params.toString()}`, {
+        scroll: false,
+      })
+    },
+    [router]
+  )
+
+  const handleOpenResetPassword = useCallback(
+    (user: User) => {
+      const params = new URLSearchParams(window.location.search)
+      params.set("resetPassword", "open")
+      params.set("username", user.username)
+      if (!params.get("tab")) {
+        params.set("tab", "direct")
+      }
+      router.push(`${window.location.pathname}?${params.toString()}`, {
+        scroll: false,
+      })
+    },
+    [router]
+  )
+
   // Custom event listener for external modal open triggers (e.g., sidebar)
   useEffect(() => {
     const handleOpenModal = () => {
-      setIsEditMode(false)
-      setIsViewMode(false)
-      setIsAddUserOpen(true)
+      handleOpenCreateModal()
     }
     window.addEventListener("open_add_user_modal", handleOpenModal)
     return () => {
       window.removeEventListener("open_add_user_modal", handleOpenModal)
     }
-  }, [])
+  }, [handleOpenCreateModal])
+
+  // Sync URL search params to React states for deep-linking support
+  useEffect(() => {
+    if (users.length === 0) return
+
+    const userModalParam = searchParams.get("userModal")
+    const usernameParam = searchParams.get("username")
+    const modeParam = searchParams.get("mode")
+
+    if (userModalParam === "open") {
+      if (usernameParam) {
+        const targetUser = users.find((u) => u.username === usernameParam)
+        if (targetUser) {
+          const isView = modeParam === "view"
+          const isEdit = modeParam === "edit"
+          setIsViewMode(isView)
+          setIsEditMode(isEdit)
+          reset({
+            username: targetUser.username,
+            displayName: targetUser.displayName,
+            email: targetUser.email || "",
+            password: "",
+            role: targetUser.role,
+            allowedColumns: targetUser.allowedColumns,
+            permissionPreset: targetUser.permissionPreset || "",
+            perSheetPermissions: targetUser.perSheetPermissions || {},
+            isActive: targetUser.isActive,
+          })
+          setIsAddUserOpen(true)
+        }
+      } else {
+        setIsViewMode(false)
+        setIsEditMode(false)
+        if (!isAddUserOpen) {
+          reset({
+            username: "",
+            displayName: "",
+            email: "",
+            password: "",
+            role: "sub-admin",
+            allowedColumns: "Comments,Notes",
+            permissionPreset: "",
+            perSheetPermissions: {},
+            isActive: "TRUE",
+          })
+        }
+        setIsAddUserOpen(true)
+      }
+    } else {
+      setIsAddUserOpen(false)
+    }
+  }, [searchParams, users, reset])
+
+  useEffect(() => {
+    if (users.length === 0) return
+
+    const resetPasswordParam = searchParams.get("resetPassword")
+    const usernameParam = searchParams.get("username")
+
+    if (resetPasswordParam === "open" && usernameParam) {
+      const targetUser = users.find((u) => u.username === usernameParam)
+      if (targetUser) {
+        setResetPasswordUser(targetUser)
+        setIsResetPasswordOpen(true)
+      }
+    } else {
+      setIsResetPasswordOpen(false)
+    }
+  }, [searchParams, users])
 
   const fetchUsers = async () => {
     setLoadingUsers(true)
@@ -360,7 +511,7 @@ function UsersDirectoryContent() {
             sheetsData.push({
               id: sheet.spreadsheetId,
               title: sheet.title,
-              columns: sData.columns || [],
+              columns: (sData.columns || []).filter((c: string) => c && c.trim() !== ""),
             })
           }
         } catch (err) {
@@ -450,17 +601,7 @@ function UsersDirectoryContent() {
             `Failed to ${isEditMode ? "update" : "register"} user.`
         )
 
-      setIsAddUserOpen(false)
-      reset({
-        username: "",
-        displayName: "",
-        email: "",
-        password: "",
-        role: "sub-admin",
-        allowedColumns: "Comments,Notes",
-        permissionPreset: "",
-        perSheetPermissions: {},
-      })
+      handleCloseUserModal()
       // Refresh the session JWT so header immediately shows the new displayName
       if (
         isEditMode &&
@@ -541,11 +682,6 @@ function UsersDirectoryContent() {
   }
 
   // Reset Sub-admin Password
-  const handleOpenResetPassword = (user: User) => {
-    setResetPasswordUser(user)
-    resetPasswordForm.reset({ newPassword: "", showPassword: false })
-    setIsResetPasswordOpen(true)
-  }
 
   const handleSendOtpEmail = async () => {
     if (!resetPasswordUser || !resetPasswordUser.email) return
@@ -561,7 +697,7 @@ function UsersDirectoryContent() {
       if (!res.ok)
         throw new Error(result.error || "Failed to send reset email.")
 
-      setIsResetPasswordOpen(false)
+      handleCloseResetPasswordModal()
       return result
     }
 
@@ -598,57 +734,6 @@ function UsersDirectoryContent() {
       error: (err) => err.message || "Failed to delete user account.",
       finally: () => setActiveActionId(null),
     })
-  }
-
-  const handleEditUser = (user: User) => {
-    setIsEditMode(true)
-    setIsViewMode(false)
-    reset({
-      username: user.username,
-      displayName: user.displayName,
-      email: user.email || "",
-      password: "",
-      role: user.role,
-      allowedColumns: user.allowedColumns,
-      permissionPreset: user.permissionPreset || "",
-      perSheetPermissions: user.perSheetPermissions || {},
-      isActive: user.isActive,
-    })
-    setIsAddUserOpen(true)
-  }
-
-  const handleViewUser = (user: User) => {
-    setIsEditMode(false)
-    setIsViewMode(true)
-    reset({
-      username: user.username,
-      displayName: user.displayName,
-      email: user.email || "",
-      password: "",
-      role: user.role,
-      allowedColumns: user.allowedColumns,
-      permissionPreset: user.permissionPreset || "",
-      perSheetPermissions: user.perSheetPermissions || {},
-      isActive: user.isActive,
-    })
-    setIsAddUserOpen(true)
-  }
-
-  const handleOpenCreateModal = () => {
-    setIsEditMode(false)
-    setIsViewMode(false)
-    reset({
-      username: "",
-      displayName: "",
-      email: "",
-      password: "",
-      role: "sub-admin",
-      allowedColumns: "Comments,Notes",
-      permissionPreset: "",
-      perSheetPermissions: {},
-      isActive: "TRUE",
-    })
-    setIsAddUserOpen(true)
   }
 
   const filteredUsers = users.filter(
@@ -1008,12 +1093,14 @@ function UsersDirectoryContent() {
       {/* URL pattern: ?userModal=open — camelCase key, stable name */}
       <Dialog
         open={isAddUserOpen}
-        onOpenChange={setIsAddUserOpen}
+        onOpenChange={(open) => {
+          if (!open) handleCloseUserModal()
+        }}
         name="userModal"
       >
-        <DialogContent>
-          <DialogHeader className="sticky top-0 z-10 border-b border-border">
-            <DialogTitle className="text-xl font-extrabold">
+        <DialogContent className="flex max-h-[85vh] w-4xl flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
               {isViewMode
                 ? "User Account Details"
                 : isEditMode
@@ -1034,158 +1121,152 @@ function UsersDirectoryContent() {
               isViewMode ? (e) => e.preventDefault() : handleSubmit(onSubmit)
             }
             noValidate
+            className="flex flex-col flex-1 overflow-hidden"
           >
-            {isViewMode ? (
-              <ScrollArea className="h-fit max-h-[65vh]">
-                <div className="space-y-4 p-2">
-                  {/* Identity Hero Card */}
-                  <Card className="overflow-hidden border shadow-none ring-0">
-                    <CardContent>
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-12 w-12">
-                            <AvatarImage
-                              src={getAvatarUrl(
-                                watch("username") || "",
-                                watch("role") || ""
-                              )}
-                              alt={watch("displayName")}
-                            />
-                            <AvatarFallback>
-                              {watch("displayName")
-                                ?.substring(0, 2)
-                                .toUpperCase() || "US"}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="grid flex-1 text-left text-sm leading-tight">
-                            <span className="truncate font-medium text-foreground">
-                              {watch("displayName")}
-                            </span>
-                            <span className="truncate font-mono text-xs text-muted-foreground">
-                              @{watch("username")}
-                            </span>
-                          </div>
+            <ScrollArea className="flex-1 px-1">
+              {isViewMode ? (
+              <div className="space-y-4 p-2">
+                {/* Identity Hero Card */}
+                <Card className="overflow-hidden border shadow-none ring-0">
+                  <CardContent>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-12 w-12">
+                          <AvatarImage
+                            src={getAvatarUrl(
+                              watch("username") || "",
+                              watch("role") || ""
+                            )}
+                            alt={watch("displayName")}
+                          />
+                          <AvatarFallback>
+                            {watch("displayName")
+                              ?.substring(0, 2)
+                              .toUpperCase() || "US"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="grid flex-1 text-left text-sm leading-tight">
+                          <span className="truncate font-medium text-foreground">
+                            {watch("displayName")}
+                          </span>
+                          <span className="truncate font-mono text-xs text-muted-foreground">
+                            @{watch("username")}
+                          </span>
                         </div>
-                        <div className="flex shrink-0 flex-col items-end gap-1.5">
-                          <Badge
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1.5">
+                        <Badge
+                          variant={
+                            watch("isActive") === "TRUE"
+                              ? "success-light"
+                              : "destructive-light"
+                          }
+                        >
+                          <BadgeDot
                             variant={
                               watch("isActive") === "TRUE"
-                                ? "success-light"
-                                : "destructive-light"
+                                ? "success"
+                                : "destructive"
                             }
-                          >
-                            <BadgeDot
-                              variant={
-                                watch("isActive") === "TRUE"
-                                  ? "success"
-                                  : "destructive"
-                              }
-                            />
-                            {watch("isActive") === "TRUE"
-                              ? "Active"
-                              : "Suspended"}
-                          </Badge>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Identity Info — Item list */}
-                  <ItemGroup className="grid grid-cols-2 gap-1">
-                    <Item variant="muted" className="border">
-                      <ItemMedia
-                        variant="icon"
-                        className="text-muted-foreground"
-                      >
-                        <AtSign />
-                      </ItemMedia>
-                      <ItemContent>
-                        <ItemTitle className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
-                          Username
-                        </ItemTitle>
-                        <ItemDescription className="font-mono font-semibold text-foreground">
-                          {watch("username")}
-                        </ItemDescription>
-                      </ItemContent>
-                    </Item>
-                    <Item variant="muted">
-                      <ItemMedia
-                        variant="icon"
-                        className="text-muted-foreground"
-                      >
-                        <Type />
-                      </ItemMedia>
-                      <ItemContent>
-                        <ItemTitle className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
-                          Display Name
-                        </ItemTitle>
-                        <ItemDescription className="font-semibold text-foreground">
-                          {watch("displayName")}
-                        </ItemDescription>
-                      </ItemContent>
-                    </Item>
-                    <Item variant="muted" className="col-span-2 w-full">
-                      <ItemMedia
-                        variant="icon"
-                        className="text-muted-foreground"
-                      >
-                        <Mailbox />
-                      </ItemMedia>
-                      <ItemContent>
-                        <ItemTitle className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
-                          Email Address
-                        </ItemTitle>
-                        <ItemDescription className="font-semibold text-foreground flex justify-between">
-                          {watch("email") ? (
-                            <>
-                              {watch("email")}
-                              <CopyButton size="icon-xs" content={watch("email")} />
-                            </>
-                          ) : (
-                            <span className="italic text-muted-foreground">
-                              Not provided
-                            </span>
-                          )}
-                        </ItemDescription>
-                      </ItemContent>
-                    </Item>
-                  </ItemGroup>
-
-                  {watchedRole === "sub-admin" && (
-                    <>
-                      <div className="flex items-center gap-3">
-                        <Separator className="flex-1" />
-                        <span className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
-                          Sheet &amp; Column Permissions
-                        </span>
-                        {watch("permissionPreset") && (
-                          <Badge variant="outline" className="text-tiny">
-                            {presets.find(
-                              (p) => p.id === watch("permissionPreset")
-                            )?.name ?? "Custom Preset"}
-                          </Badge>
-                        )}
-                        <Separator className="flex-1" />
-                      </div>
-                      <Card className="border shadow-none ring-0">
-                        <CardContent className="p-4">
-                          <PermissionSelector
-                            sheets={sheetsWithColumns}
-                            value={watch("perSheetPermissions") || {}}
-                            onChange={() => {}}
-                            presets={presets}
-                            onPresetSelect={() => {}}
-                            disabled={true}
                           />
-                        </CardContent>
-                      </Card>
-                    </>
-                  )}
-                </div>
-              </ScrollArea>
+                          {watch("isActive") === "TRUE"
+                            ? "Active"
+                            : "Suspended"}
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Identity Info — Item list */}
+                <ItemGroup className="grid grid-cols-2 gap-1">
+                  <Item variant="muted" className="border">
+                    <ItemMedia variant="icon" className="text-muted-foreground">
+                      <AtSign />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
+                        Username
+                      </ItemTitle>
+                      <ItemDescription className="font-mono font-semibold text-foreground">
+                        {watch("username")}
+                      </ItemDescription>
+                    </ItemContent>
+                  </Item>
+                  <Item variant="muted">
+                    <ItemMedia variant="icon" className="text-muted-foreground">
+                      <Type />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
+                        Display Name
+                      </ItemTitle>
+                      <ItemDescription className="font-semibold text-foreground">
+                        {watch("displayName")}
+                      </ItemDescription>
+                    </ItemContent>
+                  </Item>
+                  <Item variant="muted" className="col-span-2 w-full">
+                    <ItemMedia variant="icon" className="text-muted-foreground">
+                      <Mailbox />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
+                        Email Address
+                      </ItemTitle>
+                      <ItemDescription className="flex justify-between font-semibold text-foreground">
+                        {watch("email") ? (
+                          <>
+                            {watch("email")}
+                            <CopyButton
+                              size="icon-xs"
+                              content={watch("email")}
+                            />
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground italic">
+                            Not provided
+                          </span>
+                        )}
+                      </ItemDescription>
+                    </ItemContent>
+                  </Item>
+                </ItemGroup>
+
+                {watchedRole === "sub-admin" && (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <Separator className="flex-1" />
+                      <span className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
+                        Sheet &amp; Column Permissions
+                      </span>
+                      {watch("permissionPreset") && (
+                        <Badge variant="outline" className="text-tiny">
+                          {presets.find(
+                            (p) => p.id === watch("permissionPreset")
+                          )?.name ?? "Custom Preset"}
+                        </Badge>
+                      )}
+                      <Separator className="flex-1" />
+                    </div>
+                    <Card className="border shadow-none ring-0">
+                      <CardContent className="p-4">
+                        <PermissionSelector
+                          sheets={sheetsWithColumns}
+                          value={watch("perSheetPermissions") || {}}
+                          onChange={() => {}}
+                          presets={presets}
+                          onPresetSelect={() => {}}
+                          disabled={true}
+                        />
+                      </CardContent>
+                    </Card>
+                  </>
+                )}
+              </div>
             ) : (
-              <div className="space-y-6 overflow-y-auto p-4">
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div className="space-y-6 p-2">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                   {/* Username */}
                   <Controller
                     name="username"
@@ -1225,9 +1306,7 @@ function UsersDirectoryContent() {
                       </Field>
                     )}
                   />
-                </div>
 
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   {/* Email */}
                   <Controller
                     name="email"
@@ -1235,7 +1314,7 @@ function UsersDirectoryContent() {
                     render={({ field }) => (
                       <Field
                         data-invalid={!!errors.email}
-                        className={isViewMode ? "md:col-span-2" : ""}
+                        className={isViewMode ? "md:col-span-3" : ""}
                       >
                         <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
                           Email Address
@@ -1257,7 +1336,10 @@ function UsersDirectoryContent() {
                       name="password"
                       control={control}
                       render={({ field }) => (
-                        <Field data-invalid={!!errors.password}>
+                        <Field
+                          data-invalid={!!errors.password}
+                          className="md:col-span-2"
+                        >
                           <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
                             {isEditMode
                               ? "New Password (Optional)"
@@ -1316,9 +1398,7 @@ function UsersDirectoryContent() {
                       )}
                     />
                   )}
-                </div>
 
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   {/* Role */}
                   <Controller
                     name="role"
@@ -1354,69 +1434,121 @@ function UsersDirectoryContent() {
                       </Field>
                     )}
                   />
-                  <div></div>
-                </div>
 
-                {watchedRole === "sub-admin" && (
-                  <div className="space-y-6">
-                    <Controller
-                      name="perSheetPermissions"
-                      control={control}
-                      render={({ field }) => (
-                        <Field>
+                  {watchedRole === "sub-admin" && (
+                    <>
+                      {/* Column Permissions selectors (Select Sheet, Load Preset) */}
+                      <Field className="col-span-1">
+                        <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                          Column Permissions
+                        </FieldLabel>
+                        <div className="flex flex-col gap-2">
+                          {presets.length > 0 && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground min-w-[80px]">Load Preset:</span>
+                              <Select
+                                value={watch("permissionPreset") || ""}
+                                onValueChange={(presetId) => {
+                                  const preset = presets.find(
+                                    (p) => p.id === presetId
+                                  )
+                                  if (preset) {
+                                    setValue(
+                                      "perSheetPermissions",
+                                      preset.permissions
+                                    )
+                                    setValue("permissionPreset", preset.id)
+                                  }
+                                }}
+                                disabled={isViewMode}
+                              >
+                                <SelectTrigger className="h-9 text-xs flex-1">
+                                  <SelectValue placeholder="Select a preset" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {presets.map((p) => (
+                                    <SelectItem key={p.id} value={p.id} className="text-xs">
+                                      {p.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground min-w-[80px]">Select Sheet:</span>
+                            <Select
+                              value={selectedSheet}
+                              onValueChange={setSelectedSheet}
+                              disabled={isViewMode}
+                            >
+                              <SelectTrigger className="h-9 text-xs flex-1">
+                                <SelectValue placeholder="Select sheet" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {sheetsWithColumns.map((s) => (
+                                  <SelectItem key={s.id} value={s.id} className="text-xs">
+                                    {s.title}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </Field>
+
+                      {/* Save Preset Name (Optional) */}
+                      {!isViewMode && (
+                        <Field className="col-span-1">
                           <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                            Column Permissions
+                            Save as Preset Name (Optional)
                           </FieldLabel>
-                          <PermissionSelector
-                            sheets={sheetsWithColumns}
-                            value={field.value}
-                            onChange={(permissions) => {
-                              field.onChange(permissions)
-                              setValue("permissionPreset", "")
-                            }}
-                            presets={presets}
-                            onPresetSelect={(presetId) => {
-                              const preset = presets.find(
-                                (p) => p.id === presetId
-                              )
-                              if (preset) {
-                                setValue(
-                                  "perSheetPermissions",
-                                  preset.permissions
-                                )
-                                setValue("permissionPreset", preset.id)
-                              }
-                            }}
-                            disabled={isViewMode}
-                          />
+                          <div className={presets.length > 0 ? "pt-11" : ""}>
+                            <Input
+                              type="text"
+                              placeholder="e.g. Sub-Admin Default"
+                              value={newPresetName}
+                              onChange={(e) => setNewPresetName(e.target.value)}
+                              className="h-9"
+                            />
+                          </div>
                         </Field>
                       )}
-                    />
 
-                    {!isViewMode && (
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                          Save as Preset Name (Optional)
-                        </label>
-                        <Input
-                          type="text"
-                          placeholder="e.g. Sub-Admin Default"
-                          value={newPresetName}
-                          onChange={(e) => setNewPresetName(e.target.value)}
+                      {/* Available & Granted Columns list spanning all 3 columns */}
+                      <div className="col-span-1 md:col-span-3">
+                        <Controller
+                          name="perSheetPermissions"
+                          control={control}
+                          render={({ field }) => (
+                            <PermissionSelector
+                              sheets={sheetsWithColumns}
+                              value={field.value}
+                              onChange={(permissions) => {
+                                field.onChange(permissions)
+                                setValue("permissionPreset", "")
+                              }}
+                              disabled={isViewMode}
+                              selectedSheet={selectedSheet}
+                              onSheetChange={setSelectedSheet}
+                              hideSelectors={true}
+                            />
+                          )}
                         />
                       </div>
-                    )}
-                  </div>
-                )}
+                    </>
+                  )}
+                </div>
               </div>
             )}
+            </ScrollArea>
 
             <DialogFooter>
               {isViewMode ? (
                 <Button
                   variant="destructive"
                   type="button"
-                  onClick={() => setIsAddUserOpen(false)}
+                  onClick={handleCloseUserModal}
                 >
                   Close
                 </Button>
@@ -1425,7 +1557,7 @@ function UsersDirectoryContent() {
                   <Button
                     variant="destructive"
                     type="button"
-                    onClick={() => setIsAddUserOpen(false)}
+                    onClick={handleCloseUserModal}
                   >
                     Cancel
                   </Button>
@@ -1450,8 +1582,10 @@ function UsersDirectoryContent() {
       <Dialog
         open={isResetPasswordOpen}
         onOpenChange={(open) => {
-          setIsResetPasswordOpen(open)
-          if (!open) setResetPasswordTab("direct")
+          if (!open) {
+            handleCloseResetPasswordModal()
+            setResetPasswordTab("direct")
+          }
         }}
         name="resetPassword"
       >
@@ -1514,7 +1648,7 @@ function UsersDirectoryContent() {
                           throw new Error(
                             result.error || "Failed to reset password."
                           )
-                        setIsResetPasswordOpen(false)
+                        handleCloseResetPasswordModal()
                         fetchUsers()
                         return result
                       }
@@ -1683,7 +1817,7 @@ function UsersDirectoryContent() {
             <Button
               variant="destructive"
               type="button"
-              onClick={() => setIsResetPasswordOpen(false)}
+              onClick={handleCloseResetPasswordModal}
             >
               Cancel
             </Button>
