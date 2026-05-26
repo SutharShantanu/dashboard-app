@@ -80,6 +80,7 @@ export const authOptions: NextAuthOptions = {
           displayName: user.displayName,
           role: user.role,
           allowedColumns: user.allowedColumns,
+          gender: user.gender,
           perSheetPermissions: user.perSheetPermissions ? Object.fromEntries(user.perSheetPermissions.entries()) : {},
         };
       },
@@ -93,6 +94,7 @@ export const authOptions: NextAuthOptions = {
         token.displayName = (user as any).displayName;
         token.role = (user as any).role;
         token.allowedColumns = (user as any).allowedColumns;
+        token.gender = (user as any).gender;
         token.perSheetPermissions = (user as any).perSheetPermissions;
         token.name = (user as any).displayName;
       }
@@ -133,6 +135,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).displayName = token.displayName;
         (session.user as any).role = token.role;
         (session.user as any).allowedColumns = token.allowedColumns;
+        (session.user as any).gender = token.gender;
         (session.user as any).perSheetPermissions = token.perSheetPermissions;
         session.user.name = token.displayName as string;
       }

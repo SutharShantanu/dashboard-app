@@ -75,20 +75,26 @@ export async function PATCH(
 
     if (isSelfUpdate) {
       if (username.toLowerCase() === "sabaadmin") {
-        // SabaAdmin self-update: can update displayName, email, and password.
+        // SabaAdmin self-update: can update displayName, email, password, and gender.
         if (body.displayName !== undefined) {
           updates.displayName = String(body.displayName).trim();
         }
         if (body.email !== undefined) {
           updates.email = String(body.email).trim();
         }
+        if (body.gender !== undefined) {
+          updates.gender = String(body.gender).trim();
+        }
         if (body.password) {
           updates.passwordHash = await bcrypt.hash(body.password, 12);
         }
       } else {
-        // Standard user self-update: Only displayName is permitted. Ignore other keys.
+        // Standard user self-update: displayName and gender are permitted. Ignore other keys.
         if (body.displayName !== undefined) {
           updates.displayName = String(body.displayName).trim();
+        }
+        if (body.gender !== undefined) {
+          updates.gender = String(body.gender).trim();
         }
       }
     } else {
@@ -99,6 +105,7 @@ export async function PATCH(
       if (body.permissionPreset !== undefined) updates.permissionPreset = body.permissionPreset;
       if (body.perSheetPermissions !== undefined) updates.perSheetPermissions = body.perSheetPermissions;
       if (body.email !== undefined) updates.email = String(body.email).trim();
+      if (body.gender !== undefined) updates.gender = String(body.gender).trim();
       if (body.allowedColumns !== undefined) {
         updates.allowedColumns = String(body.allowedColumns).trim();
       }

@@ -12,7 +12,7 @@ export function cn(...inputs: ClassValue[]) {
  * - Admin: Royal soft blue (bfdbfe)
  * - Sub-admin: Emerald pastel green (a7f3d0)
  */
-export function getAvatarUrl(username: string, role?: string): string {
+export function getAvatarUrl(username: string, role?: string, gender?: string): string {
   const cleanUsername = (username || "user").trim();
   const lowerUsername = cleanUsername.toLowerCase();
   
@@ -26,6 +26,22 @@ export function getAvatarUrl(username: string, role?: string): string {
     bg = "a7f3d0"; // Premium soft green
   }
   
-  return `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(cleanUsername)}&backgroundColor=${bg}&radius=50`;
+  // Calculate a stable index for seeded avatars
+  let hash = 0;
+  for (let i = 0; i < cleanUsername.length; i++) {
+    hash += cleanUsername.charCodeAt(i);
+  }
+  
+  let seed = cleanUsername;
+  const cleanGender = (gender || "").toLowerCase().trim();
+  if (cleanGender === "female") {
+    const femaleSeeds = ["Sarah", "Lily", "Emily", "Sophia", "Chloe", "Zoe", "Grace", "Aria", "Mia", "Ella"];
+    seed = femaleSeeds[hash % femaleSeeds.length];
+  } else if (cleanGender === "male") {
+    const maleSeeds = ["John", "Jack", "James", "Oliver", "Harry", "Charlie", "Thomas", "George", "Leo", "Noah"];
+    seed = maleSeeds[hash % maleSeeds.length];
+  }
+  
+  return `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(seed)}&backgroundColor=${bg}&radius=50`;
 }
 

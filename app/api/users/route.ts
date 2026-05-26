@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { username, displayName, email, password, role, allowedColumns, permissionPreset, perSheetPermissions } = body;
+    const { username, displayName, email, password, role, allowedColumns, permissionPreset, perSheetPermissions, gender } = body;
 
     if (!username || !displayName || !password || !role) {
       return NextResponse.json(
@@ -87,6 +87,7 @@ export async function POST(request: Request) {
       isActive: "TRUE",
       createdAt: new Date().toISOString(),
       createdBy: session.user.username,
+      gender: gender ? String(gender).trim() : "male",
     };
 
     const ip =

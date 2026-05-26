@@ -2,6 +2,8 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
+import { useDebounce } from "@/hooks/use-debounce"
+import { Spinner } from "@/components/ui/spinner"
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -67,6 +69,17 @@ import {
   PlusCircle,
   Check,
   X,
+  User,
+  Mail,
+  Activity,
+  Calendar,
+  FileText,
+  Globe,
+  Laptop,
+  Cpu,
+  Smartphone,
+  Shield,
+  Info,
 } from "lucide-react"
 
 // ─── Public types ──────────────────────────────────────────────────────────────
@@ -74,6 +87,7 @@ import {
 export interface DataTableFilterOption {
   label: string
   value: string
+  icon?: React.ReactNode
 }
 
 export interface DataTableColumnFilter {
@@ -303,9 +317,22 @@ export function DataTable<TData, TValue>({
   }, []) // run once on mount
 
   const [globalFilter, setGlobalFilter] = useState(initialGlobalFilter)
+  const [searchValue, setSearchValue] = useState(initialGlobalFilter)
+  const debouncedSearchValue = useDebounce(searchValue, 300)
+
   const [sorting, setSorting] = useState<SortingState>([])
   const [filters, setFilters] = useState<Filter[]>(initialFilters)
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize })
+
+  // Synchronize debouncedSearchValue to globalFilter and reset pagination
+  useEffect(() => {
+    if (globalFilter !== debouncedSearchValue) {
+      setGlobalFilter(debouncedSearchValue)
+      if (enablePagination) {
+        setPagination((p) => ({ ...p, pageIndex: 0 }))
+      }
+    }
+  }, [debouncedSearchValue, globalFilter, enablePagination])
 
   // 1. Sync from internal state changes TO URL parameters
   useEffect(() => {
@@ -344,6 +371,9 @@ export function DataTable<TData, TValue>({
     }
 
     const urlQ = searchParams.get("q") || ""
+    if (searchValue !== urlQ) {
+      setSearchValue(urlQ)
+    }
     if (globalFilter !== urlQ) {
       setGlobalFilter(urlQ)
     }
@@ -362,11 +392,52 @@ export function DataTable<TData, TValue>({
     }))
   }, [filters])
 
+function getColumnFilterIcon(columnId: string) {
+  const id = columnId.toLowerCase()
+  if (id === "user" || id === "username" || id === "actor" || id === "name" || id.includes("user")) {
+    return <User className="h-3.5 w-3.5 shrink-0 opacity-60" />
+  }
+  if (id === "email" || id.includes("mail")) {
+    return <Mail className="h-3.5 w-3.5 shrink-0 opacity-60" />
+  }
+  if (id === "action" || id === "event" || id.includes("activity")) {
+    return <Activity className="h-3.5 w-3.5 shrink-0 opacity-60" />
+  }
+  if (
+    id.includes("date") ||
+    id.includes("time") ||
+    id.includes("timestamp") ||
+    id.includes("createdat") ||
+    id.includes("updatedat")
+  ) {
+    return <Calendar className="h-3.5 w-3.5 shrink-0 opacity-60" />
+  }
+  if (id === "details" || id === "description" || id.includes("text")) {
+    return <FileText className="h-3.5 w-3.5 shrink-0 opacity-60" />
+  }
+  if (id === "ip" || id.includes("network") || id.includes("host")) {
+    return <Globe className="h-3.5 w-3.5 shrink-0 opacity-60" />
+  }
+  if (id === "browser") {
+    return <Laptop className="h-3.5 w-3.5 shrink-0 opacity-60" />
+  }
+  if (id === "os" || id === "system") {
+    return <Cpu className="h-3.5 w-3.5 shrink-0 opacity-60" />
+  }
+  if (id === "device") {
+    return <Smartphone className="h-3.5 w-3.5 shrink-0 opacity-60" />
+  }
+  if (id === "role" || id === "permission") {
+    return <Shield className="h-3.5 w-3.5 shrink-0 opacity-60" />
+  }
+  return <Info className="h-3.5 w-3.5 shrink-0 opacity-60" />
+}
+
   const fields = useMemo<FilterFieldConfig[]>(() => {
     if (!columnFilterDefs) return []
     return columnFilterDefs.map((def) => {
       const colDef = columns.find(
-        (c) => ((c as any).id ?? (c as any).accessorKey) === def.columnId
+        (c) => ((c as { id?: string; accessorKey?: string }).id ?? (c as { id?: string; accessorKey?: string }).accessorKey) === def.columnId
       )
       const label = (colDef?.header as string) || def.columnId
 
@@ -385,11 +456,12 @@ export function DataTable<TData, TValue>({
       }
       const options = def.options
         .filter((opt) => opt.value !== "ALL" && opt.value !== "all")
-        .map((opt) => ({ value: opt.value, label: opt.label }))
+        .map((opt) => ({ value: opt.value, label: opt.label, icon: opt.icon }))
 
       return {
         key: def.columnId,
         label,
+        icon: getColumnFilterIcon(def.columnId),
         type,
         options,
       }
@@ -400,7 +472,7 @@ export function DataTable<TData, TValue>({
   const processedColumns = useMemo<ColumnDef<TData, TValue>[]>(() => {
     const filteredIds = new Set(columnFilterDefs?.map((f) => f.columnId) ?? [])
     return columns.map((col) => {
-      const id = (col as any).id ?? (col as any).accessorKey
+      const id = (col as { id?: string; accessorKey?: string }).id ?? (col as { id?: string; accessorKey?: string }).accessorKey ?? ""
       if (filteredIds.has(id)) {
         return {
           ...col,
@@ -584,8 +656,7 @@ export function DataTable<TData, TValue>({
   }
 
   const handleGlobalFilter = (value: string) => {
-    setGlobalFilter(value)
-    resetPage()
+    setSearchValue(value)
   }
 
   const handleFiltersChange = (newFilters: Filter[]) => {
@@ -630,11 +701,15 @@ export function DataTable<TData, TValue>({
             {enableSearch && (
               <InputGroup className="min-w-xs max-w-sm flex-1">
                 <InputGroupAddon>
-                  <Search className="size-4" />
+                  {searchValue !== debouncedSearchValue ? (
+                    <Spinner className="size-4" />
+                  ) : (
+                    <Search className="size-4" />
+                  )}
                 </InputGroupAddon>
                 <InputGroupInput
                   placeholder="Search table…"
-                  value={globalFilter}
+                  value={searchValue}
                   onChange={(e) => handleGlobalFilter(e.target.value)}
                 />
               </InputGroup>

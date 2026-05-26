@@ -81,6 +81,7 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
     displayName?: string | null
     role: string
     username: string
+    gender?: string
   }
   initials: string
   avatarColor: string
@@ -531,7 +532,7 @@ export function AppSidebar({
             user={{
               name: user.displayName || user.username,
               email: `${user.username}@aegis.local`,
-              avatar: getAvatarUrl(user.username, user.role),
+              avatar: getAvatarUrl(user.username, user.role, user.gender),
               role: user.role,
               username: user.username,
             }}

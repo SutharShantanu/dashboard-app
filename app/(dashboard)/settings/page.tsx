@@ -11,6 +11,13 @@ import { Label } from "@/components/ui/label"
 import { PasswordInput } from "@/components/ui/password-input"
 import { Badge } from "@/components/ui/badge"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   AlertCircle,
   CheckCircle2,
   KeyRound,
@@ -21,6 +28,9 @@ import {
   Link as LinkIcon,
   Database,
   Pencil,
+  Mars,
+  Venus,
+  Sparkles,
 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { toast } from "sonner"
@@ -64,6 +74,7 @@ import { GoogleConnectionCard } from "@/components/google-connection-card"
 
 const updateProfileSchema = z.object({
   displayName: z.string().min(1, "Display name is required"),
+  gender: z.string().min(1, "Gender is required"),
 })
 
 const changePasswordSchema = z.object({
@@ -128,6 +139,7 @@ export default function SettingsPage() {
     resolver: zodResolver(updateProfileSchema),
     defaultValues: {
       displayName: "",
+      gender: "male",
     },
     mode: "onTouched",
   })
@@ -136,6 +148,7 @@ export default function SettingsPage() {
     if (user?.displayName || user?.name) {
       resetProfile({
         displayName: user.displayName || user.name || "",
+        gender: user.gender || "male",
       })
     }
   }, [user, resetProfile])
@@ -175,7 +188,10 @@ export default function SettingsPage() {
       const res = await fetch(`/api/users/${user.username || user.name}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ displayName: values.displayName.trim() }),
+        body: JSON.stringify({
+          displayName: values.displayName.trim(),
+          gender: values.gender.trim(),
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to update profile")
@@ -183,9 +199,10 @@ export default function SettingsPage() {
       // Dynamic NextAuth session update
       await update({
         displayName: values.displayName.trim(),
+        gender: values.gender.trim(),
       })
 
-      toast.success("Profile display name updated successfully")
+      toast.success("Profile updated successfully")
       setIsEditingProfile(false)
     } catch (err: any) {
       toast.error(err.message)
@@ -326,7 +343,7 @@ export default function SettingsPage() {
                   <AvatarImage
                     src={
                       user?.image ||
-                      getAvatarUrl(user?.username || user?.name, user?.role)
+                      getAvatarUrl(user?.username || user?.name, user?.role, user?.gender)
                     }
                     alt={user?.name || "User Avatar"}
                     className="object-cover"
@@ -341,6 +358,10 @@ export default function SettingsPage() {
                   <div className="flex gap-2 pt-1">
                     <Badge variant="secondary" className="capitalize">
                       {user?.role || "User"}
+                    </Badge>
+                    <Badge variant="outline" className="capitalize flex items-center gap-1">
+                      <UserIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                      Gender: {user?.gender || "Male"}
                     </Badge>
                     {isGoogleUser ? (
                       <Badge variant="success-light">
@@ -413,6 +434,52 @@ export default function SettingsPage() {
                             {isEditingProfile && (
                               <FieldError
                                 errors={[profileErrors.displayName]}
+                              />
+                            )}
+                          </Field>
+                        )}
+                      />
+                      <Controller
+                        control={profileControl}
+                        name="gender"
+                        render={({ field }) => (
+                          <Field data-invalid={!!profileErrors.gender}>
+                            <FieldLabel htmlFor="gender" className="flex items-center gap-1">
+                              <UserIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                              Gender
+                            </FieldLabel>
+                            <Select
+                              value={field.value}
+                              onValueChange={field.onChange}
+                              disabled={!isEditingProfile}
+                            >
+                              <SelectTrigger id="gender" className={!isEditingProfile ? "cursor-not-allowed" : ""}>
+                                <SelectValue placeholder="Select Gender" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="male">
+                                  <span className="flex items-center gap-2">
+                                    <Mars className="h-3.5 w-3.5 shrink-0" />
+                                    <span>Male</span>
+                                  </span>
+                                </SelectItem>
+                                <SelectItem value="female">
+                                  <span className="flex items-center gap-2">
+                                    <Venus className="h-3.5 w-3.5 shrink-0" />
+                                    <span>Female</span>
+                                  </span>
+                                </SelectItem>
+                                <SelectItem value="other">
+                                  <span className="flex items-center gap-2">
+                                    <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                                    <span>Other</span>
+                                  </span>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {isEditingProfile && (
+                              <FieldError
+                                errors={[profileErrors.gender]}
                               />
                             )}
                           </Field>

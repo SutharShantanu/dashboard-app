@@ -34,6 +34,7 @@ export interface UserInterface {
   isActive: "TRUE" | "FALSE";
   createdAt: string;
   createdBy: string;
+  gender?: string;
   otpCode?: string;
   otpExpiry?: string;
 }
@@ -235,6 +236,7 @@ export async function getUsers(): Promise<User[]> {
     isActive: u.isActive ? "TRUE" : "FALSE",
     createdAt: u.createdAt.toISOString(),
     createdBy: u.createdBy,
+    gender: u.gender || "",
     otpCode: u.otpCode,
     otpExpiry: u.otpExpiry ? u.otpExpiry.toISOString() : undefined
   }));

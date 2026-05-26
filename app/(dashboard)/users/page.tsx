@@ -10,7 +10,7 @@ import React, {
 import { useSession } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useTabUrlSync } from "@/hooks/useTabUrlSync"
-import { DateCell } from "@/lib/date.tsx"
+import { DateCell } from "@/lib/date"
 import { toast } from "sonner"
 import {
   Search,
@@ -29,6 +29,8 @@ import {
   Type,
   AtSign,
   Mailbox,
+  Mars,
+  Venus,
 } from "lucide-react"
 
 import { ColumnDef } from "@tanstack/react-table"
@@ -94,11 +96,7 @@ import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Field, FieldLabel, FieldError } from "@/components/ui/field"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { BadgeDot } from "@/components/ui/badge-dot"
 import {
   Item,
@@ -124,6 +122,7 @@ interface User {
   createdBy: string
   permissionPreset?: string
   perSheetPermissions?: Record<string, string[]>
+  gender?: string
 }
 
 interface UserFormValues {
@@ -136,6 +135,7 @@ interface UserFormValues {
   permissionPreset?: string
   perSheetPermissions?: Record<string, string[]>
   isActive?: string
+  gender: string
 }
 
 function generateSecurePassword(): string {
@@ -180,14 +180,14 @@ function UsersDirectoryContent() {
 
   // Add User Modal State
   const [isAddUserOpen, setIsAddUserOpen] = useState<boolean>(
-    () => searchParams.get("userModal") === "open"
+    () => searchParams.get("userModal") === "open" || searchParams.get("viewUserDetail") === "open"
   )
   const [showPassword, setShowPassword] = useState<boolean>(false)
   const [isEditMode, setIsEditMode] = useState(
     () => searchParams.get("mode") === "edit"
   )
   const [isViewMode, setIsViewMode] = useState(
-    () => searchParams.get("mode") === "view"
+    () => searchParams.get("viewUserDetail") === "open"
   )
 
   // Reset Password Dialog State
@@ -229,6 +229,7 @@ function UsersDirectoryContent() {
         email: z.string().email("Invalid email address").or(z.literal("")),
         password: z.string().optional(),
         role: z.string().min(1, "Role is required"),
+        gender: z.string().min(1, "Gender is required"),
         allowedColumns: z.string().optional(),
         permissionPreset: z.string().optional(),
         perSheetPermissions: z
@@ -279,6 +280,7 @@ function UsersDirectoryContent() {
       email: "",
       password: "",
       role: "sub-admin",
+      gender: "male",
       allowedColumns: "Comments,Notes",
       permissionPreset: "",
       perSheetPermissions: {},
@@ -329,6 +331,7 @@ function UsersDirectoryContent() {
   const handleCloseUserModal = useCallback(() => {
     const params = new URLSearchParams(window.location.search)
     params.delete("userModal")
+    params.delete("viewUserDetail")
     params.delete("mode")
     params.delete("username")
     router.push(`${window.location.pathname}?${params.toString()}`, {
@@ -373,8 +376,7 @@ function UsersDirectoryContent() {
   const handleViewUser = useCallback(
     (user: User) => {
       const params = new URLSearchParams(window.location.search)
-      params.set("userModal", "open")
-      params.set("mode", "view")
+      params.set("viewUserDetail", "open")
       params.set("username", user.username)
       router.push(`${window.location.pathname}?${params.toString()}`, {
         scroll: false,
@@ -414,14 +416,17 @@ function UsersDirectoryContent() {
     if (users.length === 0) return
 
     const userModalParam = searchParams.get("userModal")
+    const viewUserDetailParam = searchParams.get("viewUserDetail")
     const usernameParam = searchParams.get("username")
     const modeParam = searchParams.get("mode")
 
-    if (userModalParam === "open") {
+    if (userModalParam === "open" || viewUserDetailParam === "open") {
       if (usernameParam) {
-        const targetUser = users.find((u) => u.username === usernameParam)
+        const targetUser = users.find(
+          (u) => u.username.toLowerCase() === usernameParam.toLowerCase()
+        )
         if (targetUser) {
-          const isView = modeParam === "view"
+          const isView = viewUserDetailParam === "open"
           const isEdit = modeParam === "edit"
           setIsViewMode(isView)
           setIsEditMode(isEdit)
@@ -431,6 +436,7 @@ function UsersDirectoryContent() {
             email: targetUser.email || "",
             password: "",
             role: targetUser.role,
+            gender: targetUser.gender || "male",
             allowedColumns: targetUser.allowedColumns,
             permissionPreset: targetUser.permissionPreset || "",
             perSheetPermissions: targetUser.perSheetPermissions || {},
@@ -448,6 +454,7 @@ function UsersDirectoryContent() {
             email: "",
             password: "",
             role: "sub-admin",
+            gender: "male",
             allowedColumns: "Comments,Notes",
             permissionPreset: "",
             perSheetPermissions: {},
@@ -468,7 +475,9 @@ function UsersDirectoryContent() {
     const usernameParam = searchParams.get("username")
 
     if (resetPasswordParam === "open" && usernameParam) {
-      const targetUser = users.find((u) => u.username === usernameParam)
+      const targetUser = users.find(
+        (u) => u.username.toLowerCase() === usernameParam.toLowerCase()
+      )
       if (targetUser) {
         setResetPasswordUser(targetUser)
         setIsResetPasswordOpen(true)
@@ -511,7 +520,9 @@ function UsersDirectoryContent() {
             sheetsData.push({
               id: sheet.spreadsheetId,
               title: sheet.title,
-              columns: (sData.columns || []).filter((c: string) => c && c.trim() !== ""),
+              columns: (sData.columns || []).filter(
+                (c: string) => c && c.trim() !== ""
+              ),
             })
           }
         } catch (err) {
@@ -585,7 +596,10 @@ function UsersDirectoryContent() {
         delete (payload as any).password
       }
 
-      const url = isEditMode ? `/api/users/${data.username}` : "/api/users"
+      const targetUsername = isEditMode
+        ? searchParams.get("username") || data.username
+        : data.username
+      const url = isEditMode ? `/api/users/${targetUsername}` : "/api/users"
       const method = isEditMode ? "PATCH" : "POST"
 
       const res = await fetch(url, {
@@ -748,16 +762,14 @@ function UsersDirectoryContent() {
       {
         accessorKey: "username",
         header: "Username",
-        cell: ({ row }) => (
-          <span className="">{row.original.username}</span>
-        ),
+        cell: ({ row }) => <span className="">{row.original.username}</span>,
       },
       {
         accessorKey: "displayName",
         header: "Display Name",
         cell: ({ row }) => {
           const user = row.original
-          const avatarUrl = getAvatarUrl(user.username, user.role)
+          const avatarUrl = getAvatarUrl(user.username, user.role, user.gender)
           const initials = user.displayName
             ? user.displayName
                 .split(" ")
@@ -770,9 +782,7 @@ function UsersDirectoryContent() {
             <div className="flex items-center gap-2">
               <Avatar className="h-8 w-8">
                 <AvatarImage src={avatarUrl} alt={user.displayName} />
-                <AvatarFallback>
-                  {initials}
-                </AvatarFallback>
+                <AvatarFallback>{initials}</AvatarFallback>
               </Avatar>
               <span className="font-medium text-foreground">
                 {user.displayName}
@@ -791,12 +801,36 @@ function UsersDirectoryContent() {
         header: "Role",
         cell: ({ row }) => (
           <Badge
-            variant={row.original.role === "admin" ? "primary-light" : "warning-light"}
+            variant={
+              row.original.role === "admin" ? "primary-light" : "warning-light"
+            }
             className="uppercase"
           >
             {row.original.role || "sub-admin"}
           </Badge>
         ),
+      },
+      {
+        accessorKey: "gender",
+        header: "Gender",
+        cell: ({ row }) => {
+          const gender = row.original.gender || "male"
+          return (
+            <Badge
+              variant="outline"
+              className="flex w-fit items-center gap-1.5 capitalize"
+            >
+              {gender === "female" ? (
+                <Venus className="h-3.5 w-3.5 shrink-0 text-pink-500" />
+              ) : gender === "male" ? (
+                <Mars className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+              )}
+              <span>{gender}</span>
+            </Badge>
+          )
+        },
       },
       {
         accessorKey: "allowedColumns",
@@ -876,7 +910,9 @@ function UsersDirectoryContent() {
         cell: ({ row }) => (
           <Badge
             variant={
-              row.original.isActive === "TRUE" ? "success-light" : "destructive-light"
+              row.original.isActive === "TRUE"
+                ? "success-light"
+                : "destructive-light"
             }
             className="text-xs font-bold tracking-wider uppercase"
           >
@@ -1093,7 +1129,7 @@ function UsersDirectoryContent() {
         onOpenChange={(open) => {
           if (!open) handleCloseUserModal()
         }}
-        name="userModal"
+        name={isViewMode ? "viewUserDetail" : "userModal"}
       >
         <DialogContent className="flex max-h-[85vh] w-4xl flex-col">
           <DialogHeader>
@@ -1118,522 +1154,651 @@ function UsersDirectoryContent() {
               isViewMode ? (e) => e.preventDefault() : handleSubmit(onSubmit)
             }
             noValidate
-            className="flex flex-col flex-1 overflow-hidden"
+            className="flex flex-1 flex-col overflow-hidden"
           >
             <ScrollArea className="flex-1 px-1">
               {isViewMode ? (
-              <div className="space-y-4 p-2">
-                {/* Identity Hero Card */}
-                <Card className="overflow-hidden border shadow-none ring-0">
-                  <CardContent>
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-12 w-12">
-                          <AvatarImage
-                            src={getAvatarUrl(
-                              watch("username") || "",
-                              watch("role") || ""
-                            )}
-                            alt={watch("displayName")}
-                          />
-                          <AvatarFallback>
-                            {watch("displayName")
-                              ?.substring(0, 2)
-                              .toUpperCase() || "US"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="grid flex-1 text-left text-sm leading-tight">
-                          <span className="truncate font-medium text-foreground">
-                            {watch("displayName")}
-                          </span>
-                          <span className="truncate font-mono text-xs text-muted-foreground">
-                            @{watch("username")}
-                          </span>
+                <div className="space-y-4 p-2">
+                  {/* Identity Hero Card */}
+                  <Card className="overflow-hidden border shadow-none ring-0">
+                    <CardContent>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-12 w-12">
+                            <AvatarImage
+                              src={getAvatarUrl(
+                                watch("username") || "",
+                                watch("role") || "",
+                                watch("gender") || ""
+                              )}
+                              alt={watch("displayName")}
+                            />
+                            <AvatarFallback>
+                              {watch("displayName")
+                                ?.substring(0, 2)
+                                .toUpperCase() || "US"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="grid flex-1 text-left text-sm leading-tight">
+                            <span className="truncate font-medium text-foreground">
+                              {watch("displayName")}
+                            </span>
+                            <span className="truncate font-mono text-xs text-muted-foreground">
+                              @{watch("username")}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex shrink-0 flex-col items-end gap-1.5">
-                        <Badge
-                          variant={
-                            watch("isActive") === "TRUE"
-                              ? "success-light"
-                              : "destructive-light"
-                          }
-                        >
-                          <BadgeDot
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                          <Badge
                             variant={
                               watch("isActive") === "TRUE"
-                                ? "success"
-                                : "destructive"
+                                ? "success-light"
+                                : "destructive-light"
                             }
-                          />
-                          {watch("isActive") === "TRUE"
-                            ? "Active"
-                            : "Suspended"}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Identity Info — Item list */}
-                <ItemGroup className="grid grid-cols-2 gap-1">
-                  <Item variant="muted" className="border">
-                    <ItemMedia variant="icon" className="text-muted-foreground">
-                      <AtSign />
-                    </ItemMedia>
-                    <ItemContent>
-                      <ItemTitle className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
-                        Username
-                      </ItemTitle>
-                      <ItemDescription className="font-mono font-semibold text-foreground">
-                        {watch("username")}
-                      </ItemDescription>
-                    </ItemContent>
-                  </Item>
-                  <Item variant="muted">
-                    <ItemMedia variant="icon" className="text-muted-foreground">
-                      <Type />
-                    </ItemMedia>
-                    <ItemContent>
-                      <ItemTitle className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
-                        Display Name
-                      </ItemTitle>
-                      <ItemDescription className="font-semibold text-foreground">
-                        {watch("displayName")}
-                      </ItemDescription>
-                    </ItemContent>
-                  </Item>
-                  <Item variant="muted" className="col-span-2 w-full">
-                    <ItemMedia variant="icon" className="text-muted-foreground">
-                      <Mailbox />
-                    </ItemMedia>
-                    <ItemContent>
-                      <ItemTitle className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
-                        Email Address
-                      </ItemTitle>
-                      <ItemDescription className="flex justify-between font-semibold text-foreground">
-                        {watch("email") ? (
-                          <>
-                            {watch("email")}
-                            <CopyButton
-                              size="icon-xs"
-                              content={watch("email")}
-                            />
-                          </>
-                        ) : (
-                          <span className="text-muted-foreground italic">
-                            Not provided
-                          </span>
-                        )}
-                      </ItemDescription>
-                    </ItemContent>
-                  </Item>
-                </ItemGroup>
-
-                {/* Unified Sheet Access — works for both admin and sub-admin */}
-                {sheetsWithColumns.length > 0 && (
-                  <>
-                    <div className="flex items-center gap-3">
-                      <Separator className="flex-1" />
-                      <span className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
-                        Sheet Access
-                      </span>
-                      {watchedRole === "admin" ? (
-                        <Badge variant="success-light" className="text-tiny">
-                          <BadgeDot variant="success" />
-                          Full Access to All
-                        </Badge>
-                      ) : (
-                        watch("permissionPreset") && (
-                          <Badge variant="outline" className="text-tiny">
-                            {presets.find(
-                              (p) => p.id === watch("permissionPreset")
-                            )?.name ?? "Custom Preset"}
-                          </Badge>
-                        )
-                      )}
-                      <Separator className="flex-1" />
-                    </div>
-
-                    <ItemGroup className="gap-1.5">
-                      {sheetsWithColumns.map((sheet: any) => {
-                        const isAdmin = watchedRole === "admin"
-                        const grantedCols: string[] =
-                          isAdmin
-                            ? sheet.columns
-                            : (watch("perSheetPermissions") || {})[sheet.id] ?? []
-                        const hasAccess = isAdmin || grantedCols.length > 0
-
-                        return (
-                          <Item
-                            key={sheet.id}
-                            variant="muted"
-                            className={`border flex-col items-start gap-2 ${!hasAccess ? "opacity-50" : ""}`}
                           >
-                            {/* Sheet header row */}
-                            <div className="flex w-full items-center gap-2">
-                              <ItemMedia variant="icon" className="text-muted-foreground shrink-0">
-                                <Key className="size-4" />
-                              </ItemMedia>
-                              <ItemContent className="flex-1 min-w-0">
-                                <ItemTitle className="font-medium text-foreground text-xs">
-                                  {sheet.title}
-                                </ItemTitle>
-                                <ItemDescription className="font-mono text-[10px]">
-                                  {sheet.id}
-                                </ItemDescription>
-                              </ItemContent>
-                              {isAdmin ? (
-                                <Badge variant="success-light" className="text-tiny shrink-0">
-                                  All Columns
-                                </Badge>
-                              ) : hasAccess ? (
-                                <Badge variant="success-light" className="text-tiny shrink-0">
-                                  <BadgeDot variant="success" />
-                                  {grantedCols.length} column{grantedCols.length !== 1 ? "s" : ""}
-                                </Badge>
-                              ) : (
-                                <Badge variant="destructive-light" className="text-tiny shrink-0">
-                                  <BadgeDot variant="destructive" />
-                                  No Access
-                                </Badge>
-                              )}
-                            </div>
-
-                            {/* Granted column chips — only for sub-admin with access */}
-                            {!isAdmin && hasAccess && (
-                              <div className="flex flex-wrap gap-1 pl-8 w-full">
-                                {grantedCols.map((col: string) => (
-                                  <Badge
-                                    key={col}
-                                    variant="secondary"
-                                    className="text-[10px] font-mono py-0 h-5"
-                                  >
-                                    {col}
-                                  </Badge>
-                                ))}
-                              </div>
-                            )}
-                          </Item>
-                        )
-                      })}
-                    </ItemGroup>
-                  </>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-6 p-2">
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                  {/* Username */}
-                  <Controller
-                    name="username"
-                    control={control}
-                    render={({ field }) => (
-                      <Field data-invalid={!!errors.username}>
-                        <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                          Unique Username *
-                        </FieldLabel>
-                        <Input
-                          {...field}
-                          type="text"
-                          placeholder="e.g. rahul_sub"
-                          disabled={isEditMode || isViewMode}
-                        />
-                        <FieldError errors={[errors.username]} />
-                      </Field>
-                    )}
-                  />
-
-                  {/* Display Name */}
-                  <Controller
-                    name="displayName"
-                    control={control}
-                    render={({ field }) => (
-                      <Field data-invalid={!!errors.displayName}>
-                        <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                          Display Name *
-                        </FieldLabel>
-                        <Input
-                          {...field}
-                          type="text"
-                          placeholder="e.g. Rahul Sharma (Advisor)"
-                          disabled={isViewMode}
-                        />
-                        <FieldError errors={[errors.displayName]} />
-                      </Field>
-                    )}
-                  />
-
-                  {/* Email */}
-                  <Controller
-                    name="email"
-                    control={control}
-                    render={({ field }) => (
-                      <Field
-                        data-invalid={!!errors.email}
-                        className={isViewMode ? "md:col-span-3" : ""}
-                      >
-                        <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                          Email Address
-                        </FieldLabel>
-                        <Input
-                          {...field}
-                          type="email"
-                          placeholder="e.g. rahul@domain.com"
-                          disabled={isViewMode}
-                        />
-                        <FieldError errors={[errors.email]} />
-                      </Field>
-                    )}
-                  />
-
-                  {/* Password */}
-                  {!isViewMode && !isEditMode && (
-                    <Controller
-                      name="password"
-                      control={control}
-                      render={({ field }) => (
-                        <Field
-                          data-invalid={!!errors.password}
-                          className="md:col-span-2"
-                        >
-                          <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                            {isEditMode
-                              ? "New Password (Optional)"
-                              : "Login Password *"}
-                          </FieldLabel>
-                          <InputGroup>
-                            <InputGroupInput
-                              {...field}
-                              type={showPassword ? "text" : "password"}
-                              placeholder={
-                                isEditMode
-                                  ? "Leave blank to keep current"
-                                  : "Create secure password"
+                            <BadgeDot
+                              variant={
+                                watch("isActive") === "TRUE"
+                                  ? "success"
+                                  : "destructive"
                               }
                             />
-                            <InputGroupAddon
-                              align="inline-end"
-                              className="flex items-center gap-1"
-                            >
-                              <InputGroupButton
-                                size="icon-xs"
-                                type="button"
-                                onClick={() => {
-                                  const securePw = generateSecurePassword()
-                                  setValue("password", securePw)
-                                  setShowPassword(true)
-                                  navigator.clipboard.writeText(securePw)
-                                  toast.success(
-                                    "Secure password generated and copied to clipboard!"
-                                  )
-                                }}
-                                title="Generate Secure Password"
-                              >
-                                <Sparkles className="size-4 text-primary" />
-                              </InputGroupButton>
-                              <InputGroupButton
-                                size="icon-xs"
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                              >
-                                {showPassword ? (
-                                  <EyeOff className="size-4" />
-                                ) : (
-                                  <Eye className="size-4" />
-                                )}
-                              </InputGroupButton>
-                            </InputGroupAddon>
-                          </InputGroup>
-
-                          <PasswordStrength
-                            password={watchedPassword || ""}
-                            className="mt-2"
-                          />
-                          <FieldError errors={[errors.password]} />
-                        </Field>
-                      )}
-                    />
-                  )}
-
-                  {/* Role */}
-                  <Controller
-                    name="role"
-                    control={control}
-                    render={({ field }) => (
-                      <Field data-invalid={!!errors.role}>
-                        <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                          Role *
-                        </FieldLabel>
-                        <Select
-                          value={field.value}
-                          onValueChange={field.onChange}
-                          disabled={
-                            isViewMode ||
-                            watch("username")?.toLowerCase() === "sabaadmin" ||
-                            (currentUsername !== "SabaAdmin" &&
-                              currentUserRole === "admin")
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select Role" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="admin">
-                              Admin (Full Access)
-                            </SelectItem>
-                            <SelectItem value="sub-admin">
-                              Sub-Admin (Restricted)
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FieldError errors={[errors.role]} />
-                      </Field>
-                    )}
-                  />
-
-                  {watchedRole === "sub-admin" && (
-                    <>
-                      {/* Column Permissions selectors (Select Sheet, Load Preset) */}
-                      <Field className="col-span-1">
-                        <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                          Column Permissions
-                        </FieldLabel>
-                        <div className="flex flex-col gap-2">
-                          {presets.length > 0 && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground min-w-[80px]">Load Preset:</span>
-                              <Select
-                                value={watch("permissionPreset") || ""}
-                                onValueChange={(presetId) => {
-                                  const preset = presets.find(
-                                    (p) => p.id === presetId
-                                  )
-                                  if (preset) {
-                                    setValue(
-                                      "perSheetPermissions",
-                                      preset.permissions
-                                    )
-                                    setValue("permissionPreset", preset.id)
-                                  }
-                                }}
-                                disabled={isViewMode}
-                              >
-                                <SelectTrigger className="h-9 text-xs flex-1">
-                                  <SelectValue placeholder="Select a preset" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {presets.map((p) => (
-                                    <SelectItem key={p.id} value={p.id} className="text-xs">
-                                      {p.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground min-w-[80px]">Select Sheet:</span>
-                            <Select
-                              value={selectedSheet}
-                              onValueChange={setSelectedSheet}
-                              disabled={isViewMode}
-                            >
-                              <SelectTrigger className="h-9 text-xs flex-1">
-                                <SelectValue placeholder="Select sheet" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {sheetsWithColumns.map((s) => (
-                                  <SelectItem key={s.id} value={s.id} className="text-xs">
-                                    {s.title}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
+                            {watch("isActive") === "TRUE"
+                              ? "Active"
+                              : "Suspended"}
+                          </Badge>
                         </div>
-                      </Field>
-
-                      {/* Save Preset Name (Optional) */}
-                      {!isViewMode && (
-                        <Field className="col-span-1">
-                          <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                            Save as Preset Name (Optional)
-                          </FieldLabel>
-                          <div className={presets.length > 0 ? "pt-11" : ""}>
-                            <Input
-                              type="text"
-                              placeholder="e.g. Sub-Admin Default"
-                              value={newPresetName}
-                              onChange={(e) => setNewPresetName(e.target.value)}
-                              className="h-9"
-                            />
-                          </div>
-                        </Field>
-                      )}
-
-                      {/* Available & Granted Columns list spanning all 3 columns */}
-                      <div className="col-span-1 md:col-span-3">
-                        <Controller
-                          name="perSheetPermissions"
-                          control={control}
-                          render={({ field }) => (
-                            <PermissionSelector
-                              sheets={sheetsWithColumns}
-                              value={field.value}
-                              onChange={(permissions) => {
-                                field.onChange(permissions)
-                                setValue("permissionPreset", "")
-                              }}
-                              disabled={isViewMode}
-                              selectedSheet={selectedSheet}
-                              onSheetChange={setSelectedSheet}
-                              hideSelectors={true}
-                            />
-                          )}
-                        />
                       </div>
-                    </>
-                  )}
+                    </CardContent>
+                  </Card>
 
-                  {watchedRole === "admin" && connectedSheets.length > 0 && (
-                    <div className="col-span-1 md:col-span-3 space-y-3">
+                  {/* Identity Info — Item list */}
+                  <ItemGroup className="grid grid-cols-2 gap-1">
+                    <Item variant="muted" className="border">
+                      <ItemMedia
+                        variant="icon"
+                        className="text-muted-foreground"
+                      >
+                        <AtSign />
+                      </ItemMedia>
+                      <ItemContent>
+                        <ItemTitle className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
+                          Username
+                        </ItemTitle>
+                        <ItemDescription className="font-mono font-semibold text-foreground">
+                          {watch("username")}
+                        </ItemDescription>
+                      </ItemContent>
+                    </Item>
+                    <Item variant="muted">
+                      <ItemMedia
+                        variant="icon"
+                        className="text-muted-foreground"
+                      >
+                        <Type />
+                      </ItemMedia>
+                      <ItemContent>
+                        <ItemTitle className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
+                          Display Name
+                        </ItemTitle>
+                        <ItemDescription className="font-semibold text-foreground">
+                          {watch("displayName")}
+                        </ItemDescription>
+                      </ItemContent>
+                    </Item>
+                    <Item variant="muted" className="border">
+                      <ItemMedia
+                        variant="icon"
+                        className="text-muted-foreground"
+                      >
+                        <Mailbox />
+                      </ItemMedia>
+                      <ItemContent className="min-w-0">
+                        <ItemTitle className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
+                          Email Address
+                        </ItemTitle>
+                        <ItemDescription className="flex min-w-0 items-center justify-between gap-1 font-semibold text-foreground">
+                          {watch("email") ? (
+                            <>
+                              <span
+                                className="flex-1 truncate"
+                                title={watch("email")}
+                              >
+                                {watch("email")}
+                              </span>
+                              <CopyButton
+                                size="icon-xs"
+                                content={watch("email")}
+                                className="shrink-0"
+                              />
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground italic">
+                              Not provided
+                            </span>
+                          )}
+                        </ItemDescription>
+                      </ItemContent>
+                    </Item>
+                    <Item variant="muted">
+                      <ItemMedia
+                        variant="icon"
+                        className="text-muted-foreground"
+                      >
+                        <User />
+                      </ItemMedia>
+                      <ItemContent>
+                        <ItemTitle className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
+                          Gender
+                        </ItemTitle>
+                        <ItemDescription className="font-semibold text-foreground capitalize">
+                          {watch("gender") || "Male"}
+                        </ItemDescription>
+                      </ItemContent>
+                    </Item>
+                  </ItemGroup>
+
+                  {/* Unified Sheet Access — works for both admin and sub-admin */}
+                  {sheetsWithColumns.length > 0 && (
+                    <>
                       <div className="flex items-center gap-3">
                         <Separator className="flex-1" />
                         <span className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
                           Sheet Access
                         </span>
-                        <Badge variant="success-light" className="text-tiny">
-                          <BadgeDot variant="success" />
-                          Full Access to All
-                        </Badge>
+                        {watchedRole === "admin" ? (
+                          <Badge variant="success-light" className="text-tiny">
+                            <BadgeDot variant="success" />
+                            Full Access to All
+                          </Badge>
+                        ) : (
+                          watch("permissionPreset") && (
+                            <Badge variant="outline" className="text-tiny">
+                              {presets.find(
+                                (p) => p.id === watch("permissionPreset")
+                              )?.name ?? "Custom Preset"}
+                            </Badge>
+                          )
+                        )}
                         <Separator className="flex-1" />
                       </div>
-                      <ItemGroup className="gap-1">
-                        {connectedSheets.map((sheet: any) => (
-                          <Item key={sheet.spreadsheetId} variant="muted" className="border">
-                            <ItemMedia variant="icon" className="text-muted-foreground">
-                              <Key className="size-4" />
-                            </ItemMedia>
-                            <ItemContent>
-                              <ItemTitle className="font-medium text-foreground text-xs">
-                                {sheet.title}
-                              </ItemTitle>
-                              <ItemDescription className="font-mono text-[10px]">
-                                {sheet.spreadsheetId}
-                              </ItemDescription>
-                            </ItemContent>
-                            <Badge variant="success-light" className="text-tiny shrink-0">
-                              All Columns
-                            </Badge>
-                          </Item>
-                        ))}
+
+                      <ItemGroup className="gap-1.5">
+                        {sheetsWithColumns.map((sheet: any) => {
+                          const isAdmin = watchedRole === "admin"
+                          const grantedCols: string[] = (isAdmin
+                            ? sheet.columns
+                            : ((watch("perSheetPermissions") || {})[sheet.id] ??
+                              [])
+                          ).filter((col: string) => col && col.trim() !== "")
+                          const hasAccess = isAdmin || grantedCols.length > 0
+
+                          return (
+                            <Item
+                              key={sheet.id}
+                              variant="muted"
+                              className={`flex-col items-start gap-2 border ${!hasAccess ? "opacity-50" : ""}`}
+                            >
+                              {/* Sheet header row */}
+                              <div className="flex w-full items-center gap-2">
+                                <ItemMedia
+                                  variant="icon"
+                                  className="shrink-0 text-muted-foreground"
+                                >
+                                  <Key className="size-4" />
+                                </ItemMedia>
+                                <ItemContent className="min-w-0 flex-1">
+                                  <ItemTitle className="text-xs font-medium text-foreground">
+                                    {sheet.title}
+                                  </ItemTitle>
+                                  <ItemDescription className="font-mono text-xs">
+                                    {sheet.id}
+                                  </ItemDescription>
+                                </ItemContent>
+                                {isAdmin ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-tiny shrink-0"
+                                  >
+                                    All Columns
+                                  </Badge>
+                                ) : hasAccess ? (
+                                  <Badge
+                                    variant="info-light"
+                                    className="text-tiny shrink-0"
+                                  >
+                                    {grantedCols.length} column
+                                    {grantedCols.length !== 1 ? "s" : ""}
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    variant="destructive-light"
+                                    className="text-tiny shrink-0"
+                                  >
+                                    <BadgeDot variant="destructive" />
+                                    No Access
+                                  </Badge>
+                                )}
+                              </div>
+
+                              {/* Granted column chips — only for sub-admin with access */}
+                              {!isAdmin && hasAccess && (
+                                <div className="flex w-full flex-wrap gap-1">
+                                  {grantedCols.map((col: string) => (
+                                    <Badge
+                                      key={col}
+                                      variant="secondary"
+                                      className="font-mono text-tiny"
+                                    >
+                                      {col}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </Item>
+                          )
+                        })}
                       </ItemGroup>
-                    </div>
+                    </>
                   )}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="space-y-6 p-2">
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                    {/* Username */}
+                    <Controller
+                      name="username"
+                      control={control}
+                      render={({ field }) => (
+                        <Field data-invalid={!!errors.username}>
+                          <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                            Unique Username *
+                          </FieldLabel>
+                          <InputGroup>
+                            <InputGroupAddon align="inline-start">
+                              <AtSign className="size-4" />
+                            </InputGroupAddon>
+                            <InputGroupInput
+                              {...field}
+                              type="text"
+                              placeholder="e.g. rahul_sub"
+                              disabled={isEditMode || isViewMode}
+                            />
+                          </InputGroup>
+                          <FieldError errors={[errors.username]} />
+                        </Field>
+                      )}
+                    />
+
+                    {/* Display Name */}
+                    <Controller
+                      name="displayName"
+                      control={control}
+                      render={({ field }) => (
+                        <Field data-invalid={!!errors.displayName}>
+                          <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                            Display Name *
+                          </FieldLabel>
+                          <InputGroup>
+                            <InputGroupAddon align="inline-start">
+                              <Type className="size-4" />
+                            </InputGroupAddon>
+                            <InputGroupInput
+                              {...field}
+                              type="text"
+                              placeholder="e.g. Rahul Sharma (Advisor)"
+                              disabled={isViewMode}
+                            />
+                          </InputGroup>
+                          <FieldError errors={[errors.displayName]} />
+                        </Field>
+                      )}
+                    />
+
+                    {/* Email */}
+                    <Controller
+                      name="email"
+                      control={control}
+                      render={({ field }) => (
+                        <Field
+                          data-invalid={!!errors.email}
+                          className={isViewMode ? "md:col-span-3" : ""}
+                        >
+                          <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                            Email Address
+                          </FieldLabel>
+                          <InputGroup>
+                            <InputGroupAddon align="inline-start">
+                              <Mailbox className="size-4" />
+                            </InputGroupAddon>
+                            <InputGroupInput
+                              {...field}
+                              type="email"
+                              placeholder="e.g. rahul@domain.com"
+                              disabled={isViewMode}
+                            />
+                          </InputGroup>
+                          <FieldError errors={[errors.email]} />
+                        </Field>
+                      )}
+                    />
+
+                    {/* Password */}
+                    {!isViewMode && !isEditMode && (
+                      <Controller
+                        name="password"
+                        control={control}
+                        render={({ field }) => (
+                          <Field
+                            data-invalid={!!errors.password}
+                            className="md:col-span-2"
+                          >
+                            <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                              {isEditMode
+                                ? "New Password (Optional)"
+                                : "Login Password *"}
+                            </FieldLabel>
+                            <InputGroup>
+                              <InputGroupInput
+                                {...field}
+                                type={showPassword ? "text" : "password"}
+                                placeholder={
+                                  isEditMode
+                                    ? "Leave blank to keep current"
+                                    : "Create secure password"
+                                }
+                              />
+                              <InputGroupAddon
+                                align="inline-end"
+                                className="flex items-center gap-1"
+                              >
+                                <InputGroupButton
+                                  size="icon-xs"
+                                  type="button"
+                                  onClick={() => {
+                                    const securePw = generateSecurePassword()
+                                    setValue("password", securePw)
+                                    setShowPassword(true)
+                                    navigator.clipboard.writeText(securePw)
+                                    toast.success(
+                                      "Secure password generated and copied to clipboard!"
+                                    )
+                                  }}
+                                  title="Generate Secure Password"
+                                >
+                                  <Sparkles className="size-4 text-primary" />
+                                </InputGroupButton>
+                                <InputGroupButton
+                                  size="icon-xs"
+                                  type="button"
+                                  onClick={() => setShowPassword(!showPassword)}
+                                >
+                                  {showPassword ? (
+                                    <EyeOff className="size-4" />
+                                  ) : (
+                                    <Eye className="size-4" />
+                                  )}
+                                </InputGroupButton>
+                              </InputGroupAddon>
+                            </InputGroup>
+
+                            <PasswordStrength
+                              password={watchedPassword || ""}
+                              className="mt-2"
+                            />
+                            <FieldError errors={[errors.password]} />
+                          </Field>
+                        )}
+                      />
+                    )}
+
+                    {/* Role */}
+                    <Controller
+                      name="role"
+                      control={control}
+                      render={({ field }) => (
+                        <Field data-invalid={!!errors.role}>
+                          <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                            Role *
+                          </FieldLabel>
+                          <Select
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            disabled={
+                              isViewMode ||
+                              watch("username")?.toLowerCase() ===
+                                "sabaadmin" ||
+                              (currentUsername !== "SabaAdmin" &&
+                                currentUserRole === "admin")
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select Role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="admin">
+                                Admin (Full Access)
+                              </SelectItem>
+                              <SelectItem value="sub-admin">
+                                Sub-Admin (Restricted)
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FieldError errors={[errors.role]} />
+                        </Field>
+                      )}
+                    />
+
+                    {/* Gender */}
+                    <Controller
+                      name="gender"
+                      control={control}
+                      render={({ field }) => (
+                        <Field data-invalid={!!errors.gender}>
+                          <FieldLabel className="flex items-center gap-1 text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                            <User className="h-3.5 w-3.5" />
+                            Gender *
+                          </FieldLabel>
+                          <Select
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            disabled={isViewMode}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select Gender" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="male">
+                                <span className="flex items-center gap-2">
+                                  <Mars className="h-3.5 w-3.5 shrink-0" />
+                                  <span>Male</span>
+                                </span>
+                              </SelectItem>
+                              <SelectItem value="female">
+                                <span className="flex items-center gap-2">
+                                  <Venus className="h-3.5 w-3.5 shrink-0" />
+                                  <span>Female</span>
+                                </span>
+                              </SelectItem>
+                              <SelectItem value="other">
+                                <span className="flex items-center gap-2">
+                                  <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                                  <span>Other</span>
+                                </span>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FieldError errors={[errors.gender]} />
+                        </Field>
+                      )}
+                    />
+
+                    {watchedRole === "sub-admin" && (
+                      <>
+                        {/* Column Permissions selectors (Select Sheet, Load Preset) */}
+                        <Field className="col-span-1">
+                          <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                            Column Permissions
+                          </FieldLabel>
+                          <div className="flex flex-col gap-2">
+                            {presets.length > 0 && (
+                              <div className="flex items-center gap-2">
+                                <span className="min-w-[80px] text-xs text-muted-foreground">
+                                  Load Preset:
+                                </span>
+                                <Select
+                                  value={watch("permissionPreset") || ""}
+                                  onValueChange={(presetId) => {
+                                    const preset = presets.find(
+                                      (p) => p.id === presetId
+                                    )
+                                    if (preset) {
+                                      setValue(
+                                        "perSheetPermissions",
+                                        preset.permissions
+                                      )
+                                      setValue("permissionPreset", preset.id)
+                                    }
+                                  }}
+                                  disabled={isViewMode}
+                                >
+                                  <SelectTrigger className="h-9 flex-1 text-xs">
+                                    <SelectValue placeholder="Select a preset" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {presets.map((p) => (
+                                      <SelectItem
+                                        key={p.id}
+                                        value={p.id}
+                                        className="text-xs"
+                                      >
+                                        {p.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2">
+                              <span className="min-w-[80px] text-xs text-muted-foreground">
+                                Select Sheet:
+                              </span>
+                              <Select
+                                value={selectedSheet}
+                                onValueChange={setSelectedSheet}
+                                disabled={isViewMode}
+                              >
+                                <SelectTrigger className="h-9 flex-1 text-xs">
+                                  <SelectValue placeholder="Select sheet" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {sheetsWithColumns.map((s) => (
+                                    <SelectItem
+                                      key={s.id}
+                                      value={s.id}
+                                      className="text-xs"
+                                    >
+                                      {s.title}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </Field>
+
+                        {/* Save Preset Name (Optional) */}
+                        {!isViewMode && (
+                          <Field className="col-span-1">
+                            <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
+                              Save as Preset Name (Optional)
+                            </FieldLabel>
+                            <div className={presets.length > 0 ? "pt-11" : ""}>
+                              <Input
+                                type="text"
+                                placeholder="e.g. Sub-Admin Default"
+                                value={newPresetName}
+                                onChange={(e) =>
+                                  setNewPresetName(e.target.value)
+                                }
+                                className="h-9"
+                              />
+                            </div>
+                          </Field>
+                        )}
+
+                        {/* Available & Granted Columns list spanning all 3 columns */}
+                        <div className="col-span-1 md:col-span-3">
+                          <Controller
+                            name="perSheetPermissions"
+                            control={control}
+                            render={({ field }) => (
+                              <PermissionSelector
+                                sheets={sheetsWithColumns}
+                                value={field.value}
+                                onChange={(permissions) => {
+                                  field.onChange(permissions)
+                                  setValue("permissionPreset", "")
+                                }}
+                                disabled={isViewMode}
+                                selectedSheet={selectedSheet}
+                                onSheetChange={setSelectedSheet}
+                                hideSelectors={true}
+                              />
+                            )}
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {watchedRole === "admin" && connectedSheets.length > 0 && (
+                      <div className="col-span-1 space-y-3 md:col-span-3">
+                        <div className="flex items-center gap-3">
+                          <Separator className="flex-1" />
+                          <span className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
+                            Sheet Access
+                          </span>
+                          <Badge variant="success-light" className="text-tiny">
+                            <BadgeDot variant="success" />
+                            Full Access to All
+                          </Badge>
+                          <Separator className="flex-1" />
+                        </div>
+                        <ItemGroup className="gap-1">
+                          {connectedSheets.map((sheet: any) => (
+                            <Item
+                              key={sheet.spreadsheetId}
+                              variant="muted"
+                              className="border"
+                            >
+                              <ItemMedia
+                                variant="icon"
+                                className="text-muted-foreground"
+                              >
+                                <Key className="size-4" />
+                              </ItemMedia>
+                              <ItemContent>
+                                <ItemTitle className="text-xs font-medium text-foreground">
+                                  {sheet.title}
+                                </ItemTitle>
+                                <ItemDescription className="font-mono text-[10px]">
+                                  {sheet.spreadsheetId}
+                                </ItemDescription>
+                              </ItemContent>
+                              <Badge
+                                variant="success-light"
+                                className="text-tiny shrink-0"
+                              >
+                                All Columns
+                              </Badge>
+                            </Item>
+                          ))}
+                        </ItemGroup>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </ScrollArea>
 
             <DialogFooter>

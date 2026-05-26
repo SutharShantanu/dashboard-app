@@ -25,11 +25,11 @@ export default async function DashboardLayout({
     redirect("/login")
   }
 
-  const { displayName, role, username } = session.user
+  const { displayName, role, username, gender } = session.user as any
   const initials = displayName
     ? displayName
         .split(" ")
-        .map((n) => n[0])
+        .map((n: string) => n[0])
         .join("")
         .slice(0, 2)
         .toUpperCase()
@@ -61,7 +61,7 @@ export default async function DashboardLayout({
       }
     >
       <AppSidebar
-        user={{ displayName, role, username }}
+        user={{ displayName, role, username, gender }}
         initials={initials}
         avatarColor={avatarColor}
         variant="inset"

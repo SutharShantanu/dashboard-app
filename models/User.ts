@@ -12,6 +12,7 @@ export interface IUser extends Document {
   isActive: boolean;
   createdAt: Date;
   createdBy: string;
+  gender?: string; // New field
   otpCode?: string;
   otpExpiry?: Date;
 }
@@ -28,6 +29,7 @@ const UserSchema: Schema = new Schema({
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
   createdBy: { type: String, required: true },
+  gender: { type: String, default: "" }, // New field
   otpCode: { type: String },
   otpExpiry: { type: Date }
 });
