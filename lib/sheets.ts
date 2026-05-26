@@ -120,6 +120,7 @@ export async function syncSheetData(spreadsheetId: string): Promise<void> {
     } else if (existing.lastModifiedBy === "system") {
        existing.data = item;
        existing.lastModifiedAt = new Date();
+       existing.markModified("data");
        await existing.save();
     }
   }
@@ -386,6 +387,7 @@ export async function updateStudentCell(id: string, column: string, newValue: st
   row.lastModifiedBy = actor;
   row.lastModifiedAt = new Date();
   
+  row.markModified("data");
   await row.save();
 
   await appendAuditLog({

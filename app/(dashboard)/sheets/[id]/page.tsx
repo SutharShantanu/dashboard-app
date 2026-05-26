@@ -23,6 +23,8 @@ import {
   Clipboard,
   Trash2,
   History,
+  X,
+  Check,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -111,6 +113,11 @@ export default function SheetDetailPage() {
     col: string
   } | null>(null)
   const [editValue, setEditValue] = useState("")
+  const [savingCell, setSavingCell] = useState<{
+    rowId: string
+    col: string
+    status: "idle" | "saving" | "success" | "error"
+  } | null>(null)
   const [historyCell, setHistoryCell] = useState<{
     rowId: string
     col: string
@@ -164,7 +171,7 @@ export default function SheetDetailPage() {
     queryKey: ["cellHistory", historyCell?.rowId, historyCell?.col],
     queryFn: async () => {
       if (!historyCell) return null
-      const res = await fetch(`/api/students/history?rowId=${historyCell.rowId}&column=${historyCell.col}`)
+      const res = await fetch(`/api/students/history?rowId=${historyCell.rowId}&column=${historyCell.col}&spreadsheetId=${id}`)
       if (!res.ok) throw new Error("Failed to fetch history")
       return res.json()
     },
@@ -184,16 +191,29 @@ export default function SheetDetailPage() {
   }
 
   const handleSave = async (studentId: string, col: string, value: string) => {
+    setSavingCell({ rowId: studentId, col, status: "saving" })
     try {
       const res = await fetch("/api/students", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: studentId, column: col, value }),
+        body: JSON.stringify({ id: studentId, column: col, value, spreadsheetId: id }),
       })
       if (!res.ok) throw new Error("Failed to save data")
+      
+      setSavingCell({ rowId: studentId, col, status: "success" })
       queryClient.invalidateQueries({ queryKey: ["sheetData", id] })
+      
+      // Wait for success micro-animation before closing
+      await new Promise((resolve) => setTimeout(resolve, 800))
+      setEditingCell(null)
+      setSavingCell(null)
     } catch (err) {
       console.error("Failed to save data:", err)
+      setSavingCell({ rowId: studentId, col, status: "error" })
+      
+      // Wait to display error before letting them retry
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+      setSavingCell(null)
     }
   }
 
@@ -340,36 +360,81 @@ export default function SheetDetailPage() {
                   className="group relative w-full"
                   style={{ minWidth: minWidthCh }}
                 >
-                  <Input
-                    key={`${studentId}:${colId}:${value}`}
-                    defaultValue={value || ""}
-                    style={{ minWidth: minWidthCh }}
-                    onBlur={(e) => {
-                      if (!isLocked && e.target.value !== value) {
-                        handleSave(studentId, colName, e.target.value)
-                      }
-                    }}
-                    onFocus={() => {
-                      if (!isLocked) {
-                        handleFocus(studentId, colName)
-                      }
-                    }}
-                    disabled={isLocked}
-                    className={`h-8 w-full border-transparent bg-transparent transition-colors hover:border-input focus:border-primary focus:bg-background ${userColor} ${isLocked ? "cursor-not-allowed opacity-70" : "cursor-text"}`}
-                  />
-                  {isLocked && (
-                    <div className="absolute top-1/2 right-2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="text-xs">Read-only field</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
+                  {editingCell?.rowId === studentId && editingCell?.col === colName ? (
+                    <InputGroup className={`h-8 w-full ${userColor} focus-within:ring-1 focus-within:ring-primary focus-within:border-primary`}>
+                      <InputGroupInput
+                        autoFocus
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        style={{ minWidth: minWidthCh }}
+                        disabled={savingCell?.rowId === studentId && savingCell?.col === colName && savingCell.status === "saving"}
+                        onBlur={() => {
+                          if (savingCell?.rowId === studentId && savingCell?.col === colName) return
+                          if (!isLocked && editValue !== value) {
+                            handleSave(studentId, colName, editValue)
+                          } else {
+                            setEditingCell(null)
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            if (savingCell?.rowId === studentId && savingCell?.col === colName) return
+                            if (!isLocked && editValue !== value) {
+                              handleSave(studentId, colName, editValue)
+                            } else {
+                              setEditingCell(null)
+                            }
+                          } else if (e.key === "Escape") {
+                            if (savingCell?.rowId === studentId && savingCell?.col === colName) return
+                            setEditingCell(null)
+                          }
+                        }}
+                      />
+                      {savingCell?.rowId === studentId && savingCell?.col === colName && (
+                        <InputGroupAddon align="inline-end" className="pr-1.5 flex items-center">
+                          {savingCell.status === "saving" && (
+                            <Spinner className="h-3 w-3 text-muted-foreground" />
+                          )}
+                          {savingCell.status === "success" && (
+                            <Check className="h-3.5 w-3.5 text-success animate-bounce" />
+                          )}
+                          {savingCell.status === "error" && (
+                            <X className="h-3.5 w-3.5 text-destructive" />
+                          )}
+                        </InputGroupAddon>
+                      )}
+                    </InputGroup>
+                  ) : (
+                    <>
+                      <Input
+                        readOnly
+                        value={value || ""}
+                        style={{ minWidth: minWidthCh }}
+                        onClick={() => {
+                          if (!isLocked) {
+                            setEditingCell({ rowId: studentId, col: colName })
+                            setEditValue(value || "")
+                            handleFocus(studentId, colName)
+                          }
+                        }}
+                        disabled={isLocked}
+                        className={`h-8 w-full border-transparent bg-transparent transition-colors hover:border-input focus:border-transparent focus:bg-background ${userColor} ${isLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
+                      />
+                      {isLocked && (
+                        <div className="absolute top-1/2 right-2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">Read-only field</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </ContextMenuTrigger>
