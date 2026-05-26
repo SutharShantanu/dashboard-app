@@ -25,6 +25,7 @@ import {
   Pencil,
   Trash2,
   Sparkles,
+  Blend,
   User,
   Type,
   AtSign,
@@ -180,11 +181,14 @@ function UsersDirectoryContent() {
 
   // Add User Modal State
   const [isAddUserOpen, setIsAddUserOpen] = useState<boolean>(
-    () => searchParams.get("userModal") === "open" || searchParams.get("viewUserDetail") === "open"
+    () =>
+      searchParams.get("userModal") === "open" ||
+      searchParams.get("editUserDetails") === "open" ||
+      searchParams.get("viewUserDetail") === "open"
   )
   const [showPassword, setShowPassword] = useState<boolean>(false)
   const [isEditMode, setIsEditMode] = useState(
-    () => searchParams.get("mode") === "edit"
+    () => searchParams.get("editUserDetails") === "open"
   )
   const [isViewMode, setIsViewMode] = useState(
     () => searchParams.get("viewUserDetail") === "open"
@@ -281,7 +285,7 @@ function UsersDirectoryContent() {
       password: "",
       role: "sub-admin",
       gender: "male",
-      allowedColumns: "Comments,Notes",
+      allowedColumns: "",
       permissionPreset: "",
       perSheetPermissions: {},
       isActive: "TRUE",
@@ -331,8 +335,8 @@ function UsersDirectoryContent() {
   const handleCloseUserModal = useCallback(() => {
     const params = new URLSearchParams(window.location.search)
     params.delete("userModal")
+    params.delete("editUserDetails")
     params.delete("viewUserDetail")
-    params.delete("mode")
     params.delete("username")
     router.push(`${window.location.pathname}?${params.toString()}`, {
       scroll: false,
@@ -353,7 +357,6 @@ function UsersDirectoryContent() {
   const handleOpenCreateModal = useCallback(() => {
     const params = new URLSearchParams(window.location.search)
     params.set("userModal", "open")
-    params.delete("mode")
     params.delete("username")
     router.push(`${window.location.pathname}?${params.toString()}`, {
       scroll: false,
@@ -363,8 +366,7 @@ function UsersDirectoryContent() {
   const handleEditUser = useCallback(
     (user: User) => {
       const params = new URLSearchParams(window.location.search)
-      params.set("userModal", "open")
-      params.set("mode", "edit")
+      params.set("editUserDetails", "open")
       params.set("username", user.username)
       router.push(`${window.location.pathname}?${params.toString()}`, {
         scroll: false,
@@ -416,18 +418,22 @@ function UsersDirectoryContent() {
     if (users.length === 0) return
 
     const userModalParam = searchParams.get("userModal")
+    const editUserDetailsParam = searchParams.get("editUserDetails")
     const viewUserDetailParam = searchParams.get("viewUserDetail")
     const usernameParam = searchParams.get("username")
-    const modeParam = searchParams.get("mode")
 
-    if (userModalParam === "open" || viewUserDetailParam === "open") {
+    if (
+      userModalParam === "open" ||
+      editUserDetailsParam === "open" ||
+      viewUserDetailParam === "open"
+    ) {
       if (usernameParam) {
         const targetUser = users.find(
           (u) => u.username.toLowerCase() === usernameParam.toLowerCase()
         )
         if (targetUser) {
           const isView = viewUserDetailParam === "open"
-          const isEdit = modeParam === "edit"
+          const isEdit = editUserDetailsParam === "open"
           setIsViewMode(isView)
           setIsEditMode(isEdit)
           reset({
@@ -455,7 +461,7 @@ function UsersDirectoryContent() {
             password: "",
             role: "sub-admin",
             gender: "male",
-            allowedColumns: "Comments,Notes",
+            allowedColumns: "",
             permissionPreset: "",
             perSheetPermissions: {},
             isActive: "TRUE",
@@ -587,8 +593,7 @@ function UsersDirectoryContent() {
       const payload = {
         ...data,
         permissionPreset: currentPresetId,
-        allowedColumns:
-          data.role === "admin" ? "*" : data.allowedColumns || "Comments,Notes",
+        allowedColumns: data.allowedColumns || "",
       }
 
       // Remove password if empty in edit mode
@@ -821,11 +826,11 @@ function UsersDirectoryContent() {
               className="flex w-fit items-center gap-1.5 capitalize"
             >
               {gender === "female" ? (
-                <Venus className="h-3.5 w-3.5 shrink-0 text-pink-500" />
+                <Venus className="h-3.5 w-3.5 shrink-0" />
               ) : gender === "male" ? (
-                <Mars className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+                <Mars className="h-3.5 w-3.5 shrink-0" />
               ) : (
-                <Sparkles className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                <Blend className="h-3.5 w-3.5 shrink-0" />
               )}
               <span>{gender}</span>
             </Badge>
@@ -837,30 +842,30 @@ function UsersDirectoryContent() {
         header: "Permissions",
         cell: ({ row }) => {
           const user = row.original
-          const isAdmin =
-            user.role === "admin" ||
-            !user.allowedColumns ||
-            user.allowedColumns === "*"
+          const isAllAccess = user.allowedColumns === "*"
           const presetName = presets.find(
             (p) => p.id === user.permissionPreset
           )?.name
-          const cols = isAdmin
+          const cols = isAllAccess
             ? ["All Columns"]
             : user.allowedColumns
-              ? user.allowedColumns.split(",").map((c) => c.trim())
+              ? user.allowedColumns.split(",").map((c) => c.trim()).filter(Boolean)
               : []
+          const hasNoAccess = !isAllAccess && cols.length === 0
           return (
             <HoverCard openDelay={100} closeDelay={80}>
               <HoverCardTrigger asChild>
                 <Badge
-                  variant="outline"
+                  variant={hasNoAccess ? "destructive-light" : "outline"}
                   className="text-tiny cursor-help font-mono"
                 >
-                  {isAdmin
+                  {isAllAccess
                     ? "All Access"
-                    : presetName
-                      ? presetName
-                      : `${cols.length} col${cols.length !== 1 ? "s" : ""}`}
+                    : hasNoAccess
+                      ? "No Access"
+                      : presetName
+                        ? presetName
+                        : `${cols.length} col${cols.length !== 1 ? "s" : ""}`}
                 </Badge>
               </HoverCardTrigger>
               <HoverCardContent
@@ -880,18 +885,24 @@ function UsersDirectoryContent() {
                 )}
                 <div>
                   <span className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
-                    {isAdmin ? "Access" : "Allowed Columns"}
+                    {isAllAccess ? "Access" : hasNoAccess ? "Status" : "Allowed Columns"}
                   </span>
                   <div className="mt-1.5 flex flex-wrap gap-1">
-                    {cols.map((col) => (
-                      <Badge
-                        key={col}
-                        variant="outline"
-                        className="text-tiny font-mono"
-                      >
-                        {col}
-                      </Badge>
-                    ))}
+                    {hasNoAccess ? (
+                      <span className="text-tiny text-muted-foreground italic">
+                        No columns assigned yet
+                      </span>
+                    ) : (
+                      cols.map((col) => (
+                        <Badge
+                          key={col}
+                          variant="outline"
+                          className="text-tiny font-mono"
+                        >
+                          {col}
+                        </Badge>
+                      ))
+                    )}
                   </div>
                 </div>
               </HoverCardContent>
@@ -1063,7 +1074,7 @@ function UsersDirectoryContent() {
   }
 
   return (
-    <div className="mx-auto w-full space-y-8">
+    <div className="mx-auto w-full space-y-6">
       {/* Header Dashboard Banner */}
       <PageHeader
         subtitle="System Administration"
@@ -1123,13 +1134,19 @@ function UsersDirectoryContent() {
         </CardContent>
       </Card>
 
-      {/* URL pattern: ?userModal=open — camelCase key, stable name */}
+      {/* URL pattern: ?userModal=open | ?editUserDetails=open | ?viewUserDetail=open */}
       <Dialog
         open={isAddUserOpen}
         onOpenChange={(open) => {
           if (!open) handleCloseUserModal()
         }}
-        name={isViewMode ? "viewUserDetail" : "userModal"}
+        name={
+          isViewMode
+            ? "viewUserDetail"
+            : isEditMode
+              ? "editUserDetails"
+              : "userModal"
+        }
       >
         <DialogContent className="flex max-h-[85vh] w-4xl flex-col">
           <DialogHeader>
@@ -1156,7 +1173,7 @@ function UsersDirectoryContent() {
             noValidate
             className="flex flex-1 flex-col overflow-hidden"
           >
-            <ScrollArea className="flex-1 px-1">
+            <div className="flex-1 overflow-y-auto px-1">
               {isViewMode ? (
                 <div className="space-y-4 p-2">
                   {/* Identity Hero Card */}
@@ -1306,7 +1323,7 @@ function UsersDirectoryContent() {
                         <span className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
                           Sheet Access
                         </span>
-                        {watchedRole === "admin" ? (
+                        {watch("allowedColumns") === "*" ? (
                           <Badge variant="success-light" className="text-tiny">
                             <BadgeDot variant="success" />
                             Full Access to All
@@ -1325,13 +1342,15 @@ function UsersDirectoryContent() {
 
                       <ItemGroup className="gap-1.5">
                         {sheetsWithColumns.map((sheet: any) => {
-                          const isAdmin = watchedRole === "admin"
-                          const grantedCols: string[] = (isAdmin
-                            ? sheet.columns
-                            : ((watch("perSheetPermissions") || {})[sheet.id] ??
-                              [])
+                          const isAllAccess = watch("allowedColumns") === "*"
+                          const grantedCols: string[] = (
+                            isAllAccess
+                              ? sheet.columns
+                              : ((watch("perSheetPermissions") || {})[
+                                  sheet.id
+                                ] ?? [])
                           ).filter((col: string) => col && col.trim() !== "")
-                          const hasAccess = isAdmin || grantedCols.length > 0
+                          const hasAccess = isAllAccess || grantedCols.length > 0
 
                           return (
                             <Item
@@ -1355,7 +1374,7 @@ function UsersDirectoryContent() {
                                     {sheet.id}
                                   </ItemDescription>
                                 </ItemContent>
-                                {isAdmin ? (
+                                {isAllAccess ? (
                                   <Badge
                                     variant="secondary"
                                     className="text-tiny shrink-0"
@@ -1381,14 +1400,14 @@ function UsersDirectoryContent() {
                                 )}
                               </div>
 
-                              {/* Granted column chips — only for sub-admin with access */}
-                              {!isAdmin && hasAccess && (
+                              {/* Granted column chips — only for users with access */}
+                              {!isAllAccess && hasAccess && (
                                 <div className="flex w-full flex-wrap gap-1">
                                   {grantedCols.map((col: string) => (
                                     <Badge
                                       key={col}
                                       variant="secondary"
-                                      className="font-mono text-tiny"
+                                      className="text-tiny font-mono"
                                     >
                                       {col}
                                     </Badge>
@@ -1595,8 +1614,7 @@ function UsersDirectoryContent() {
                       control={control}
                       render={({ field }) => (
                         <Field data-invalid={!!errors.gender}>
-                          <FieldLabel className="flex items-center gap-1 text-xs font-bold tracking-wider text-muted-foreground uppercase">
-                            <User className="h-3.5 w-3.5" />
+                          <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
                             Gender *
                           </FieldLabel>
                           <Select
@@ -1610,19 +1628,19 @@ function UsersDirectoryContent() {
                             <SelectContent>
                               <SelectItem value="male">
                                 <span className="flex items-center gap-2">
-                                  <Mars className="h-3.5 w-3.5 shrink-0" />
+                                  <Mars className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                                   <span>Male</span>
                                 </span>
                               </SelectItem>
                               <SelectItem value="female">
                                 <span className="flex items-center gap-2">
-                                  <Venus className="h-3.5 w-3.5 shrink-0" />
+                                  <Venus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                                   <span>Female</span>
                                 </span>
                               </SelectItem>
                               <SelectItem value="other">
                                 <span className="flex items-center gap-2">
-                                  <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                                  <Blend className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                                   <span>Other</span>
                                 </span>
                               </SelectItem>
@@ -1633,7 +1651,8 @@ function UsersDirectoryContent() {
                       )}
                     />
 
-                    {watchedRole === "sub-admin" && (
+                    {/* Column Permissions — shown for all roles (SabaAdmin assigns access) */}
+                    {sheetsWithColumns.length > 0 && (
                       <>
                         {/* Column Permissions selectors (Select Sheet, Load Preset) */}
                         <Field className="col-span-1">
@@ -1662,7 +1681,7 @@ function UsersDirectoryContent() {
                                   }}
                                   disabled={isViewMode}
                                 >
-                                  <SelectTrigger className="h-9 flex-1 text-xs">
+                                  <SelectTrigger className="flex-1 text-xs">
                                     <SelectValue placeholder="Select a preset" />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -1679,31 +1698,26 @@ function UsersDirectoryContent() {
                                 </Select>
                               </div>
                             )}
-                            <div className="flex items-center gap-2">
-                              <span className="min-w-[80px] text-xs text-muted-foreground">
-                                Select Sheet:
-                              </span>
-                              <Select
-                                value={selectedSheet}
-                                onValueChange={setSelectedSheet}
-                                disabled={isViewMode}
-                              >
-                                <SelectTrigger className="h-9 flex-1 text-xs">
-                                  <SelectValue placeholder="Select sheet" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {sheetsWithColumns.map((s) => (
-                                    <SelectItem
-                                      key={s.id}
-                                      value={s.id}
-                                      className="text-xs"
-                                    >
-                                      {s.title}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
+                            <Select
+                              value={selectedSheet}
+                              onValueChange={setSelectedSheet}
+                              disabled={isViewMode}
+                            >
+                              <SelectTrigger className="w-full flex-1 text-xs">
+                                <SelectValue placeholder="Select sheet" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {sheetsWithColumns.map((s) => (
+                                  <SelectItem
+                                    key={s.id}
+                                    value={s.id}
+                                    className="text-xs"
+                                  >
+                                    {s.title}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                         </Field>
 
@@ -1750,56 +1764,10 @@ function UsersDirectoryContent() {
                         </div>
                       </>
                     )}
-
-                    {watchedRole === "admin" && connectedSheets.length > 0 && (
-                      <div className="col-span-1 space-y-3 md:col-span-3">
-                        <div className="flex items-center gap-3">
-                          <Separator className="flex-1" />
-                          <span className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
-                            Sheet Access
-                          </span>
-                          <Badge variant="success-light" className="text-tiny">
-                            <BadgeDot variant="success" />
-                            Full Access to All
-                          </Badge>
-                          <Separator className="flex-1" />
-                        </div>
-                        <ItemGroup className="gap-1">
-                          {connectedSheets.map((sheet: any) => (
-                            <Item
-                              key={sheet.spreadsheetId}
-                              variant="muted"
-                              className="border"
-                            >
-                              <ItemMedia
-                                variant="icon"
-                                className="text-muted-foreground"
-                              >
-                                <Key className="size-4" />
-                              </ItemMedia>
-                              <ItemContent>
-                                <ItemTitle className="text-xs font-medium text-foreground">
-                                  {sheet.title}
-                                </ItemTitle>
-                                <ItemDescription className="font-mono text-[10px]">
-                                  {sheet.spreadsheetId}
-                                </ItemDescription>
-                              </ItemContent>
-                              <Badge
-                                variant="success-light"
-                                className="text-tiny shrink-0"
-                              >
-                                All Columns
-                              </Badge>
-                            </Item>
-                          ))}
-                        </ItemGroup>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
-            </ScrollArea>
+            </div>
 
             <DialogFooter>
               {isViewMode ? (

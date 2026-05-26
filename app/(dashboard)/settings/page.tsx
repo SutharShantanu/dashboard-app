@@ -30,7 +30,7 @@ import {
   Pencil,
   Mars,
   Venus,
-  Sparkles,
+  Blend,
 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { toast } from "sonner"
@@ -471,7 +471,7 @@ export default function SettingsPage() {
                                 </SelectItem>
                                 <SelectItem value="other">
                                   <span className="flex items-center gap-2">
-                                    <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                                    <Blend className="h-3.5 w-3.5 shrink-0" />
                                     <span>Other</span>
                                   </span>
                                 </SelectItem>

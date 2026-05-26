@@ -18,6 +18,11 @@ import {
   CheckCircle2,
   Clock,
   RefreshCw,
+  Copy,
+  Scissors,
+  Clipboard,
+  Trash2,
+  History,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -47,6 +52,31 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import {
+  Timeline,
+  TimelineContent,
+  TimelineDate,
+  TimelineHeader,
+  TimelineIndicator,
+  TimelineItem,
+  TimelineSeparator,
+  TimelineTitle,
+} from "@/components/ui/timeline"
 import {
   Card,
   CardContent,
@@ -81,6 +111,11 @@ export default function SheetDetailPage() {
     col: string
   } | null>(null)
   const [editValue, setEditValue] = useState("")
+  const [historyCell, setHistoryCell] = useState<{
+    rowId: string
+    col: string
+    value: string
+  } | null>(null)
 
   const { data: sheetsList } = useQuery({
     queryKey: ["connectedSheets"],
@@ -123,6 +158,17 @@ export default function SheetDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sheetData", id] })
     },
+  })
+
+  const { data: cellHistory, isLoading: isHistoryLoading } = useQuery({
+    queryKey: ["cellHistory", historyCell?.rowId, historyCell?.col],
+    queryFn: async () => {
+      if (!historyCell) return null
+      const res = await fetch(`/api/students/history?rowId=${historyCell.rowId}&column=${historyCell.col}`)
+      if (!res.ok) throw new Error("Failed to fetch history")
+      return res.json()
+    },
+    enabled: !!historyCell,
   })
 
   const handleFocus = async (studentId: string, col: string) => {
@@ -264,7 +310,7 @@ export default function SheetDetailPage() {
         header: col || `Column ${index + 1}`,
         cell: (info: any) => {
           const value = info.getValue()
-          const studentId = info.row.original._id
+          const studentId = info.row.original.ID || info.row.original._id
           const colName = col // Use original key for saving!
           const isSystemColumn =
             colName === "ID" ||
@@ -288,42 +334,107 @@ export default function SheetDetailPage() {
             : ""
 
           return (
-            <div
-              className="group relative w-full"
-              style={{ minWidth: minWidthCh }}
-            >
-              <Input
-                key={`${studentId}:${colId}:${value}`}
-                defaultValue={value || ""}
-                style={{ minWidth: minWidthCh }}
-                onBlur={(e) => {
-                  if (!isLocked && e.target.value !== value) {
-                    handleSave(studentId, colName, e.target.value)
-                  }
-                }}
-                onFocus={() => {
-                  if (!isLocked) {
-                    handleFocus(studentId, colName)
-                  }
-                }}
-                disabled={isLocked}
-                className={`h-8 w-full border-transparent bg-transparent transition-colors hover:border-input focus:border-primary focus:bg-background ${userColor} ${isLocked ? "cursor-not-allowed opacity-70" : "cursor-text"}`}
-              />
-              {isLocked && (
-                <div className="absolute top-1/2 right-2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="text-xs">Read-only field</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+            <ContextMenu>
+              <ContextMenuTrigger asChild>
+                <div
+                  className="group relative w-full"
+                  style={{ minWidth: minWidthCh }}
+                >
+                  <Input
+                    key={`${studentId}:${colId}:${value}`}
+                    defaultValue={value || ""}
+                    style={{ minWidth: minWidthCh }}
+                    onBlur={(e) => {
+                      if (!isLocked && e.target.value !== value) {
+                        handleSave(studentId, colName, e.target.value)
+                      }
+                    }}
+                    onFocus={() => {
+                      if (!isLocked) {
+                        handleFocus(studentId, colName)
+                      }
+                    }}
+                    disabled={isLocked}
+                    className={`h-8 w-full border-transparent bg-transparent transition-colors hover:border-input focus:border-primary focus:bg-background ${userColor} ${isLocked ? "cursor-not-allowed opacity-70" : "cursor-text"}`}
+                  />
+                  {isLocked && (
+                    <div className="absolute top-1/2 right-2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">Read-only field</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent className="w-64">
+                <ContextMenuItem
+                  onClick={() => {
+                    navigator.clipboard.writeText(String(value || ""))
+                  }}
+                  disabled={!value}
+                >
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy
+                  <ContextMenuShortcut>⌘C</ContextMenuShortcut>
+                </ContextMenuItem>
+                <ContextMenuItem
+                  onClick={() => {
+                    navigator.clipboard.writeText(String(value || ""))
+                    if (!isLocked) {
+                      handleSave(studentId, colName, "")
+                    }
+                  }}
+                  disabled={!value || isLocked}
+                >
+                  <Scissors className="mr-2 h-4 w-4" />
+                  Cut
+                  <ContextMenuShortcut>⌘X</ContextMenuShortcut>
+                </ContextMenuItem>
+                <ContextMenuItem
+                  onClick={async () => {
+                    if (!isLocked) {
+                      try {
+                        const text = await navigator.clipboard.readText()
+                        handleSave(studentId, colName, text)
+                      } catch (err) {
+                        console.error("Failed to read clipboard")
+                      }
+                    }
+                  }}
+                  disabled={isLocked}
+                >
+                  <Clipboard className="mr-2 h-4 w-4" />
+                  Paste
+                  <ContextMenuShortcut>⌘V</ContextMenuShortcut>
+                </ContextMenuItem>
+                <ContextMenuItem
+                  onClick={() => {
+                    if (!isLocked) {
+                      handleSave(studentId, colName, "")
+                    }
+                  }}
+                  disabled={isLocked || !value}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Clear
+                  <ContextMenuShortcut>⌫</ContextMenuShortcut>
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  onClick={() => setHistoryCell({ rowId: studentId, col: colName, value: String(value || "") })}
+                >
+                  <History className="mr-2 h-4 w-4" />
+                  Show edit history
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
           )
         },
       }
@@ -515,6 +626,45 @@ export default function SheetDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Sheet open={!!historyCell} onOpenChange={(open) => !open && setHistoryCell(null)}>
+        <SheetContent className="sm:max-w-[425px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Edit History</SheetTitle>
+            <SheetDescription>
+              Changes made to {historyCell?.col}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex flex-col gap-4 py-6 px-2">
+            {isHistoryLoading ? (
+              <div className="flex items-center justify-center p-4">
+                <Spinner className="h-6 w-6 text-primary" />
+              </div>
+            ) : cellHistory?.logs?.length === 0 ? (
+              <div className="text-center text-sm text-muted-foreground p-4">
+                No edit history found for this cell.
+              </div>
+            ) : (
+              <Timeline defaultValue={1} className="w-full">
+                {cellHistory?.logs?.map((log: any, i: number) => (
+                  <TimelineItem key={i} step={i + 1}>
+                    <TimelineIndicator />
+                    <TimelineSeparator />
+                    <TimelineHeader>
+                      <TimelineDate>{new Date(log.timestamp).toLocaleString()}</TimelineDate>
+                      <TimelineTitle>{log.actorDisplayName}</TimelineTitle>
+                    </TimelineHeader>
+                    <TimelineContent>
+                      Changed from <span className="font-semibold line-through decoration-destructive/50">{log.oldValue || '""'}</span> to <span className="font-semibold text-green-600 dark:text-green-400">{log.newValue || '""'}</span>
+                    </TimelineContent>
+                  </TimelineItem>
+                ))}
+              </Timeline>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
+

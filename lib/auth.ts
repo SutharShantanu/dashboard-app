@@ -19,7 +19,7 @@ export const authOptions: NextAuthOptions = {
           name: profile.name,
           displayName: profile.name,
           role: "admin",
-          allowedColumns: "*",
+          allowedColumns: "",
         };
       },
     }),
@@ -35,7 +35,7 @@ export const authOptions: NextAuthOptions = {
             name: profile.name,
             displayName: profile.name || "SSO Administrator",
             role: "admin",
-            allowedColumns: "*",
+            allowedColumns: "",
           };
         },
       })

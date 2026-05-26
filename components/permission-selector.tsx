@@ -80,15 +80,11 @@ export function PermissionSelector({
   const [selectedAvailable, setSelectedAvailable] = React.useState<string[]>([])
   const [selectedGranted, setSelectedGranted] = React.useState<string[]>([])
 
-  // Sync incoming value from parent only when it genuinely differs from what
-  // we already hold (guards against the parent echoing our own onChange call
-  // back as a new prop, which would otherwise restart the loop).
   const valueString = JSON.stringify(value)
   React.useEffect(() => {
     if (valueString !== JSON.stringify(currentPermissionsRef.current)) {
       setCurrentPermissions(value)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [valueString])
 
   const selectedSheet =
@@ -232,9 +228,9 @@ export function PermissionSelector({
 
       <div className="flex w-full items-stretch justify-between gap-4">
         {/* Available Columns */}
-        <Card className="flex min-w-[220px] flex-1 flex-col justify-between border bg-card shadow-sm">
-          <CardHeader className="shrink-0 space-y-2 p-3 pb-2">
-            <CardTitle className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+        <Card className="flex flex-1 flex-col justify-between">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between text-sm uppercase">
               Available Columns
             </CardTitle>
             <InputGroup>
@@ -255,8 +251,8 @@ export function PermissionSelector({
               )}
             </InputGroup>
           </CardHeader>
-          <CardContent className="flex flex-1 flex-col p-3 pt-0">
-            <div className="max-h-[300px] w-full flex-1 overflow-y-auto border p-1">
+          <CardContent className="flex flex-1 flex-col">
+            <div className="h-[300px] w-full overflow-y-auto border p-1">
               {filteredAvailable.length === 0 ? (
                 <Empty className="border-0 p-4 py-8">
                   <EmptyHeader className="gap-1">
@@ -317,7 +313,7 @@ export function PermissionSelector({
                         />
                         <FieldLabel
                           htmlFor={`avail-${col}`}
-                          className="text-tiny flex-1 cursor-pointer font-normal text-foreground select-none"
+                          className="text-tiny flex-1 cursor-pointer font-normal text-muted-foreground select-none"
                           onClick={(e) => e.stopPropagation()}
                         >
                           {col}
@@ -385,7 +381,7 @@ export function PermissionSelector({
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col">
-            <div className="max-h-[300px] w-full flex-1 overflow-y-auto border p-1">
+            <div className="h-[335px] w-full overflow-y-auto border p-1">
               {grantedColumns.length === 0 ? (
                 <Empty className="border-0 p-4 py-8">
                   <EmptyHeader className="gap-1">

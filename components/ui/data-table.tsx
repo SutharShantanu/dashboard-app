@@ -31,6 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
+import { ButtonGroup } from "@/components/ui/button-group"
 import { Empty, EmptyHeader, EmptyDescription } from "@/components/ui/empty"
 import {
   InputGroup,
@@ -833,7 +834,7 @@ function getColumnFilterIcon(columnId: string) {
             {Math.min((currentPageIndex + 1) * pageSize, filteredTotal)} of{" "}
             {filteredTotal} rows
           </p>
-          <div className="flex items-center gap-1">
+          <ButtonGroup>
             <Button
               variant="outline"
               size="icon"
@@ -852,7 +853,7 @@ function getColumnFilterIcon(columnId: string) {
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="px-2 text-xs font-medium text-muted-foreground select-none">
+            <span className="flex items-center border bg-muted px-3 text-xs font-medium text-muted-foreground select-none">
               {currentPageIndex + 1} / {totalPages}
             </span>
             <Button
@@ -873,7 +874,7 @@ function getColumnFilterIcon(columnId: string) {
             >
               »
             </Button>
-          </div>
+          </ButtonGroup>
         </div>
       )}
     </div>

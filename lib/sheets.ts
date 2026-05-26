@@ -198,7 +198,7 @@ export async function initSheets(): Promise<void> {
       email: "admin@example.com",
       passwordHash,
       role: "admin",
-      allowedColumns: "*",
+      allowedColumns: "",
       isActive: true,
       createdBy: "system"
     });
@@ -210,7 +210,7 @@ export async function initSheets(): Promise<void> {
       email: "subadmin@example.com",
       passwordHash: subAdminHash,
       role: "sub-admin",
-      allowedColumns: "Remarks,Grade,Comments,Notes",
+      allowedColumns: "",
       isActive: true,
       createdBy: "system"
     });
@@ -608,23 +608,27 @@ export function resolveUserAllowedColumns(
     }
     // If perSheetPermissions is configured generally, but this activeSheet has no entry,
     // they are strictly constrained and cannot edit/view any columns for this sheet.
-    return [];
-  }
-
-  // 2. Check if custom allowedColumns limits are configured
-  if (user.allowedColumns && user.allowedColumns !== "*" && user.allowedColumns !== "all") {
-    const list = user.allowedColumns.split(",").map(c => c.trim());
-    return allColumns.filter(col => list.includes(col));
-  }
-
-  // 3. Fallback to role-based defaults
-  if (user.role === "admin") {
-    return [...allColumns];
-  } else {
-    if (user.allowedColumns === "*") {
+    // However, if they are an admin, they should still have access to all columns
+    if (user.role === "admin") {
       return [...allColumns];
     }
     return [];
   }
+
+  // 2. Check if custom allowedColumns limits are configured
+  if (user.allowedColumns) {
+    if (user.allowedColumns === "*" || user.allowedColumns.toLowerCase() === "all") {
+      return [...allColumns];
+    }
+    const list = user.allowedColumns.split(",").map(c => c.trim());
+    return allColumns.filter(col => list.includes(col));
+  }
+
+  // 3. Fallback: Admins get all columns, others get empty
+  if (user.role === "admin") {
+    return [...allColumns];
+  }
+  
+  return [];
 }
 
