@@ -1,4 +1,5 @@
 import * as React from "react"
+import { cn } from "@/lib/utils"
 import {
   Check,
   ChevronRight,
@@ -18,8 +19,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
 import {
   InputGroup,
   InputGroupAddon,
@@ -28,8 +27,9 @@ import {
 import { Spinner } from "@/components/ui/spinner"
 import { useDebounce } from "@/hooks/use-debounce"
 import { Empty, EmptyHeader, EmptyDescription } from "@/components/ui/empty"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Field, FieldLabel } from "@/components/ui/field"
+import { Toggle } from "@/components/ui/toggle"
+import { Badge } from "@/components/ui/badge"
+import { useMemoizedFn } from "@/hooks/use-memoized-fn"
 
 interface Sheet {
   id: string
@@ -122,7 +122,7 @@ export function PermissionSelector({
     grantedColumns.length > 0 &&
     grantedColumns.every((col) => selectedGranted.includes(col))
 
-  const toggleSelectAllAvailable = () => {
+  const toggleSelectAllAvailable = useMemoizedFn(() => {
     if (isAllAvailableSelected) {
       setSelectedAvailable((prev) =>
         prev.filter((col) => !filteredAvailable.includes(col))
@@ -132,9 +132,9 @@ export function PermissionSelector({
         Array.from(new Set([...prev, ...filteredAvailable]))
       )
     }
-  }
+  })
 
-  const toggleSelectAllGranted = () => {
+  const toggleSelectAllGranted = useMemoizedFn(() => {
     if (isAllGrantedSelected) {
       setSelectedGranted((prev) =>
         prev.filter((col) => !grantedColumns.includes(col))
@@ -144,14 +144,17 @@ export function PermissionSelector({
         Array.from(new Set([...prev, ...grantedColumns]))
       )
     }
-  }
+  })
 
   // Grant / Revoke actions
   const handleGrantSelected = () => {
     if (selectedAvailable.length === 0) return
     const nextGranted = [...grantedColumns, ...selectedAvailable]
     const sortedGranted = allColumns.filter((c) => nextGranted.includes(c))
-    const updated = { ...currentPermissionsRef.current, [selectedSheet]: sortedGranted }
+    const updated = {
+      ...currentPermissionsRef.current,
+      [selectedSheet]: sortedGranted,
+    }
     setCurrentPermissions(updated)
     onChange(updated)
     setSelectedAvailable([])
@@ -162,7 +165,10 @@ export function PermissionSelector({
     const nextGranted = grantedColumns.filter(
       (c) => !selectedGranted.includes(c)
     )
-    const updated = { ...currentPermissionsRef.current, [selectedSheet]: nextGranted }
+    const updated = {
+      ...currentPermissionsRef.current,
+      [selectedSheet]: nextGranted,
+    }
     setCurrentPermissions(updated)
     onChange(updated)
     setSelectedGranted([])
@@ -171,7 +177,10 @@ export function PermissionSelector({
   const handleGrantAll = () => {
     const nextGranted = [...grantedColumns, ...filteredAvailable]
     const sortedGranted = allColumns.filter((c) => nextGranted.includes(c))
-    const updated = { ...currentPermissionsRef.current, [selectedSheet]: sortedGranted }
+    const updated = {
+      ...currentPermissionsRef.current,
+      [selectedSheet]: sortedGranted,
+    }
     setCurrentPermissions(updated)
     onChange(updated)
     setSelectedAvailable([])
@@ -263,64 +272,56 @@ export function PermissionSelector({
                 </Empty>
               ) : (
                 <div className="space-y-1">
-                  {/* Select All Row */}
-                  <div className="flex items-center gap-2 rounded border-b border-muted/50 px-2 py-1.5 text-xs">
-                    <Checkbox
-                      checked={isAllAvailableSelected}
-                      onCheckedChange={() =>
-                        !disabled && toggleSelectAllAvailable()
-                      }
-                      disabled={disabled}
-                      id="select-all-available"
-                    />
-                    <Label
-                      htmlFor="select-all-available"
-                      className="text-tiny cursor-pointer font-semibold text-muted-foreground select-none"
-                    >
-                      Select All Available ({filteredAvailable.length})
-                    </Label>
-                  </div>
+                  {/* Select All Toggle */}
+                  <Toggle
+                    pressed={isAllAvailableSelected}
+                    onPressedChange={() => {
+                      if (!disabled) toggleSelectAllAvailable()
+                    }}
+                    disabled={disabled}
+                    id="select-all-available"
+                    size="sm"
+                    className="w-full justify-start gap-2 rounded border-b border-muted/50 px-2 py-1.5 text-xs font-semibold text-muted-foreground data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
+                  >
+                    {isAllAvailableSelected ? (
+                      <span className="flex size-3.5 items-center justify-center rounded-none border border-primary bg-primary">
+                        <Check className="size-2.5 text-primary-foreground" />
+                      </span>
+                    ) : (
+                      <span className="size-3.5 rounded-none border border-input bg-background" />
+                    )}
+                    Select All Available ({filteredAvailable.length})
+                  </Toggle>
 
-                  {filteredAvailable.map((col) => {
-                    const isChecked = selectedAvailable.includes(col)
-                    const handleToggle = () => {
-                      if (disabled) return
-                      setSelectedAvailable((prev) =>
-                        isChecked
-                          ? prev.filter((v) => v !== col)
-                          : [...prev, col]
-                      )
-                    }
-                    return (
-                      <Field
-                        key={col}
-                        orientation="horizontal"
-                        className={`flex items-center gap-2 rounded border border-transparent px-2 py-1 text-xs transition-all duration-200 ${
-                          isChecked
-                            ? "border-primary/10 bg-primary/5 shadow-sm"
-                            : disabled
-                              ? "opacity-80"
-                              : "cursor-pointer hover:bg-accent/50"
-                        }`}
-                        onClick={handleToggle}
-                      >
-                        <Checkbox
-                          checked={isChecked}
-                          onCheckedChange={handleToggle}
-                          disabled={disabled}
-                          id={`avail-${col}`}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <FieldLabel
-                          htmlFor={`avail-${col}`}
-                          className="text-tiny flex-1 cursor-pointer font-normal text-muted-foreground select-none"
-                          onClick={(e) => e.stopPropagation()}
+                  {/* Individual column badges */}
+                  <div className="flex flex-wrap gap-1 p-1">
+                    {filteredAvailable.map((col) => {
+                      const isSelected = selectedAvailable.includes(col)
+                      return (
+                        <Badge
+                          key={col}
+                          asChild
+                          variant={isSelected ? "primary-light" : "secondary"}
+                          size="default"
                         >
-                          {col}
-                        </FieldLabel>
-                      </Field>
-                    )
-                  })}
+                          <button
+                            type="button"
+                            disabled={disabled}
+                            onClick={() => {
+                              if (disabled) return
+                              setSelectedAvailable((prev) =>
+                                isSelected
+                                  ? prev.filter((v) => v !== col)
+                                  : [...prev, col]
+                              )
+                            }}
+                          >
+                            {col}
+                          </button>
+                        </Badge>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </div>
@@ -392,64 +393,56 @@ export function PermissionSelector({
                 </Empty>
               ) : (
                 <div className="space-y-1">
-                  {/* Select All Row */}
-                  <div className="flex items-center gap-2 rounded border-b border-muted/50 px-2 py-1.5 text-xs">
-                    <Checkbox
-                      checked={isAllGrantedSelected}
-                      onCheckedChange={() =>
-                        !disabled && toggleSelectAllGranted()
-                      }
-                      disabled={disabled}
-                      id="select-all-granted"
-                    />
-                    <Label
-                      htmlFor="select-all-granted"
-                      className="text-tiny cursor-pointer font-semibold text-muted-foreground select-none"
-                    >
-                      Select All Granted
-                    </Label>
-                  </div>
+                  {/* Select All Toggle */}
+                  <Toggle
+                    pressed={isAllGrantedSelected}
+                    onPressedChange={() => {
+                      if (!disabled) toggleSelectAllGranted()
+                    }}
+                    disabled={disabled}
+                    id="select-all-granted"
+                    size="sm"
+                    className="w-full justify-start gap-2 rounded border-b border-muted/50 px-2 py-1.5 text-xs font-semibold text-muted-foreground data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
+                  >
+                    {isAllGrantedSelected ? (
+                      <span className="flex size-3.5 items-center justify-center rounded-none border border-primary bg-primary">
+                        <Check className="size-2.5 text-primary-foreground" />
+                      </span>
+                    ) : (
+                      <span className="size-3.5 rounded-none border border-input bg-background" />
+                    )}
+                    Select All Granted
+                  </Toggle>
 
-                  {grantedColumns.map((col) => {
-                    const isChecked = selectedGranted.includes(col)
-                    const handleToggle = () => {
-                      if (disabled) return
-                      setSelectedGranted((prev) =>
-                        isChecked
-                          ? prev.filter((v) => v !== col)
-                          : [...prev, col]
-                      )
-                    }
-                    return (
-                      <Field
-                        key={col}
-                        orientation="horizontal"
-                        className={`flex items-center gap-2 rounded border border-transparent px-2 py-1 text-xs transition-all duration-200 ${
-                          isChecked
-                            ? "border-primary/10 bg-primary/5 shadow-sm"
-                            : disabled
-                              ? "opacity-80"
-                              : "cursor-pointer hover:bg-accent/50"
-                        }`}
-                        onClick={handleToggle}
-                      >
-                        <Checkbox
-                          checked={isChecked}
-                          onCheckedChange={handleToggle}
-                          disabled={disabled}
-                          id={`grant-${col}`}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <FieldLabel
-                          htmlFor={`grant-${col}`}
-                          className="text-tiny flex-1 cursor-pointer font-normal text-muted-foreground select-none"
-                          onClick={(e) => e.stopPropagation()}
+                  {/* Individual column badges */}
+                  <div className="flex flex-wrap gap-1 p-1">
+                    {grantedColumns.map((col) => {
+                      const isSelected = selectedGranted.includes(col)
+                      return (
+                        <Badge
+                          key={col}
+                          asChild
+                          variant={isSelected ? "primary-light" : "outline"}
+                          size="default"
                         >
-                          {col}
-                        </FieldLabel>
-                      </Field>
-                    )
-                  })}
+                          <button
+                            type="button"
+                            disabled={disabled}
+                            onClick={() => {
+                              if (disabled) return
+                              setSelectedGranted((prev) =>
+                                isSelected
+                                  ? prev.filter((v) => v !== col)
+                                  : [...prev, col]
+                              )
+                            }}
+                          >
+                            {col}
+                          </button>
+                        </Badge>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </div>

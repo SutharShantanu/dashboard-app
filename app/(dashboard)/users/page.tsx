@@ -32,6 +32,8 @@ import {
   Mailbox,
   Mars,
   Venus,
+  Lock,
+  Sheet,
 } from "lucide-react"
 
 import { ColumnDef } from "@tanstack/react-table"
@@ -1518,6 +1520,9 @@ function UsersDirectoryContent() {
                                 : "Login Password *"}
                             </FieldLabel>
                             <InputGroup>
+                              <InputGroupAddon align="inline-start">
+                                <Lock className="size-4 text-muted-foreground" />
+                              </InputGroupAddon>
                               <InputGroupInput
                                 {...field}
                                 type={showPassword ? "text" : "password"}
@@ -1713,7 +1718,10 @@ function UsersDirectoryContent() {
                                     value={s.id}
                                     className="text-xs"
                                   >
-                                    {s.title}
+                                    <span className="flex items-center gap-1.5">
+                                      <Sheet className="size-3 shrink-0 text-muted-foreground" />
+                                      {s.title}
+                                    </span>
                                   </SelectItem>
                                 ))}
                               </SelectContent>
