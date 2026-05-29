@@ -147,6 +147,9 @@ function getSheetsClient() {
 
   try {
     const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!);
+    if (creds && creds.private_key) {
+      creds.private_key = creds.private_key.replace(/\\n/g, "\n");
+    }
     const auth = new google.auth.GoogleAuth({
       credentials: creds,
       scopes: [
@@ -163,8 +166,12 @@ function getSheetsClient() {
 }
 
 export async function listDriveFiles(folderId?: string) {
+  const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!);
+  if (creds && creds.private_key) {
+    creds.private_key = creds.private_key.replace(/\\n/g, "\n");
+  }
   const auth = new google.auth.GoogleAuth({
-    credentials: JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!),
+    credentials: creds,
     scopes: ["https://www.googleapis.com/auth/drive.readonly"],
   });
   const drive = google.drive({ version: "v3", auth });
