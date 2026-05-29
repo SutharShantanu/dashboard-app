@@ -12,8 +12,13 @@ import {
   Filter,
   ChevronDown,
   Share2,
+  FileSpreadsheet,
+  Edit,
+  Trash2,
+  Eye,
+  MoreHorizontal,
 } from "lucide-react"
-import { GoogleSheets2026 } from "@thesvg/react"
+import { GoogleDrive2026, GoogleSheets2026 } from "@thesvg/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -21,7 +26,6 @@ import { DataTable } from "@/components/ui/data-table"
 import type { ColumnDef } from "@tanstack/react-table"
 import { Progress } from "@/components/ui/progress"
 import { Textarea } from "@/components/ui/textarea"
-import { useFileUpload } from "@/hooks/use-file-upload"
 import { ExportDropdown } from "@/components/export-dropdown"
 import { EmptyState } from "@/components/empty-state"
 import {
@@ -51,6 +55,26 @@ import { PageHeader } from "@/components/page-header"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "sonner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import {
+  Timeline,
+  TimelineContent,
+  TimelineDate,
+  TimelineHeader,
+  TimelineIndicator,
+  TimelineItem,
+  TimelineSeparator,
+  TimelineTitle,
+} from "@/components/ui/timeline"
+import { FileDropzone } from "@/components/file-dropzone"
+
+
 
 export default function StudentsDirectoryPage() {
   const { data: session } = useSession()
@@ -61,6 +85,11 @@ export default function StudentsDirectoryPage() {
   const [importTab, setImportTab] = useState("file")
   const [googleUrl, setGoogleUrl] = useState("")
   const [progress, setProgress] = useState(0)
+
+  const [selectedStudent, setSelectedStudent] = useState<any>(null)
+  const [isSheetOpen, setIsSheetOpen] = useState(false)
+
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
 
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [sortConfig, setSortConfig] = useState<{
@@ -75,11 +104,6 @@ export default function StudentsDirectoryPage() {
       alert("Link copied to clipboard!")
     }
   }
-
-  const [fileState, fileActions] = useFileUpload({
-    accept: ".csv,.xlsx,.json",
-    multiple: false,
-  })
 
   const {
     data: sheetData,
@@ -97,8 +121,8 @@ export default function StudentsDirectoryPage() {
   const importMutation = useMutation({
     mutationFn: async () => {
       const formData = new FormData()
-      if (importTab === "file" && fileState.files.length > 0) {
-        formData.append("file", fileState.files[0].file as File)
+      if (importTab === "file" && uploadedFile) {
+        formData.append("file", uploadedFile)
       } else if (importTab === "link" && googleUrl) {
         formData.append("googleUrl", googleUrl)
       } else {
@@ -116,14 +140,13 @@ export default function StudentsDirectoryPage() {
       return data
     },
     onSuccess: (data) => {
-      toast.success(data.message || "Students imported successfully!")
       setIsImportDialogOpen(false)
-      fileActions.clearFiles()
+      setUploadedFile(null)
       setGoogleUrl("")
       queryClient.invalidateQueries({ queryKey: ["allStudentsData"] })
     },
     onError: (err: any) => {
-      toast.error(err.message)
+      // Error handled by toast.promise
     },
   })
 
@@ -148,7 +171,7 @@ export default function StudentsDirectoryPage() {
   const data = sheetData?.data || []
 
   const tableColumns = useMemo<ColumnDef<any>[]>(() => {
-    return columns.map((col: string, index: number) => {
+    const baseColumns = columns.map((col: string, index: number) => {
       const maxCharLength = Math.max(
         col ? col.length : 0,
         ...data.map((row: any) => String(row[col] || "").length)
@@ -169,6 +192,44 @@ export default function StudentsDirectoryPage() {
         ),
       }
     })
+
+    return [
+      ...baseColumns,
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }: any) => {
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <span className="sr-only">Open menu</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    setSelectedStudent(row.original)
+                    setIsSheetOpen(true)
+                  }}
+                >
+                  <Eye className="mr-2 h-4 w-4" /> View Details
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Edit className="mr-2 h-4 w-4" /> Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive">
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        },
+      }
+    ]
   }, [columns, data])
 
   const filteredAndSortedData = useMemo(() => {
@@ -251,7 +312,7 @@ export default function StudentsDirectoryPage() {
                   setIsImportDialogOpen(true)
                 }}
               >
-                <GoogleSheets2026 className="h-4 w-4" />
+                <FileSpreadsheet className="h-4 w-4" />
                 Upload File
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -261,7 +322,7 @@ export default function StudentsDirectoryPage() {
                 }}
               >
                 <LinkIcon className="h-4 w-4" />
-                Google Sheet Link
+                Add from Link
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -347,7 +408,7 @@ export default function StudentsDirectoryPage() {
       </div>
 
       <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Import Students</DialogTitle>
             <DialogDescription>
@@ -358,7 +419,7 @@ export default function StudentsDirectoryPage() {
           <Tabs value={importTab} onValueChange={setImportTab} className="m-2">
             <TabsList className="w-fit">
               <TabsTrigger value="file">
-                <GoogleSheets2026 className="h-4 w-4" />
+                <FileSpreadsheet className="h-4 w-4" />
                 Upload
               </TabsTrigger>
               <TabsTrigger value="link">
@@ -367,57 +428,14 @@ export default function StudentsDirectoryPage() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="file" className="space-y-4 pt-4">
-              <div
-                className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors ${
-                  fileState.isDragging
-                    ? "border-primary bg-primary/10"
-                    : "border-muted hover:bg-muted/50"
-                }`}
-                onClick={fileActions.openFileDialog}
-                onDragEnter={fileActions.handleDragEnter}
-                onDragLeave={fileActions.handleDragLeave}
-                onDragOver={fileActions.handleDragOver}
-                onDrop={fileActions.handleDrop}
-              >
-                <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
-                <p className="text-sm font-medium">
-                  Click to select or drag and drop a file
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Supports .csv, .xlsx, and .json
-                </p>
-                <input className="hidden" {...fileActions.getInputProps()} />
-              </div>
-
-              {fileState.errors.length > 0 && (
-                <div className="flex flex-col gap-1 text-xs text-destructive">
-                  {fileState.errors.map((err, i) => (
-                    <span key={i}>{err}</span>
-                  ))}
-                </div>
-              )}
-
-              {fileState.files.length > 0 && (
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="rounded-full bg-primary/10 p-3">
-                    <GoogleSheets2026 className="h-4 w-4" />
-                  </div>
-                  <span className="font-medium">
-                    {fileState.files[0].file.name}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    className="ml-auto text-muted-foreground hover:text-foreground"
-                    onClick={() =>
-                      fileActions.removeFile(fileState.files[0].id)
-                    }
-                  >
-                    ×
-                  </Button>
-                </div>
-              )}
+            <TabsContent value="file" className="pt-2">
+              <FileDropzone
+                selectedFile={uploadedFile}
+                onFileSelect={setUploadedFile}
+                onGoogleDriveImport={() => {
+                  toast.info("Google Drive import functionality goes here!")
+                }}
+              />
             </TabsContent>
 
             <TabsContent value="link" className="space-y-4 pt-4">
@@ -459,10 +477,16 @@ export default function StudentsDirectoryPage() {
               Cancel
             </Button>
             <Button
-              onClick={() => importMutation.mutate()}
+              onClick={() => {
+                toast.promise(importMutation.mutateAsync(), {
+                  loading: "Importing students...",
+                  success: (data: any) => data.message || "Students imported successfully!",
+                  error: (err: any) => err.message || "Failed to import students.",
+                })
+              }}
               disabled={
                 importMutation.isPending ||
-                (importTab === "file" && fileState.files.length === 0) ||
+                (importTab === "file" && !uploadedFile) ||
                 (importTab === "link" && !googleUrl)
               }
             >
@@ -474,6 +498,71 @@ export default function StudentsDirectoryPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+
+      
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Student Details</SheetTitle>
+            <SheetDescription>
+              View detailed information and recent activity for this student.
+            </SheetDescription>
+          </SheetHeader>
+          
+          {selectedStudent && (
+            <Tabs defaultValue="details" className="mt-6">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="details">Details</TabsTrigger>
+                <TabsTrigger value="activity">Recent Activity</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="details" className="mt-4 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  {Object.entries(selectedStudent).map(([key, value]) => (
+                    <div key={key} className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">{key}</p>
+                      <p className="text-sm font-medium">{String(value || "N/A")}</p>
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="activity" className="mt-4">
+                <Timeline>
+                  <TimelineItem step={1}>
+                    <TimelineIndicator />
+                    <TimelineSeparator />
+                    <TimelineHeader>
+                      <TimelineDate>Today</TimelineDate>
+                      <TimelineTitle>Record Updated</TimelineTitle>
+                    </TimelineHeader>
+                    <TimelineContent>Status changed to active.</TimelineContent>
+                  </TimelineItem>
+                  <TimelineItem step={2}>
+                    <TimelineIndicator />
+                    <TimelineSeparator />
+                    <TimelineHeader>
+                      <TimelineDate>Last Week</TimelineDate>
+                      <TimelineTitle>Enrolled in Course</TimelineTitle>
+                    </TimelineHeader>
+                    <TimelineContent>Enrolled in GATE CS Booster.</TimelineContent>
+                  </TimelineItem>
+                  <TimelineItem step={3}>
+                    <TimelineIndicator />
+                    <TimelineHeader>
+                      <TimelineDate>Last Month</TimelineDate>
+                      <TimelineTitle>Record Created</TimelineTitle>
+                    </TimelineHeader>
+                    <TimelineContent>Imported from CSV.</TimelineContent>
+                  </TimelineItem>
+                </Timeline>
+              </TabsContent>
+            </Tabs>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
+

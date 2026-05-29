@@ -23,6 +23,7 @@ import {
   RefreshCcw,
   Eye,
   FileText,
+  FileSpreadsheet,
 } from "lucide-react"
 import { GoogleSheets2026 } from "@thesvg/react"
 import { PageHeader } from "@/components/page-header"
@@ -347,7 +348,7 @@ export default function SheetsManagementPage() {
       >
         <TabsList>
           <TabsTrigger value="connections" className="gap-2">
-            <GoogleSheets2026 className="h-4 w-4" />
+            <FileSpreadsheet className="h-4 w-4" />
             Connected Sheets
           </TabsTrigger>
           <TabsTrigger value="integrations" className="gap-2">

@@ -39,12 +39,25 @@ export async function POST(request: Request) {
       }
     } else if (googleUrl) {
       const match = googleUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
-      if (!match) {
-        return NextResponse.json({ error: "Invalid Google Sheets URL." }, { status: 400 });
+      if (match) {
+        const spreadsheetId = match[1];
+        const result = await fetchRawGoogleSheetsData(spreadsheetId);
+        parsedData = result.data;
+      } else {
+        const response = await fetch(googleUrl);
+        if (!response.ok) {
+           return NextResponse.json({ error: "Failed to fetch data from the provided URL." }, { status: 400 });
+        }
+        const buffer = await response.arrayBuffer();
+        try {
+          const workbook = xlsx.read(buffer, { type: "buffer" });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          parsedData = xlsx.utils.sheet_to_json(worksheet);
+        } catch (e) {
+           return NextResponse.json({ error: "Provided link is not a valid Google Sheet or Excel/CSV file." }, { status: 400 });
+        }
       }
-      const spreadsheetId = match[1];
-      const result = await fetchRawGoogleSheetsData(spreadsheetId);
-      parsedData = result.data;
     } else {
       return NextResponse.json({ error: "No file or Google Sheets URL provided." }, { status: 400 });
     }
@@ -61,7 +74,7 @@ export async function POST(request: Request) {
     for (let i = 0; i < parsedData.length; i++) {
       const item = parsedData[i];
       // Try to determine a unique ID
-      const id = String(item.ID || item.id || item.Id || `imported_row_${Date.now()}_${i}`);
+      const id = String(item["Student ID"] || item.ID || item.id || item.Id || `imported_row_${Date.now()}_${i}`);
       
       const existing = await SheetRow.findOne({ rowId: id, sheetId: sheetIdForImport });
       if (!existing) {

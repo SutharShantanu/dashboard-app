@@ -17,6 +17,7 @@ import {
   Globe,
   Settings2,
   Search,
+  FileSpreadsheet,
 } from "lucide-react"
 import { GoogleSheets2026 } from "@thesvg/react"
 import {
@@ -149,6 +150,7 @@ export function AppSidebar({
   const allNavItems = React.useMemo(() => {
     const items: { title: string; url: string; icon?: any }[] = [
       { title: "Dashboard Home", url: "/dashboard", icon: LayoutDashboard },
+      { title: "Students Directory", url: "/students", icon: GraduationCap },
     ]
 
     connectedSheets.forEach((s) => {
@@ -164,7 +166,7 @@ export function AppSidebar({
         {
           title: "Manage Sheets",
           url: "/sheets?tab=connections",
-          icon: GoogleSheets2026,
+          icon: FileSpreadsheet,
         },
         {
           title: "Integrations",
@@ -462,6 +464,19 @@ export function AppSidebar({
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === "/students"}
+                    tooltip="Students Directory"
+                  >
+                    <Link href="/students">
+                      <GraduationCap className="h-4 w-4" />
+                      <span>Students Directory</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+
                 {user.role === "admin" && (
                   <>
                     <SidebarMenuItem>
@@ -474,7 +489,7 @@ export function AppSidebar({
                         tooltip="Manage Sheets"
                       >
                         <Link href="/sheets?tab=connections">
-                          <GoogleSheets2026 className="h-4 w-4" />
+                          <FileSpreadsheet className="h-4 w-4" />
                           <span>Manage Sheets</span>
                         </Link>
                       </SidebarMenuButton>
