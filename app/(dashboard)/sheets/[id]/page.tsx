@@ -5,18 +5,11 @@ import { useParams, useRouter } from "next/navigation"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import {
-  Database,
-  Search,
-  ArrowUpDown,
   ChevronDown,
   Filter,
-  Download,
   Share2,
-  MoreHorizontal,
   AlertCircle,
   Users,
-  CheckCircle2,
-  Clock,
   RefreshCw,
   Copy,
   Scissors,
@@ -31,6 +24,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { BadgeDot } from "@/components/ui/badge-dot"
 import { ExportDropdown } from "@/components/export-dropdown"
+import { EmptyState } from "@/components/empty-state"
 import { DataTable } from "@/components/ui/data-table"
 import {
   InputGroup,
@@ -38,14 +32,6 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group"
 import type { ColumnDef } from "@tanstack/react-table"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,7 +73,12 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { PageHeader } from "@/components/page-header"
-import { Avatar, AvatarFallback, AvatarGroup, AvatarImage } from "@/components/ui/avatar"
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarGroup,
+  AvatarImage,
+} from "@/components/ui/avatar"
 import { getAvatarUrl } from "@/lib/utils"
 import {
   Tooltip,
@@ -171,7 +162,9 @@ export default function SheetDetailPage() {
     queryKey: ["cellHistory", historyCell?.rowId, historyCell?.col],
     queryFn: async () => {
       if (!historyCell) return null
-      const res = await fetch(`/api/students/history?rowId=${historyCell.rowId}&column=${historyCell.col}&spreadsheetId=${id}`)
+      const res = await fetch(
+        `/api/students/history?rowId=${historyCell.rowId}&column=${historyCell.col}&spreadsheetId=${id}`
+      )
       if (!res.ok) throw new Error("Failed to fetch history")
       return res.json()
     },
@@ -196,13 +189,18 @@ export default function SheetDetailPage() {
       const res = await fetch("/api/students", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: studentId, column: col, value, spreadsheetId: id }),
+        body: JSON.stringify({
+          id: studentId,
+          column: col,
+          value,
+          spreadsheetId: id,
+        }),
       })
       if (!res.ok) throw new Error("Failed to save data")
-      
+
       setSavingCell({ rowId: studentId, col, status: "success" })
       queryClient.invalidateQueries({ queryKey: ["sheetData", id] })
-      
+
       // Wait for success micro-animation before closing
       await new Promise((resolve) => setTimeout(resolve, 800))
       setEditingCell(null)
@@ -210,7 +208,7 @@ export default function SheetDetailPage() {
     } catch (err) {
       console.error("Failed to save data:", err)
       setSavingCell({ rowId: studentId, col, status: "error" })
-      
+
       // Wait to display error before letting them retry
       await new Promise((resolve) => setTimeout(resolve, 1500))
       setSavingCell(null)
@@ -258,7 +256,7 @@ export default function SheetDetailPage() {
         color: isActive
           ? "bg-green-500"
           : "bg-gray-300 dark:bg-gray-700 text-muted-foreground",
-        avatar: getAvatarUrl(u.username, u.role),
+        avatar: getAvatarUrl(u.username, u.role, u.gender),
         isActive,
         role: u.role,
       }
@@ -282,7 +280,11 @@ export default function SheetDetailPage() {
             .substring(0, 2)
             .toUpperCase(),
           color: "bg-green-500", // Current user is active
-          avatar: getAvatarUrl(currentUsername, (session.user as any).role),
+          avatar: getAvatarUrl(
+            currentUsername,
+            (session.user as any).role,
+            (session.user as any).gender
+          ),
           isActive: true,
           role: (session.user as any).role,
         })
@@ -298,7 +300,8 @@ export default function SheetDetailPage() {
           renderedUsers[userIndex].color = "bg-green-500"
           renderedUsers[userIndex].avatar = getAvatarUrl(
             currentUsername,
-            (session.user as any).role
+            (session.user as any).role,
+            (session.user as any).gender
           )
         }
       }
@@ -360,16 +363,27 @@ export default function SheetDetailPage() {
                   className="group relative w-full"
                   style={{ minWidth: minWidthCh }}
                 >
-                  {editingCell?.rowId === studentId && editingCell?.col === colName ? (
-                    <InputGroup className={`h-8 w-full ${userColor} focus-within:ring-1 focus-within:ring-primary focus-within:border-primary`}>
+                  {editingCell?.rowId === studentId &&
+                  editingCell?.col === colName ? (
+                    <InputGroup
+                      className={`h-8 w-full ${userColor} focus-within:border-primary focus-within:ring-1 focus-within:ring-primary`}
+                    >
                       <InputGroupInput
                         autoFocus
                         value={editValue}
                         onChange={(e) => setEditValue(e.target.value)}
                         style={{ minWidth: minWidthCh }}
-                        disabled={savingCell?.rowId === studentId && savingCell?.col === colName && savingCell.status === "saving"}
+                        disabled={
+                          savingCell?.rowId === studentId &&
+                          savingCell?.col === colName &&
+                          savingCell.status === "saving"
+                        }
                         onBlur={() => {
-                          if (savingCell?.rowId === studentId && savingCell?.col === colName) return
+                          if (
+                            savingCell?.rowId === studentId &&
+                            savingCell?.col === colName
+                          )
+                            return
                           if (!isLocked && editValue !== value) {
                             handleSave(studentId, colName, editValue)
                           } else {
@@ -378,31 +392,43 @@ export default function SheetDetailPage() {
                         }}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
-                            if (savingCell?.rowId === studentId && savingCell?.col === colName) return
+                            if (
+                              savingCell?.rowId === studentId &&
+                              savingCell?.col === colName
+                            )
+                              return
                             if (!isLocked && editValue !== value) {
                               handleSave(studentId, colName, editValue)
                             } else {
                               setEditingCell(null)
                             }
                           } else if (e.key === "Escape") {
-                            if (savingCell?.rowId === studentId && savingCell?.col === colName) return
+                            if (
+                              savingCell?.rowId === studentId &&
+                              savingCell?.col === colName
+                            )
+                              return
                             setEditingCell(null)
                           }
                         }}
                       />
-                      {savingCell?.rowId === studentId && savingCell?.col === colName && (
-                        <InputGroupAddon align="inline-end" className="pr-1.5 flex items-center">
-                          {savingCell.status === "saving" && (
-                            <Spinner className="h-3 w-3 text-muted-foreground" />
-                          )}
-                          {savingCell.status === "success" && (
-                            <Check className="h-3.5 w-3.5 text-success animate-bounce" />
-                          )}
-                          {savingCell.status === "error" && (
-                            <X className="h-3.5 w-3.5 text-destructive" />
-                          )}
-                        </InputGroupAddon>
-                      )}
+                      {savingCell?.rowId === studentId &&
+                        savingCell?.col === colName && (
+                          <InputGroupAddon
+                            align="inline-end"
+                            className="flex items-center pr-1.5"
+                          >
+                            {savingCell.status === "saving" && (
+                              <Spinner className="h-3 w-3 text-muted-foreground" />
+                            )}
+                            {savingCell.status === "success" && (
+                              <Check className="h-3.5 w-3.5 animate-bounce text-success" />
+                            )}
+                            {savingCell.status === "error" && (
+                              <X className="h-3.5 w-3.5 text-destructive" />
+                            )}
+                          </InputGroupAddon>
+                        )}
                     </InputGroup>
                   ) : (
                     <>
@@ -421,7 +447,7 @@ export default function SheetDetailPage() {
                         className={`h-8 w-full border-transparent bg-transparent transition-colors hover:border-input focus:border-transparent focus:bg-background ${userColor} ${isLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
                       />
                       {isLocked && (
-                        <div className="absolute top-1/2 right-2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100 pointer-events-none">
+                        <div className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100">
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -445,7 +471,7 @@ export default function SheetDetailPage() {
                   }}
                   disabled={!value}
                 >
-                  <Copy className="mr-2 h-4 w-4" />
+                  <Copy className="h-4 w-4" />
                   Copy
                   <ContextMenuShortcut>⌘C</ContextMenuShortcut>
                 </ContextMenuItem>
@@ -458,7 +484,7 @@ export default function SheetDetailPage() {
                   }}
                   disabled={!value || isLocked}
                 >
-                  <Scissors className="mr-2 h-4 w-4" />
+                  <Scissors className="h-4 w-4" />
                   Cut
                   <ContextMenuShortcut>⌘X</ContextMenuShortcut>
                 </ContextMenuItem>
@@ -475,7 +501,7 @@ export default function SheetDetailPage() {
                   }}
                   disabled={isLocked}
                 >
-                  <Clipboard className="mr-2 h-4 w-4" />
+                  <Clipboard className="h-4 w-4" />
                   Paste
                   <ContextMenuShortcut>⌘V</ContextMenuShortcut>
                 </ContextMenuItem>
@@ -485,17 +511,24 @@ export default function SheetDetailPage() {
                       handleSave(studentId, colName, "")
                     }
                   }}
+                  variant="destructive"
                   disabled={isLocked || !value}
                 >
-                  <Trash2 className="mr-2 h-4 w-4" />
+                  <Trash2 className="h-4 w-4" />
                   Clear
                   <ContextMenuShortcut>⌫</ContextMenuShortcut>
                 </ContextMenuItem>
                 <ContextMenuSeparator />
                 <ContextMenuItem
-                  onClick={() => setHistoryCell({ rowId: studentId, col: colName, value: String(value || "") })}
+                  onClick={() =>
+                    setHistoryCell({
+                      rowId: studentId,
+                      col: colName,
+                      value: String(value || ""),
+                    })
+                  }
                 >
-                  <History className="mr-2 h-4 w-4" />
+                  <History className="h-4 w-4" />
                   Show edit history
                 </ContextMenuItem>
               </ContextMenuContent>
@@ -615,7 +648,7 @@ export default function SheetDetailPage() {
                     </AvatarFallback>
                   </Avatar>
                 </TooltipTrigger>
-                <TooltipContent className="flex flex-col gap-0 items-start">
+                <TooltipContent className="flex flex-col items-start gap-0">
                   <p className="text-xs font-semibold">{user.name}</p>
                   <p className="text-tiny p-0 text-muted-foreground capitalize">
                     {user.role}
@@ -647,66 +680,86 @@ export default function SheetDetailPage() {
                 </CardDescription>
               </div>
 
-              <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
-                {/* FILTERS */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="gap-2">
-                      <Filter className="h-4 w-4" />
-                      Status
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-fit">
-                    <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => setStatusFilter(null)}>
-                      All Statuses
-                    </DropdownMenuItem>
-                    {uniqueStatuses.map((status) => (
-                      <DropdownMenuItem
-                        key={status}
-                        onClick={() => setStatusFilter(status)}
-                      >
-                        {status}
+              {data.length > 0 && (
+                <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
+                  {/* FILTERS */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="gap-2">
+                        <Filter className="h-4 w-4" />
+                        Status
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-fit">
+                      <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => setStatusFilter(null)}>
+                        All Statuses
                       </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      {uniqueStatuses.map((status) => (
+                        <DropdownMenuItem
+                          key={status}
+                          onClick={() => setStatusFilter(status)}
+                        >
+                          {status}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
 
-                {/* ACTIONS */}
-                <ExportDropdown
-                  data={filteredAndSortedData}
-                  filename={sheetTitle}
-                />
-                <Button variant="outline" onClick={handleShare}>
-                  <Share2 className="h-4 w-4" />
-                  Share
-                </Button>
-              </div>
+                  {/* ACTIONS */}
+                  <ExportDropdown
+                    data={filteredAndSortedData}
+                    filename={sheetTitle}
+                  />
+                  <Button variant="outline" onClick={handleShare}>
+                    <Share2 className="h-4 w-4" />
+                    Share
+                  </Button>
+                </div>
+              )}
             </div>
           </CardHeader>
           <CardContent className="w-full max-w-full">
-            <DataTable columns={tableColumns} data={filteredAndSortedData} />
+            {filteredAndSortedData.length > 0 ? (
+              <div className="overflow-auto border rounded-md">
+                <DataTable columns={tableColumns} data={filteredAndSortedData} />
+              </div>
+            ) : (
+              <EmptyState
+                title="No results."
+                description={
+                  data.length === 0
+                    ? "This sheet is currently empty."
+                    : "No records match your current filters."
+                }
+                useIllustration={true}
+                className="rounded-lg border border-dashed"
+              />
+            )}
           </CardContent>
         </Card>
       </div>
 
-      <Sheet open={!!historyCell} onOpenChange={(open) => !open && setHistoryCell(null)}>
-        <SheetContent className="sm:max-w-[425px] overflow-y-auto">
+      <Sheet
+        open={!!historyCell}
+        onOpenChange={(open) => !open && setHistoryCell(null)}
+      >
+        <SheetContent className="overflow-y-auto sm:max-w-[425px]">
           <SheetHeader>
             <SheetTitle>Edit History</SheetTitle>
             <SheetDescription>
               Changes made to {historyCell?.col}
             </SheetDescription>
           </SheetHeader>
-          <div className="flex flex-col gap-4 py-6 px-2">
+          <div className="flex flex-col gap-4 px-2 py-6">
             {isHistoryLoading ? (
               <div className="flex items-center justify-center p-4">
                 <Spinner className="h-6 w-6 text-primary" />
               </div>
             ) : cellHistory?.logs?.length === 0 ? (
-              <div className="text-center text-sm text-muted-foreground p-4">
+              <div className="p-4 text-center text-sm text-muted-foreground">
                 No edit history found for this cell.
               </div>
             ) : (
@@ -716,11 +769,20 @@ export default function SheetDetailPage() {
                     <TimelineIndicator />
                     <TimelineSeparator />
                     <TimelineHeader>
-                      <TimelineDate>{new Date(log.timestamp).toLocaleString()}</TimelineDate>
+                      <TimelineDate>
+                        {new Date(log.timestamp).toLocaleString()}
+                      </TimelineDate>
                       <TimelineTitle>{log.actorDisplayName}</TimelineTitle>
                     </TimelineHeader>
                     <TimelineContent>
-                      Changed from <span className="font-semibold line-through decoration-destructive/50">{log.oldValue || '""'}</span> to <span className="font-semibold text-green-600 dark:text-green-400">{log.newValue || '""'}</span>
+                      Changed from{" "}
+                      <span className="font-semibold line-through decoration-destructive/50">
+                        {log.oldValue || '""'}
+                      </span>{" "}
+                      to{" "}
+                      <span className="font-semibold text-green-600 dark:text-green-400">
+                        {log.newValue || '""'}
+                      </span>
                     </TimelineContent>
                   </TimelineItem>
                 ))}
@@ -732,4 +794,3 @@ export default function SheetDetailPage() {
     </div>
   )
 }
-

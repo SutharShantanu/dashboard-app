@@ -1,13 +1,12 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSession, signIn } from "next-auth/react"
+import { useSession } from "next-auth/react"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { PasswordInput } from "@/components/ui/password-input"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -56,20 +55,20 @@ import { z } from "zod"
 import {
   Field,
   FieldLabel,
-  FieldDescription,
   FieldError,
   FieldGroup,
   FieldSet,
 } from "@/components/ui/field"
 import {
-  PasswordStrength,
-  isStrongPassword,
-} from "@/components/password-strength"
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group"
+import { isStrongPassword } from "@/components/password-strength"
 import { Spinner } from "@/components/ui/spinner"
 import { LogsDataTable } from "@/components/logs-data-table"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getAvatarUrl } from "@/lib/utils"
-import Image from "next/image"
 import { GoogleConnectionCard } from "@/components/google-connection-card"
 
 const updateProfileSchema = z.object({
@@ -134,7 +133,7 @@ export default function SettingsPage() {
     control: profileControl,
     handleSubmit: handleProfileSubmit,
     reset: resetProfile,
-    formState: { errors: profileErrors, isSubmitting: isProfileSubmitting },
+    formState: { errors: profileErrors, isSubmitting: isProfileSubmitting, isDirty: isProfileDirty },
   } = useForm<z.infer<typeof updateProfileSchema>>({
     resolver: zodResolver(updateProfileSchema),
     defaultValues: {
@@ -289,7 +288,23 @@ export default function SettingsPage() {
           )}
         </TabsList>
 
-        <TabsContent value="profile">
+        <TabsContent value="profile" className="space-y-4">
+          {!isGoogleUser && (
+            <Alert variant="warning">
+              <AlertCircle />
+              <AlertTitle>Verify your identity</AlertTitle>
+              <AlertDescription>
+                Your account is not linked to Google. Please ensure your email
+                is correct for important updates.
+                <Button
+                  variant="link"
+                  className="ml-1 h-auto p-0 font-bold text-warning hover:text-warning-foreground"
+                >
+                  Verify Email
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <div className="space-y-1.5">
@@ -304,7 +319,7 @@ export default function SettingsPage() {
                     <Button
                       type="submit"
                       form="profileForm"
-                      disabled={isProfileSubmitting}
+                      disabled={isProfileSubmitting || !isProfileDirty}
                       size="sm"
                     >
                       {isProfileSubmitting && <Spinner className="h-4 w-4" />}
@@ -329,7 +344,10 @@ export default function SettingsPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setIsEditingProfile(true)}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      setIsEditingProfile(true)
+                    }}
                   >
                     <Pencil className="h-4 w-4" />
                     Edit Profile
@@ -343,7 +361,11 @@ export default function SettingsPage() {
                   <AvatarImage
                     src={
                       user?.image ||
-                      getAvatarUrl(user?.username || user?.name, user?.role, user?.gender)
+                      getAvatarUrl(
+                        user?.username || user?.name,
+                        user?.role,
+                        user?.gender
+                      )
                     }
                     alt={user?.name || "User Avatar"}
                     className="object-cover"
@@ -356,12 +378,21 @@ export default function SettingsPage() {
                   <h3 className="text-xl font-semibold">{user?.name}</h3>
                   <p className="text-sm text-muted-foreground">{user?.email}</p>
                   <div className="flex gap-2 pt-1">
-                    <Badge variant="secondary" className="capitalize">
+                    <Badge variant="destructive-light" className="capitalize">
                       {user?.role || "User"}
                     </Badge>
-                    <Badge variant="outline" className="capitalize flex items-center gap-1">
-                      <UserIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                      Gender: {user?.gender || "Male"}
+                    <Badge
+                      variant="info-light"
+                      className="flex items-center capitalize"
+                    >
+                      {(user?.gender || "male").toLowerCase() === "female" ? (
+                        <Venus className="h-3.5 w-3.5 text-info-foreground" />
+                      ) : (user?.gender || "male").toLowerCase() === "male" ? (
+                        <Mars className="h-3.5 w-3.5 text-info-foreground" />
+                      ) : (
+                        <Blend className="h-3.5 w-3.5 text-info-foreground" />
+                      )}
+                      {user?.gender || "Male"}
                     </Badge>
                     {isGoogleUser ? (
                       <Badge variant="success-light">
@@ -373,8 +404,16 @@ export default function SettingsPage() {
                       </Badge>
                     )}
                     {user?.role === "admin" && (
-                      <Badge variant="secondary">
-                        <Database className="h-3.5 w-3.5 text-muted-foreground" />
+                      <Badge
+                        variant={
+                          !dbMode
+                            ? "secondary"
+                            : dbMode.toLowerCase().includes("connected")
+                              ? "success-light"
+                              : "destructive-light"
+                        }
+                      >
+                        <Database className="h-3.5 w-3.5" />
                         {dbMode || "Checking..."}
                       </Badge>
                     )}
@@ -382,34 +421,15 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {!isGoogleUser && (
-                <Alert className="border-warning/20 bg-warning/10 text-warning-foreground">
-                  <AlertCircle className="h-4 w-4 text-warning" />
-                  <AlertTitle className="font-semibold text-warning-foreground">
-                    Verify your identity
-                  </AlertTitle>
-                  <AlertDescription className="text-warning-foreground/90">
-                    Your account is not linked to Google. Please ensure your
-                    email is correct for important updates.
-                    <Button
-                      variant="link"
-                      className="ml-1 h-auto p-0 font-bold text-warning hover:text-warning-foreground"
-                    >
-                      Verify Email
-                    </Button>
-                  </AlertDescription>
-                </Alert>
-              )}
-
               <div className="border-t pt-6">
                 <form
                   id="profileForm"
                   onSubmit={handleProfileSubmit(onProfileSubmit)}
-                  className="max-w-md space-y-4"
+                  className="max-w-lg space-y-4"
                   noValidate
                 >
                   <h4 className="text-sm font-semibold tracking-wider text-muted-foreground uppercase">
-                    Update Profile
+                    Account Details
                   </h4>
                   <FieldSet>
                     <FieldGroup className="flex flex-row items-center gap-2">
@@ -421,16 +441,21 @@ export default function SettingsPage() {
                             <FieldLabel htmlFor="displayName">
                               Display Name
                             </FieldLabel>
-                            <Input
-                              id="displayName"
-                              type="text"
-                              placeholder="Enter display name"
-                              {...field}
-                              readOnly={!isEditingProfile}
-                              className={
-                                !isEditingProfile ? "cursor-not-allowed" : ""
-                              }
-                            />
+                            <InputGroup>
+                              <InputGroupAddon align="inline-start">
+                                <UserIcon className="h-4 w-4 text-muted-foreground" />
+                              </InputGroupAddon>
+                              <InputGroupInput
+                                id="displayName"
+                                type="text"
+                                placeholder="Enter display name"
+                                {...field}
+                                readOnly={!isEditingProfile}
+                                className={
+                                  !isEditingProfile ? "cursor-not-allowed px-1" : "px-1"
+                                }
+                              />
+                            </InputGroup>
                             {isEditingProfile && (
                               <FieldError
                                 errors={[profileErrors.displayName]}
@@ -444,43 +469,50 @@ export default function SettingsPage() {
                         name="gender"
                         render={({ field }) => (
                           <Field data-invalid={!!profileErrors.gender}>
-                            <FieldLabel htmlFor="gender" className="flex items-center gap-1">
-                              <UserIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                              Gender
-                            </FieldLabel>
-                            <Select
-                              value={field.value}
-                              onValueChange={field.onChange}
-                              disabled={!isEditingProfile}
-                            >
-                              <SelectTrigger id="gender" className={!isEditingProfile ? "cursor-not-allowed" : ""}>
-                                <SelectValue placeholder="Select Gender" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="male">
-                                  <span className="flex items-center gap-2">
+                            <FieldLabel htmlFor="gender">Gender</FieldLabel>
+                            {isEditingProfile ? (
+                              <Select
+                                value={field.value}
+                                onValueChange={field.onChange}
+                              >
+                                <SelectTrigger id="gender">
+                                  <SelectValue placeholder="Select Gender" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="male">
                                     <Mars className="h-3.5 w-3.5 shrink-0" />
                                     <span>Male</span>
-                                  </span>
-                                </SelectItem>
-                                <SelectItem value="female">
-                                  <span className="flex items-center gap-2">
+                                  </SelectItem>
+                                  <SelectItem value="female">
                                     <Venus className="h-3.5 w-3.5 shrink-0" />
                                     <span>Female</span>
-                                  </span>
-                                </SelectItem>
-                                <SelectItem value="other">
-                                  <span className="flex items-center gap-2">
+                                  </SelectItem>
+                                  <SelectItem value="other">
                                     <Blend className="h-3.5 w-3.5 shrink-0" />
                                     <span>Other</span>
-                                  </span>
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <InputGroup>
+                                <InputGroupAddon align="inline-start">
+                                  {(field.value || "").toLowerCase() === "female" ? (
+                                    <Venus className="h-4 w-4 text-muted-foreground" />
+                                  ) : (field.value || "").toLowerCase() === "male" ? (
+                                    <Mars className="h-4 w-4 text-muted-foreground" />
+                                  ) : (
+                                    <Blend className="h-4 w-4 text-muted-foreground" />
+                                  )}
+                                </InputGroupAddon>
+                                <InputGroupInput
+                                  readOnly
+                                  className="cursor-not-allowed px-1 capitalize"
+                                  value={field.value || "Male"}
+                                />
+                              </InputGroup>
+                            )}
                             {isEditingProfile && (
-                              <FieldError
-                                errors={[profileErrors.gender]}
-                              />
+                              <FieldError errors={[profileErrors.gender]} />
                             )}
                           </Field>
                         )}
@@ -664,10 +696,10 @@ export default function SettingsPage() {
                         id="newPassword"
                         placeholder="Enter new secure password"
                         {...field}
-                      />
-                      <PasswordStrength
-                        password={newPasswordValue || ""}
-                        className="mt-2"
+                        generatePassword={true}
+                        onGeneratePassword={(pw) => field.onChange(pw)}
+                        showStrengthIndicator={true}
+                        passwordValue={newPasswordValue || ""}
                       />
                       <FieldError errors={[passwordErrors.newPassword]} />
                     </Field>

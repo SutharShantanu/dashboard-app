@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react"
 import {
   Folder,
-  FileSpreadsheet,
   ChevronRight,
   ChevronLeft,
   ExternalLink,
@@ -11,6 +10,7 @@ import {
   AlertCircle,
   Plus,
 } from "lucide-react"
+import { GoogleSheets2026 } from "@thesvg/react"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
@@ -397,7 +397,7 @@ export function DriveBrowser({
                     {file.mimeType === "application/vnd.google-apps.folder" ? (
                       <Folder className="h-4 w-4 fill-blue-500/10 text-blue-500" />
                     ) : (
-                      <FileSpreadsheet className="h-4 w-4 fill-green-600/10 text-green-600" />
+                      <GoogleSheets2026 className="h-4 w-4" />
                     )}
                     <span className="max-w-[200px] truncate text-sm font-medium">
                       {file.name}

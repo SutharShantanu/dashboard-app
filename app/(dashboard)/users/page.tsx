@@ -34,6 +34,7 @@ import {
   Venus,
   Lock,
   Sheet,
+  ExternalLink,
 } from "lucide-react"
 
 import { ColumnDef } from "@tanstack/react-table"
@@ -61,11 +62,14 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Card,
+  CardHeader,
   CardTitle,
   CardDescription,
   CardContent,
+  CardFooter,
 } from "@/components/ui/card"
 import {
   Dialog,
@@ -75,13 +79,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Empty,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty"
+import { EmptyState } from "@/components/empty-state"
 import { PageHeader } from "@/components/page-header"
+import { PasswordInput } from "@/components/ui/password-input"
 import { PermissionSelector } from "@/components/permission-selector"
 import {
   PasswordStrength,
@@ -109,7 +109,6 @@ import {
   ItemTitle,
   ItemDescription,
 } from "@/components/ui/item"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { getAvatarUrl } from "@/lib/utils"
 import { CopyButton } from "@/components/ui/copy-button"
@@ -141,28 +140,6 @@ interface UserFormValues {
   gender: string
 }
 
-function generateSecurePassword(): string {
-  const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-  const lowercase = "abcdefghijklmnopqrstuvwxyz"
-  const numbers = "0123456789"
-  const specials = "!@#$%^&*()_+~`|}{[]:;?><,./-="
-
-  let password = ""
-  password += uppercase[Math.floor(Math.random() * uppercase.length)]
-  password += lowercase[Math.floor(Math.random() * lowercase.length)]
-  password += numbers[Math.floor(Math.random() * numbers.length)]
-  password += specials[Math.floor(Math.random() * specials.length)]
-
-  const allChars = uppercase + lowercase + numbers + specials
-  for (let i = 0; i < 12; i++) {
-    password += allChars[Math.floor(Math.random() * allChars.length)]
-  }
-
-  return password
-    .split("")
-    .sort(() => 0.5 - Math.random())
-    .join("")
-}
 
 function UsersDirectoryContent() {
   const {
@@ -188,7 +165,7 @@ function UsersDirectoryContent() {
       searchParams.get("editUserDetails") === "open" ||
       searchParams.get("viewUserDetail") === "open"
   )
-  const [showPassword, setShowPassword] = useState<boolean>(false)
+
   const [isEditMode, setIsEditMode] = useState(
     () => searchParams.get("editUserDetails") === "open"
   )
@@ -848,65 +825,194 @@ function UsersDirectoryContent() {
           const presetName = presets.find(
             (p) => p.id === user.permissionPreset
           )?.name
-          const cols = isAllAccess
-            ? ["All Columns"]
-            : user.allowedColumns
-              ? user.allowedColumns.split(",").map((c) => c.trim()).filter(Boolean)
-              : []
+
+          let cols: string[] = []
+          if (isAllAccess) {
+            cols = ["All Columns"]
+          } else if (
+            user.perSheetPermissions &&
+            Object.keys(user.perSheetPermissions).length > 0
+          ) {
+            const allCols = new Set<string>()
+            let hasAnySheetAllAccess = false
+            Object.values(user.perSheetPermissions).forEach((sheetCols) => {
+              if (sheetCols.includes("*")) {
+                hasAnySheetAllAccess = true
+              } else {
+                sheetCols.forEach((c) => {
+                  if (c.trim()) allCols.add(c.trim())
+                })
+              }
+            })
+            cols = Array.from(allCols)
+            if (hasAnySheetAllAccess) {
+              cols.unshift("All Columns (Specific Sheets)")
+            }
+          } else if (user.allowedColumns) {
+            cols = user.allowedColumns
+              .split(",")
+              .map((c) => c.trim())
+              .filter(Boolean)
+          }
+
           const hasNoAccess = !isAllAccess && cols.length === 0
+
+          const badgeEl = (
+            <Badge
+              variant={
+                isAllAccess
+                  ? "success-light"
+                  : hasNoAccess
+                    ? "destructive-light"
+                    : "info-light"
+              }
+              className={hasNoAccess ? "font-mono" : "cursor-help font-mono"}
+            >
+              {isAllAccess
+                ? "All Access"
+                : hasNoAccess
+                  ? "No Access"
+                  : presetName
+                    ? presetName
+                    : `${cols.length} col${cols.length !== 1 ? "s" : ""}`}
+            </Badge>
+          )
+
+          if (hasNoAccess) {
+            return badgeEl
+          }
+
           return (
             <HoverCard openDelay={100} closeDelay={80}>
               <HoverCardTrigger asChild>
-                <Badge
-                  variant={hasNoAccess ? "destructive-light" : "outline"}
-                  className="text-tiny cursor-help font-mono"
-                >
-                  {isAllAccess
-                    ? "All Access"
-                    : hasNoAccess
-                      ? "No Access"
-                      : presetName
-                        ? presetName
-                        : `${cols.length} col${cols.length !== 1 ? "s" : ""}`}
-                </Badge>
+                {badgeEl}
               </HoverCardTrigger>
               <HoverCardContent
                 side="top"
                 align="start"
-                className="w-56 space-y-2 p-3"
+                className="w-fit max-w-xs p-0"
               >
-                {presetName && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
-                      Preset
-                    </span>
-                    <Badge variant="secondary" className="text-tiny">
-                      {presetName}
-                    </Badge>
-                  </div>
-                )}
-                <div>
-                  <span className="text-tiny font-bold tracking-widest text-muted-foreground uppercase">
-                    {isAllAccess ? "Access" : hasNoAccess ? "Status" : "Allowed Columns"}
-                  </span>
-                  <div className="mt-1.5 flex flex-wrap gap-1">
-                    {hasNoAccess ? (
-                      <span className="text-tiny text-muted-foreground italic">
-                        No columns assigned yet
-                      </span>
-                    ) : (
-                      cols.map((col) => (
-                        <Badge
-                          key={col}
-                          variant="outline"
-                          className="text-tiny font-mono"
-                        >
-                          {col}
+                <Card className="shadow-none border-0 ring-0">
+                  {/* Preset / Header Area */}
+                  <CardHeader className="border-b">
+                    <CardTitle className="flex w-full items-center justify-between">
+                      <span className="uppercase">Permissions</span>
+                      {presetName && (
+                        <Badge variant="primary-light" className="uppercase">
+                          {presetName}
                         </Badge>
-                      ))
+                      )}
+                    </CardTitle>
+                    <CardDescription className="text-xs uppercase">
+                      {isAllAccess
+                        ? "Global Access Level"
+                        : hasNoAccess
+                          ? "Access Status"
+                          : "Allowed Columns per Sheet"}
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent className="flex flex-col gap-2.5">
+                    <ScrollArea className="max-h-64">
+                      <div className="space-y-3">
+                        {hasNoAccess ? (
+                          <EmptyState
+                            title=""
+                            description={<span className="text-xs italic">No columns assigned yet</span>}
+                            className="border-0 p-4 py-6"
+                          />
+                        ) : isAllAccess ? (
+                          <Alert variant="info" className="py-2.5">
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant="primary-light"
+                                className="font-mono text-xs"
+                              >
+                                *
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                All Sheets & Columns (Full Administrator Access)
+                              </span>
+                            </div>
+                          </Alert>
+                        ) : user.perSheetPermissions &&
+                          Object.keys(user.perSheetPermissions).length > 0 ? (
+                          Object.entries(user.perSheetPermissions).map(
+                            ([sheetId, sheetCols]) => {
+                              const sheetTitle =
+                                sheetsWithColumns.find((s) => s.id === sheetId)
+                                  ?.title || "Unknown Sheet"
+                              const isSheetAll = sheetCols.includes("*")
+                              return (
+                                <div
+                                  key={sheetId}
+                                  className="group relative border bg-muted/30 p-2.5 transition-all hover:border-muted-foreground/20 hover:bg-muted/50"
+                                >
+                                  <div className="mb-2 flex items-center justify-between gap-2">
+                                    <div className="flex min-w-0 items-center gap-1.5">
+                                      <Sheet className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                      <span
+                                        className="truncate text-xs font-semibold text-foreground/80"
+                                        title={sheetTitle}
+                                      >
+                                        {sheetTitle}
+                                      </span>
+                                    </div>
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-tiny shrink-0 origin-right scale-90 font-mono"
+                                    >
+                                      {isSheetAll
+                                        ? "all"
+                                        : `${sheetCols.length} col${sheetCols.length !== 1 ? "s" : ""}`}
+                                    </Badge>
+                                  </div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {sheetCols.map((c) => (
+                                      <Badge
+                                        key={c}
+                                        variant="outline"
+                                        className="text-tiny font-mono"
+                                      >
+                                        {c === "*" ? "All Columns" : c}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              )
+                            }
+                          )
+                        ) : (
+                          <div className="flex flex-wrap gap-1 rounded-lg border border-border bg-muted/40 p-2">
+                            {cols.map((col) => (
+                              <Badge
+                                key={col}
+                                variant="secondary"
+                                className="text-tiny border font-mono"
+                              >
+                                {col}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </CardContent>
+
+                  <CardFooter>
+                    {!isAllAccess && !hasNoAccess && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewUser(user)}
+                        className="w-full"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        View Details
+                      </Button>
                     )}
-                  </div>
-                </div>
+                  </CardFooter>
+                </Card>
               </HoverCardContent>
             </HoverCard>
           )
@@ -927,7 +1033,7 @@ function UsersDirectoryContent() {
                 ? "success-light"
                 : "destructive-light"
             }
-            className="text-xs font-bold tracking-wider uppercase"
+            className="text-xs tracking-wider uppercase"
           >
             {row.original.isActive === "TRUE" ? "Active" : "Suspended"}
           </Badge>
@@ -1034,6 +1140,7 @@ function UsersDirectoryContent() {
       currentUsername,
       currentUserRole,
       presets,
+      sheetsWithColumns,
     ]
   )
 
@@ -1117,16 +1224,12 @@ function UsersDirectoryContent() {
             </div>
           ) : filteredUsers.length === 0 ? (
             <div className="py-20">
-              <Empty className="mx-auto max-w-md p-12">
-                <EmptyMedia variant="icon" className="mb-4 size-12">
-                  <Users className="size-6 text-muted-foreground" />
-                </EmptyMedia>
-                <EmptyHeader>
-                  <EmptyTitle className="text-lg font-bold">
-                    No accounts found
-                  </EmptyTitle>
-                </EmptyHeader>
-              </Empty>
+              <EmptyState
+                title="No accounts found"
+                description={null}
+                icon={<Users className="size-6 text-muted-foreground" />}
+                className="mx-auto max-w-md p-12"
+              />
             </div>
           ) : (
             <>
@@ -1352,7 +1455,8 @@ function UsersDirectoryContent() {
                                   sheet.id
                                 ] ?? [])
                           ).filter((col: string) => col && col.trim() !== "")
-                          const hasAccess = isAllAccess || grantedCols.length > 0
+                          const hasAccess =
+                            isAllAccess || grantedCols.length > 0
 
                           return (
                             <Item
@@ -1519,56 +1623,19 @@ function UsersDirectoryContent() {
                                 ? "New Password (Optional)"
                                 : "Login Password *"}
                             </FieldLabel>
-                            <InputGroup>
-                              <InputGroupAddon align="inline-start">
-                                <Lock className="size-4 text-muted-foreground" />
-                              </InputGroupAddon>
-                              <InputGroupInput
-                                {...field}
-                                type={showPassword ? "text" : "password"}
-                                placeholder={
-                                  isEditMode
-                                    ? "Leave blank to keep current"
-                                    : "Create secure password"
-                                }
-                              />
-                              <InputGroupAddon
-                                align="inline-end"
-                                className="flex items-center gap-1"
-                              >
-                                <InputGroupButton
-                                  size="icon-xs"
-                                  type="button"
-                                  onClick={() => {
-                                    const securePw = generateSecurePassword()
-                                    setValue("password", securePw)
-                                    setShowPassword(true)
-                                    navigator.clipboard.writeText(securePw)
-                                    toast.success(
-                                      "Secure password generated and copied to clipboard!"
-                                    )
-                                  }}
-                                  title="Generate Secure Password"
-                                >
-                                  <Sparkles className="size-4 text-primary" />
-                                </InputGroupButton>
-                                <InputGroupButton
-                                  size="icon-xs"
-                                  type="button"
-                                  onClick={() => setShowPassword(!showPassword)}
-                                >
-                                  {showPassword ? (
-                                    <EyeOff className="size-4" />
-                                  ) : (
-                                    <Eye className="size-4" />
-                                  )}
-                                </InputGroupButton>
-                              </InputGroupAddon>
-                            </InputGroup>
-
-                            <PasswordStrength
-                              password={watchedPassword || ""}
-                              className="mt-2"
+                            <PasswordInput
+                              {...field}
+                              placeholder={
+                                isEditMode
+                                  ? "Leave blank to keep current"
+                                  : "Create secure password"
+                              }
+                              generatePassword={true}
+                              onGeneratePassword={(pw) => {
+                                setValue("password", pw, { shouldValidate: true })
+                              }}
+                              showStrengthIndicator={true}
+                              passwordValue={watchedPassword || ""}
                             />
                             <FieldError errors={[errors.password]} />
                           </Field>
@@ -1633,19 +1700,19 @@ function UsersDirectoryContent() {
                             <SelectContent>
                               <SelectItem value="male">
                                 <span className="flex items-center gap-2">
-                                  <Mars className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                  <Mars className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                                   <span>Male</span>
                                 </span>
                               </SelectItem>
                               <SelectItem value="female">
                                 <span className="flex items-center gap-2">
-                                  <Venus className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                  <Venus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                                   <span>Female</span>
                                 </span>
                               </SelectItem>
                               <SelectItem value="other">
                                 <span className="flex items-center gap-2">
-                                  <Blend className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                  <Blend className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                                   <span>Other</span>
                                 </span>
                               </SelectItem>
@@ -1731,7 +1798,7 @@ function UsersDirectoryContent() {
 
                         {/* Save Preset Name (Optional) */}
                         {!isViewMode && (
-                          <Field className="col-span-1">
+                          <Field className="col-span-3">
                             <FieldLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
                               Save as Preset Name (Optional)
                             </FieldLabel>
@@ -1907,61 +1974,16 @@ function UsersDirectoryContent() {
                           <FieldLabel className="text-tiny font-bold tracking-wider text-muted-foreground uppercase">
                             New Secure Password *
                           </FieldLabel>
-                          <InputGroup>
-                            <InputGroupInput
-                              {...field}
-                              type={
-                                resetPasswordForm.watch("showPassword")
-                                  ? "text"
-                                  : "password"
-                              }
-                              placeholder="Enter new secure password"
-                              autoComplete="new-password"
-                            />
-                            <InputGroupAddon
-                              align="inline-end"
-                              className="flex items-center gap-1"
-                            >
-                              <InputGroupButton
-                                size="icon-xs"
-                                type="button"
-                                title="Generate Secure Password"
-                                onClick={() => {
-                                  const pw = generateSecurePassword()
-                                  field.onChange(pw)
-                                  resetPasswordForm.setValue(
-                                    "showPassword",
-                                    true
-                                  )
-                                  navigator.clipboard.writeText(pw)
-                                  toast.success(
-                                    "Secure password generated & copied!"
-                                  )
-                                }}
-                              >
-                                <Sparkles className="size-4 text-primary" />
-                              </InputGroupButton>
-                              <InputGroupButton
-                                size="icon-xs"
-                                type="button"
-                                onClick={() =>
-                                  resetPasswordForm.setValue(
-                                    "showPassword",
-                                    !resetPasswordForm.watch("showPassword")
-                                  )
-                                }
-                              >
-                                {resetPasswordForm.watch("showPassword") ? (
-                                  <EyeOff className="size-4" />
-                                ) : (
-                                  <Eye className="size-4" />
-                                )}
-                              </InputGroupButton>
-                            </InputGroupAddon>
-                          </InputGroup>
-                          <PasswordStrength
-                            password={field.value || ""}
-                            className="mt-2"
+                          <PasswordInput
+                            {...field}
+                            placeholder="Enter new secure password"
+                            autoComplete="new-password"
+                            generatePassword={true}
+                            onGeneratePassword={(pw) => {
+                              field.onChange(pw)
+                            }}
+                            showStrengthIndicator={true}
+                            passwordValue={field.value || ""}
                           />
                           <FieldError
                             errors={[

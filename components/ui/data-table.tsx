@@ -674,7 +674,7 @@ function getColumnFilterIcon(columnId: string) {
 
   const getCellClass = (columnId: string) => {
     if (columnId === "timestamp" || columnId === "__index") {
-      return "border-r last:border-r-0 whitespace-nowrap text-xs text-muted-foreground/80"
+      return "border-r last:border-r-0 whitespace-nowrap text-xs align-middle font-mono"
     }
     if (
       columnId === "user" ||
@@ -682,10 +682,10 @@ function getColumnFilterIcon(columnId: string) {
       columnId === "email" ||
       columnId === "action"
     ) {
-      return "border-r last:border-r-0 whitespace-nowrap align-middle"
+      return "border-r last:border-r-0 whitespace-nowrap align-middle font-mono"
     }
     return cn(
-      "border-r last:border-r-0 align-top max-w-[450px]",
+      "border-r last:border-r-0 align-middle max-w-[450px] font-mono",
       allowWrap ? "whitespace-normal break-words text-wrap" : "whitespace-nowrap"
     )
   }

@@ -312,14 +312,19 @@ const DEFAULT_COLUMNS = ["ID", "Name", "Email", "Phone", "Course", "Batch", "Sta
 export async function getStudents(sheetName: string = "Students", spreadsheetId?: string): Promise<{ data: Student[], columns: string[] }> {
   await connectToDatabase();
   const targetSheetId = spreadsheetId || "default";
-  let rows = await SheetRow.find({ sheetId: targetSheetId });
   
-  if (rows.length === 0 && spreadsheetId) {
-    try {
-      await syncSheetData(spreadsheetId);
-      rows = await SheetRow.find({ sheetId: targetSheetId });
-    } catch (e) {
-      console.error("Failed to sync on load:", e);
+  let rows;
+  if (targetSheetId === "all") {
+    rows = await SheetRow.find({});
+  } else {
+    rows = await SheetRow.find({ sheetId: targetSheetId });
+    if (rows.length === 0 && spreadsheetId && spreadsheetId !== "default") {
+      try {
+        await syncSheetData(spreadsheetId);
+        rows = await SheetRow.find({ sheetId: targetSheetId });
+      } catch (e) {
+        console.error("Failed to sync on load:", e);
+      }
     }
   }
   

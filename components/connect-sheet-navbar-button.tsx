@@ -3,7 +3,8 @@
 import React, { useState } from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { Plus, X, Link as LinkIcon, Database, AlertCircle } from "lucide-react"
+import { Plus, X, Link as LinkIcon, AlertCircle } from "lucide-react"
+import { GoogleSheets2026 } from "@thesvg/react"
 import {
   Dialog,
   DialogContent,
@@ -237,7 +238,7 @@ export function ConnectSheetNavbarButton({ isAdmin }: { isAdmin: boolean }) {
                 Via URL
               </TabsTrigger>
               <TabsTrigger value="drive">
-                <Database className="h-3.5 w-3.5" />
+                <GoogleSheets2026 className="h-3.5 w-3.5" />
                 Browse Drive
               </TabsTrigger>
             </TabsList>

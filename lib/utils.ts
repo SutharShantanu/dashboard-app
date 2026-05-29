@@ -45,3 +45,23 @@ export function getAvatarUrl(username: string, role?: string, gender?: string): 
   return `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(seed)}&backgroundColor=${bg}&radius=50`;
 }
 
+
+export function generateSecurePassword(): string {
+  const uppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  const lowercase = "abcdefghijklmnopqrstuvwxyz"
+  const numbers = "0123456789"
+  const specials = "!@#$%^&*()_+~`|}{[]:;?><,./-="
+
+  let password = ""
+  password += uppercase[Math.floor(Math.random() * uppercase.length)]
+  password += lowercase[Math.floor(Math.random() * lowercase.length)]
+  password += numbers[Math.floor(Math.random() * numbers.length)]
+  password += specials[Math.floor(Math.random() * specials.length)]
+
+  const allChars = uppercase + lowercase + numbers + specials
+  for (let i = 0; i < 12; i++) {
+    password += allChars[Math.floor(Math.random() * allChars.length)]
+  }
+
+  return password
+}

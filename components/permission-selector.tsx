@@ -272,29 +272,31 @@ export function PermissionSelector({
                 </Empty>
               ) : (
                 <div className="space-y-1">
-                  {/* Select All Toggle */}
-                  <Toggle
-                    pressed={isAllAvailableSelected}
-                    onPressedChange={() => {
+                  {/* Select All Button */}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
                       if (!disabled) toggleSelectAllAvailable()
                     }}
                     disabled={disabled}
+                    data-state={isAllAvailableSelected ? "on" : "off"}
                     id="select-all-available"
                     size="sm"
-                    className="w-full justify-start gap-2 rounded border-b border-muted/50 px-2 py-1.5 text-xs font-semibold text-muted-foreground data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
+                    className="w-full items-center justify-start"
                   >
                     {isAllAvailableSelected ? (
-                      <span className="flex size-3.5 items-center justify-center rounded-none border border-primary bg-primary">
-                        <Check className="size-2.5 text-primary-foreground" />
+                      <span className="flex size-3.5 border border-primary bg-primary">
+                        <Check className="size-3 text-primary-foreground" />
                       </span>
                     ) : (
-                      <span className="size-3.5 rounded-none border border-input bg-background" />
+                      <span className="size-3.5 border border-input" />
                     )}
                     Select All Available ({filteredAvailable.length})
-                  </Toggle>
+                  </Button>
 
                   {/* Individual column badges */}
-                  <div className="flex flex-wrap gap-1 p-1">
+                  <div className="flex flex-wrap gap-1">
                     {filteredAvailable.map((col) => {
                       const isSelected = selectedAvailable.includes(col)
                       return (
@@ -331,6 +333,7 @@ export function PermissionSelector({
         {/* Controls */}
         <div className="flex w-12 shrink-0 flex-col items-center justify-center gap-2">
           <Button
+            type="button"
             variant="outline"
             size="icon"
             onClick={handleGrantSelected}
@@ -341,6 +344,7 @@ export function PermissionSelector({
           </Button>
 
           <Button
+            type="button"
             variant="outline"
             size="icon"
             onClick={handleGrantAll}
@@ -351,6 +355,7 @@ export function PermissionSelector({
           </Button>
 
           <Button
+            type="button"
             variant="outline"
             size="icon"
             onClick={handleRevokeSelected}
@@ -361,6 +366,7 @@ export function PermissionSelector({
           </Button>
 
           <Button
+            type="button"
             variant="outline"
             size="icon"
             onClick={handleRevokeAll}
@@ -393,29 +399,31 @@ export function PermissionSelector({
                 </Empty>
               ) : (
                 <div className="space-y-1">
-                  {/* Select All Toggle */}
-                  <Toggle
-                    pressed={isAllGrantedSelected}
-                    onPressedChange={() => {
+                  {/* Select All Button */}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
                       if (!disabled) toggleSelectAllGranted()
                     }}
                     disabled={disabled}
+                    data-state={isAllGrantedSelected ? "on" : "off"}
                     id="select-all-granted"
                     size="sm"
-                    className="w-full justify-start gap-2 rounded border-b border-muted/50 px-2 py-1.5 text-xs font-semibold text-muted-foreground data-[state=on]:bg-primary/10 data-[state=on]:text-primary"
+                    className="w-full items-center justify-start"
                   >
                     {isAllGrantedSelected ? (
-                      <span className="flex size-3.5 items-center justify-center rounded-none border border-primary bg-primary">
-                        <Check className="size-2.5 text-primary-foreground" />
+                      <span className="flex size-3.5 border border-primary bg-primary">
+                        <Check className="size-3 text-primary-foreground" />
                       </span>
                     ) : (
-                      <span className="size-3.5 rounded-none border border-input bg-background" />
+                      <span className="size-3.5 border border-input" />
                     )}
                     Select All Granted
-                  </Toggle>
+                  </Button>
 
                   {/* Individual column badges */}
-                  <div className="flex flex-wrap gap-1 p-1">
+                  <div className="flex flex-wrap gap-1">
                     {grantedColumns.map((col) => {
                       const isSelected = selectedGranted.includes(col)
                       return (

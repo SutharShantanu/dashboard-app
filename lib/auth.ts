@@ -106,8 +106,9 @@ export const authOptions: NextAuthOptions = {
         }
         if (session?.allowedColumns !== undefined) token.allowedColumns = session.allowedColumns;
         if (session?.perSheetPermissions !== undefined) token.perSheetPermissions = session.perSheetPermissions;
+        if (session?.gender !== undefined) token.gender = session.gender;
 
-        // Always re-fetch perSheetPermissions from DB to pick up any changes
+        // Always re-fetch perSheetPermissions and gender from DB to pick up any changes
         // (e.g. new sheet access auto-granted by addConnectedSheet)
         if (token.username) {
           try {
@@ -118,15 +119,34 @@ export const authOptions: NextAuthOptions = {
             });
             if (freshUser) {
               token.allowedColumns = freshUser.allowedColumns;
+              token.gender = freshUser.gender || "";
               token.perSheetPermissions = freshUser.perSheetPermissions
                 ? Object.fromEntries((freshUser.perSheetPermissions as Map<string, string[]>).entries())
                 : {};
             }
           } catch (dbErr) {
-            console.error("[auth jwt update] Failed to refresh permissions from DB:", dbErr);
+            console.error("[auth jwt update] Failed to refresh permissions/gender from DB:", dbErr);
           }
         }
       }
+
+      // Backward compatibility fallback: if session JWT does not contain gender (pre-migration session),
+      // fetch it dynamically from DB so user gets their correct gender-specific avatar immediately.
+      if (!token.gender && token.username) {
+        try {
+          await connectToDatabase();
+          const escapedUsername = (token.username as string).replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+          const freshUser = await User.findOne({
+            username: { $regex: new RegExp(`^${escapedUsername}$`, "i") }
+          });
+          if (freshUser) {
+            token.gender = freshUser.gender || "";
+          }
+        } catch (dbErr) {
+          console.error("[auth jwt fallback] Failed to fetch gender from DB:", dbErr);
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {

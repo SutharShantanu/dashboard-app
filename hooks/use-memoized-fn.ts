@@ -3,20 +3,21 @@
 // calls the latest version of the passed function. Eliminates the need for
 // dependency arrays and prevents render loops caused by unstable handlers.
 
-import { useMemo, useRef } from "react"
+import { useRef, useEffect, useMemo } from 'react'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Noop = (this: any, ...args: any[]) => any
 
 export function useMemoizedFn<T extends Noop>(fn: T): T {
-  // Keep a ref that always points to the latest fn
   const fnRef = useRef<T>(fn)
+
+  // why not write `fnRef.current = fn`?
+  // https://github.com/alibaba/hooks/issues/728
   fnRef.current = useMemo(() => fn, [fn])
 
-  // Create a single stable proxy that delegates to fnRef.current
-  const memoizedFn = useRef<T>()
+  const memoizedFn = useRef<T | undefined>(undefined)
   if (!memoizedFn.current) {
-    memoizedFn.current = function (this: unknown, ...args: Parameters<T>) {
+    memoizedFn.current = function (this: any, ...args) {
       return fnRef.current.apply(this, args)
     } as T
   }

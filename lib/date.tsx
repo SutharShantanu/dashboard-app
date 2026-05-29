@@ -111,7 +111,7 @@ export function DateCell({
   fallback?: string
 }) {
   return (
-    <span className="font-mono text-xs whitespace-nowrap text-muted-foreground">
+    <span className="font-mono text-xs whitespace-nowrap">
       {formatDateTime(value, fallback)}
     </span>
   )

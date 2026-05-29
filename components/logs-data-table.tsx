@@ -90,7 +90,7 @@ export function LogsDataTable({ logs }: LogsDataTableProps) {
       accessorKey: "timestamp",
       header: "Timestamp",
       cell: ({ row }) => (
-        <span className="font-mono text-xs whitespace-nowrap text-muted-foreground">
+        <span className="text-xs whitespace-nowrap ">
           {formatDateTime(row.getValue("timestamp"))}
         </span>
       ),
@@ -144,11 +144,11 @@ export function LogsDataTable({ logs }: LogsDataTableProps) {
         const email = row.original.actor || ""
         const isEmail = email.includes("@")
         return isEmail ? (
-          <span className="text-xs text-muted-foreground break-all">
+          <span className="text-xs  break-all">
             {email}
           </span>
         ) : (
-          <span className="text-xs text-muted-foreground/50">—</span>
+          <span className="text-xs /50">—</span>
         )
       },
     },
@@ -199,7 +199,7 @@ export function LogsDataTable({ logs }: LogsDataTableProps) {
           return (
               <div className="flex min-w-[200px] flex-col gap-1 text-xs">
                 <span className="font-medium text-foreground">{p.method}</span>
-                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground">
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 ">
                   {(p.browser || p.os || p.device) && (
                     <span className="flex items-center gap-1">
                       <DeviceIcon device={p.device} />
@@ -226,7 +226,7 @@ export function LogsDataTable({ logs }: LogsDataTableProps) {
         }
 
         return (
-          <span className="block max-w-[420px] text-xs text-muted-foreground">
+          <span className="block max-w-[420px] text-xs ">
             {details || "—"}
           </span>
         )
@@ -245,7 +245,7 @@ export function LogsDataTable({ logs }: LogsDataTableProps) {
           return null
         const ip: string = row.getValue("ip") ?? ""
         return ip ? (
-          <span className="font-mono text-xs whitespace-nowrap text-muted-foreground">
+          <span className="font-mono text-xs whitespace-nowrap ">
             {ip}
           </span>
         ) : null

@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
-  Database,
   Plus,
   Trash2,
   ExternalLink,
@@ -23,7 +22,9 @@ import {
   CheckCircle2,
   RefreshCcw,
   Eye,
+  FileText,
 } from "lucide-react"
+import { GoogleSheets2026 } from "@thesvg/react"
 import { PageHeader } from "@/components/page-header"
 import { toast } from "sonner"
 import {
@@ -56,14 +57,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import {
-  Empty,
-  EmptyHeader,
-  EmptyTitle,
-  EmptyDescription,
-  EmptyContent,
-  EmptyMedia,
-} from "@/components/ui/empty"
+import { EmptyState } from "@/components/empty-state"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { format, formatDistanceToNow } from "date-fns"
 import { Spinner } from "@/components/ui/spinner"
@@ -314,17 +308,12 @@ export default function SheetsManagementPage() {
   if (user?.role !== "admin") {
     return (
       <div className="w-full py-10">
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <AlertCircle className="text-destructive" />
-            </EmptyMedia>
-            <EmptyTitle>Access Denied</EmptyTitle>
-            <EmptyDescription>
-              Only administrators can manage connected Google Sheets.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        <EmptyState
+          title="Access Denied"
+          description="Only administrators can manage connected Google Sheets."
+          icon={<AlertCircle className="text-destructive" />}
+          className="border-none"
+        />
       </div>
     )
   }
@@ -358,8 +347,8 @@ export default function SheetsManagementPage() {
       >
         <TabsList>
           <TabsTrigger value="connections" className="gap-2">
-            <Database className="h-4 w-4" />
-            Connections
+            <GoogleSheets2026 className="h-4 w-4" />
+            Connected Sheets
           </TabsTrigger>
           <TabsTrigger value="integrations" className="gap-2">
             <Globe className="h-4 w-4" />
@@ -411,17 +400,12 @@ export default function SheetsManagementPage() {
             </CardHeader>
             <CardContent>
               {connectedSheets.length === 0 ? (
-                <Empty className="rounded-lg border-2 border-dashed py-12">
-                  <EmptyHeader>
-                    <EmptyMedia variant="icon">
-                      <Database className="text-muted-foreground" />
-                    </EmptyMedia>
-                    <EmptyTitle>No sheets connected</EmptyTitle>
-                    <EmptyDescription>
-                      Connect your first Google Sheet to start managing data.
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
+                <EmptyState
+                  title="No sheets connected"
+                  description="Connect your first Google Sheet to start managing data."
+                  icon={<GoogleSheets2026 className="text-muted-foreground" />}
+                  className="rounded-lg border-2 border-dashed"
+                />
               ) : (
                 <DataTable columns={columns} data={connectedSheets} />
               )}

@@ -22,7 +22,6 @@ import {
   Shield,
   Clock,
   Sparkles,
-  Database,
   Filter,
   Check,
   Eye,
@@ -30,7 +29,9 @@ import {
   Key,
   BarChart3,
   TrendingUp,
+  Activity,
 } from "lucide-react"
+import { GoogleSheets2026 } from "@thesvg/react"
 
 import {
   BarChart,
@@ -84,14 +85,7 @@ import {
 } from "@/components/ui/dialog"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { format, formatDistanceToNow } from "date-fns"
-import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty"
+import { EmptyState } from "@/components/empty-state"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 
 interface Student {
@@ -759,7 +753,7 @@ function DashboardPageContent() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Batches</CardTitle>
-                <Database className="h-4 w-4 text-muted-foreground" />
+                <GoogleSheets2026 className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
@@ -977,15 +971,10 @@ function DashboardPageContent() {
           <div className="relative w-full max-w-full overflow-hidden rounded-xl border border-border bg-card">
             {!isConfigured ? (
               <div className="py-20">
-                <Empty className="mx-auto max-w-xl p-12">
-                  <EmptyMedia variant="icon" className="mb-4 size-14">
-                    <Database className="size-7 animate-pulse text-primary" />
-                  </EmptyMedia>
-                  <EmptyHeader>
-                    <EmptyTitle className="text-xl font-bold">
-                      Google Sheets Unconfigured
-                    </EmptyTitle>
-                    <EmptyDescription className="mx-auto max-w-md">
+                <EmptyState
+                  title="Google Sheets Unconfigured"
+                  description={
+                    <>
                       Please set your{" "}
                       <code className="font-mono text-primary">
                         GOOGLE_CLIENT_EMAIL
@@ -997,12 +986,13 @@ function DashboardPageContent() {
                       environment variables in your deployment or local{" "}
                       <code className="font-mono text-primary">.env</code> to
                       connect to a live spreadsheet.
-                    </EmptyDescription>
-                  </EmptyHeader>
-                  <EmptyContent>
+                    </>
+                  }
+                  icon={<GoogleSheets2026 className="size-7 animate-pulse text-primary" />}
+                  className="mx-auto max-w-xl p-12"
+                  action={
                     <Button
                       onClick={handleManualRefresh}
-                      className="mt-4"
                       disabled={isQueryFetching || isLogsFetching}
                     >
                       <RefreshCw
@@ -1013,8 +1003,8 @@ function DashboardPageContent() {
                       />
                       Retry Connection
                     </Button>
-                  </EmptyContent>
-                </Empty>
+                  }
+                />
               </div>
             ) : isQueryLoading && students.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-3 py-20">
@@ -1025,19 +1015,12 @@ function DashboardPageContent() {
               </div>
             ) : filteredStudents.length === 0 ? (
               <div className="py-20">
-                <Empty className="mx-auto max-w-md p-12">
-                  <EmptyMedia variant="icon" className="mb-4 size-12">
-                    <Search className="size-6 text-muted-foreground" />
-                  </EmptyMedia>
-                  <EmptyHeader>
-                    <EmptyTitle className="text-lg font-bold">
-                      No records match your filters
-                    </EmptyTitle>
-                    <EmptyDescription>
-                      Try adjusting your search queries or category toggles.
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
+                <EmptyState
+                  title="No records match your filters"
+                  description="Try adjusting your search queries or category toggles."
+                  icon={<Search className="size-6 text-muted-foreground" />}
+                  className="mx-auto max-w-md p-12"
+                />
               </div>
             ) : (
               <ScrollArea className="h-[calc(100vh-280px)] w-full max-w-full">
@@ -1197,16 +1180,12 @@ function DashboardPageContent() {
                   </div>
                 ) : filteredLogs.length === 0 ? (
                   <div className="py-20">
-                    <Empty className="mx-auto max-w-md p-12">
-                      <EmptyMedia variant="icon" className="mb-4 size-12">
-                        <FileText className="size-6 text-muted-foreground" />
-                      </EmptyMedia>
-                      <EmptyHeader>
-                        <EmptyTitle className="text-lg font-bold">
-                          No audit logs found
-                        </EmptyTitle>
-                      </EmptyHeader>
-                    </Empty>
+                      <EmptyState
+                        title="No audit logs found"
+                        description={null}
+                        icon={<FileText className="size-6 text-muted-foreground" />}
+                        className="mx-auto max-w-md p-12"
+                      />
                   </div>
                 ) : (
                   <ScrollArea className="w-full">

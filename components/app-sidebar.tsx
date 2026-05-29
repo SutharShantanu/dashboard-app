@@ -11,7 +11,6 @@ import {
   History,
   LayoutDashboard,
   Plus,
-  Database,
   ExternalLink,
   RefreshCw,
   Trash2,
@@ -19,6 +18,7 @@ import {
   Settings2,
   Search,
 } from "lucide-react"
+import { GoogleSheets2026 } from "@thesvg/react"
 import {
   Sidebar,
   SidebarHeader,
@@ -155,7 +155,7 @@ export function AppSidebar({
       items.push({
         title: s.title,
         url: `/sheets/${s.spreadsheetId}`,
-        icon: Database,
+        icon: GoogleSheets2026,
       })
     })
 
@@ -164,7 +164,7 @@ export function AppSidebar({
         {
           title: "Manage Sheets",
           url: "/sheets?tab=connections",
-          icon: Database,
+          icon: GoogleSheets2026,
         },
         {
           title: "Integrations",
@@ -378,7 +378,7 @@ export function AppSidebar({
                                 <Link
                                   href={`/sheets/${s.spreadsheetId}`}
                                 >
-                                  <Database className="h-3.5 w-3.5 text-primary" />
+                                  <GoogleSheets2026 className="h-3.5 w-3.5 text-primary" />
                                   <span className="truncate">{s.title}</span>
                                 </Link>
                               </SidebarMenuButton>
@@ -474,7 +474,7 @@ export function AppSidebar({
                         tooltip="Manage Sheets"
                       >
                         <Link href="/sheets?tab=connections">
-                          <Database className="h-4 w-4" />
+                          <GoogleSheets2026 className="h-4 w-4" />
                           <span>Manage Sheets</span>
                         </Link>
                       </SidebarMenuButton>

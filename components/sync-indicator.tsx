@@ -2,7 +2,7 @@
 
 import { useQueryClient, useIsFetching, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { RefreshCw, Database } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";

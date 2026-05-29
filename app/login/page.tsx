@@ -18,6 +18,8 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react"
+import { Google } from "@thesvg/react"
+import { UndrawLogin } from "react-undraw-illustrations"
 
 // shadcn/ui components
 import { Button } from "@/components/ui/button"
@@ -108,9 +110,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-background p-6">
-      <div className="animate-fade-in-up relative w-full max-w-md">
-        {/* Logo/Brand Header */}
+    <div className="flex min-h-svh bg-background">
+      {/* Left Column - Login Form */}
+      <div className="flex w-full flex-col items-center justify-center p-6 lg:w-1/2">
+        <div className="animate-fade-in-up relative w-full max-w-md">
+          {/* Logo/Brand Header */}
         <div className="mb-8 flex flex-col items-center text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-md">
             <Sparkles className="h-6 w-6 animate-pulse" />
@@ -230,7 +234,7 @@ export default function LoginPage() {
                 )}
               </Button>
 
-              {/* 2. "Or continue with" divider — commented out for now
+              {/* 2. "Or continue with" divider */}
               <div className="relative mt-6">
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t" />
@@ -241,21 +245,36 @@ export default function LoginPage() {
                   </span>
                 </div>
               </div>
-              */}
 
-              {/* <Button
+              <Button
                 type="button"
                 variant="outline"
                 className="mt-6 w-full"
                 onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
               >
-                <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
-                  <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
-                </svg>
+                <Google className="mr-2 h-4 w-4" />
                 Google
-              </Button> */}
+              </Button>
             </form>
           </CardContent>
+        </Card>
+      </div>
+      </div>
+      
+      {/* Right Column - Illustration */}
+      <div className="hidden lg:flex lg:w-1/2 items-center justify-center bg-muted/30 p-12 relative overflow-hidden">
+        <div className="absolute inset-0 bg-grid-black/[0.02] dark:bg-grid-white/[0.02]" />
+        
+        <Card className="z-10 flex h-full max-h-[800px] w-full max-w-2xl flex-col items-center justify-center border-none bg-background/50 p-12 shadow-xl backdrop-blur-sm transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl">
+          <div className="mb-12 w-full max-w-md animate-fade-in-up">
+            <UndrawLogin primaryColor="#6366f1" height="300px" />
+          </div>
+          <div className="text-center animate-fade-in-up delay-150">
+            <h2 className="text-3xl font-bold tracking-tight mb-4">Welcome to Aegis Portal</h2>
+            <p className="text-muted-foreground text-lg max-w-md mx-auto">
+              Access your personalized student dashboard, manage data efficiently, and connect seamlessly with Google Sheets.
+            </p>
+          </div>
         </Card>
       </div>
     </div>
