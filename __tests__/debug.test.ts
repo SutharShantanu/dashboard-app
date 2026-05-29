@@ -9,6 +9,9 @@ dotenv.config({ path: ".env" });
 test("List sheets in spreadsheet", async () => {
   const spreadsheetId = "1p6Esyik1TOnZpQtsz8ZSB4GTF4u1M_Xf3gRjVBD4ESk";
   const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!);
+  if (creds && creds.private_key) {
+    creds.private_key = creds.private_key.replace(/\\n/g, "\n");
+  }
   
   const auth = new google.auth.GoogleAuth({
     credentials: creds,
