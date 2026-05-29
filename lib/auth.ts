@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import connectToDatabase from "./mongodb";
 import User from "../models/User";
 import { appendAuditLog } from "./sheets";
+import { escapeRegex } from "./utils-internal";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -13,12 +14,14 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
       profile(profile) {
+        // TODO(owner): gate admin role behind an allowlist once Google sign-in usage in prod is confirmed.
+        // Defaulting to "sub-admin" (least privilege) until then.
         return {
           id: profile.sub,
           username: profile.email.split("@")[0],
           name: profile.name,
           displayName: profile.name,
-          role: "admin",
+          role: "sub-admin" as const,
           allowedColumns: "",
         };
       },
@@ -29,12 +32,13 @@ export const authOptions: NextAuthOptions = {
         clientSecret: process.env.AUTH0_CLIENT_SECRET || "",
         issuer: process.env.AUTH0_ISSUER,
         profile(profile) {
+          // TODO(owner): gate admin role behind an allowlist once SSO usage in prod is confirmed.
           return {
             id: profile.sub,
             username: profile.nickname || profile.name || "sso_user",
             name: profile.name,
-            displayName: profile.name || "SSO Administrator",
-            role: "admin",
+            displayName: profile.name || "SSO User",
+            role: "sub-admin" as const,
             allowedColumns: "",
           };
         },
@@ -52,11 +56,8 @@ export const authOptions: NextAuthOptions = {
         }
 
         await connectToDatabase();
-        
-        // Escape special regex characters to prevent query injection and ReDoS attacks
-        const escapedUsername = credentials.username.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-        const user = await User.findOne({ 
-          username: { $regex: new RegExp(`^${escapedUsername}$`, "i") } 
+        const user = await User.findOne({
+          username: { $regex: new RegExp(`^${escapeRegex(credentials.username)}$`, "i") },
         });
 
         if (!user) {
@@ -113,9 +114,8 @@ export const authOptions: NextAuthOptions = {
         if (token.username) {
           try {
             await connectToDatabase();
-            const escapedUsername = (token.username as string).replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
             const freshUser = await User.findOne({
-              username: { $regex: new RegExp(`^${escapedUsername}$`, "i") }
+              username: { $regex: new RegExp(`^${escapeRegex(token.username as string)}$`, "i") },
             });
             if (freshUser) {
               token.allowedColumns = freshUser.allowedColumns;
@@ -135,9 +135,8 @@ export const authOptions: NextAuthOptions = {
       if (!token.gender && token.username) {
         try {
           await connectToDatabase();
-          const escapedUsername = (token.username as string).replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
           const freshUser = await User.findOne({
-            username: { $regex: new RegExp(`^${escapedUsername}$`, "i") }
+            username: { $regex: new RegExp(`^${escapeRegex(token.username as string)}$`, "i") },
           });
           if (freshUser) {
             token.gender = freshUser.gender || "";
@@ -184,6 +183,6 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
     maxAge: 24 * 60 * 60, // 24 hours
   },
-  secret: process.env.NEXTAUTH_SECRET || "fallback-secret-key-at-least-32-characters-long",
+  secret: process.env.NEXTAUTH_SECRET,
 };
 

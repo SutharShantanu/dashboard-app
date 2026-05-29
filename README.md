@@ -53,3 +53,20 @@ This project follows a standard Next.js App Router architecture:
    ```bash
    npm run build
    ```
+
+## 🗂️ Scripts
+
+One-off utility scripts live in `scripts/`. Run them with `npx tsx scripts/<name>.ts` (TypeScript) or `node scripts/<name>.js` (JavaScript).
+
+| Script | Purpose |
+|---|---|
+| `seed-admin.ts` | Create the initial `SabaAdmin` user in MongoDB |
+| `migrate.ts` | General migration script |
+| `migrate-default-permissions.js` | Backfill default permission presets on existing users |
+| `migrate-user-genders.js` | Backfill gender field on existing users |
+| `grant-sabaadmin-all-sheets.js` | Grant SabaAdmin full access to all connected sheets |
+| `create-admin.js` | Create an admin user interactively |
+| `verify_mongo.ts` | Verify MongoDB connection and schema |
+| `apps-script.js` | Reference Apps Script code to deploy in Google Sheets for webhook sync |
+
+> **Note:** `apps-script.js` is not a Node.js script — paste its contents into the Google Apps Script editor inside your spreadsheet.

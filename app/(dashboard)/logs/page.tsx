@@ -1,47 +1,42 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
+import { useQuery } from "@tanstack/react-query"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { toast } from "sonner"
 import { PageHeader } from "@/components/page-header"
 import { Spinner } from "@/components/ui/spinner"
 import { LogsDataTable } from "@/components/logs-data-table"
 
+async function fetchLogs() {
+  const res = await fetch("/api/logs")
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || "Failed to fetch logs")
+  return data.logs ?? []
+}
+
 export default function LogsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const user = session?.user as any
+  const user = session?.user as { role?: string } | undefined
 
-  const [logs, setLogs] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const fetchLogs = async () => {
-    setLoading(true)
-    try {
-      const res = await fetch("/api/logs")
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Failed to fetch logs")
-      setLogs(data.logs || [])
-    } catch (err: any) {
-      toast.error(err.message)
-    } finally {
-      setLoading(false)
-    }
+  if (status === "unauthenticated") {
+    router.push("/login")
   }
 
-  useEffect(() => {
-    if (status === "authenticated") {
-      fetchLogs()
-    } else if (status === "unauthenticated") {
-      router.push("/login")
-    }
-  }, [status, router])
+  const {
+    data: logs = [],
+    isLoading,
+    refetch,
+  } = useQuery({
+    queryKey: ["logs"],
+    queryFn: fetchLogs,
+    enabled: status === "authenticated",
+  })
 
-  if (status === "loading" || loading) {
+  if (status === "loading" || isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
         <Spinner className="h-8 w-8 text-primary" />
@@ -67,7 +62,7 @@ export default function LogsPage() {
                 : "Showing your activity logs."}
             </CardDescription>
           </div>
-          <Button variant="outline" size="sm" onClick={fetchLogs}>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>

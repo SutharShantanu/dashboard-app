@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       data: filteredData,
-      columns: permittedCols,
+      columns,
       allowedColumns: allowedCols,
       simulated: getDbMode().isSimulated,
       configured: getDbMode().isConfigured,

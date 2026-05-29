@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
+import { useConnectedSheets } from "@/hooks/useConnectedSheets"
 import Link from "next/link"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import {
@@ -101,8 +102,7 @@ export function AppSidebar({
   const activeSheet = searchParams?.get("sheet") || "Students"
   const activeSpreadsheetId = searchParams?.get("spreadsheetId") || ""
 
-  const [connectedSheets, setConnectedSheets] = useState<any[]>([])
-  const [isLoadingSheets, setIsLoadingSheets] = useState(true)
+  const { data: connectedSheets = [], isLoading: isLoadingSheets } = useConnectedSheets()
 
   const [sheetToDelete, setSheetToDelete] = useState<{
     spreadsheetId: string
@@ -200,29 +200,6 @@ export function AppSidebar({
     )
   }, [debouncedTerm, allNavItems])
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        setIsLoadingSheets(true)
-        const resConnected = await fetch("/api/connected-sheets")
-        if (resConnected.ok) {
-          const data = await resConnected.json()
-          if (data.connectedSheets) setConnectedSheets(data.connectedSheets)
-        }
-      } catch {
-      } finally {
-        setIsLoadingSheets(false)
-      }
-    }
-    loadData()
-
-    const handleSheetConnected = () => {
-      loadData()
-    }
-    window.addEventListener("sheet_connected", handleSheetConnected)
-    return () =>
-      window.removeEventListener("sheet_connected", handleSheetConnected)
-  }, [])
 
   const handleDeleteSheet = (spreadsheetId: string, title: string) => {
     setSheetToDelete({ spreadsheetId, title })
@@ -240,9 +217,6 @@ export function AppSidebar({
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to remove sheet")
       toast.success(`Removed "${sheetToDelete.title}" successfully`)
-      setConnectedSheets((prev) =>
-        prev.filter((s) => s.spreadsheetId !== sheetToDelete.spreadsheetId)
-      )
       window.dispatchEvent(new Event("sheet_connected"))
       setSheetToDelete(null)
     } catch (err: any) {

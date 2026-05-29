@@ -65,7 +65,12 @@ class SseManager {
   }
 }
 
-// Global instance to persist across HMR in development
+// Global instance to persist across HMR in development.
+// IMPORTANT (Phase 5 — deferred): this is an in-memory singleton.
+// On multi-instance deployments (e.g. Vercel with multiple serverless workers) each
+// instance holds its own client set, so SSE events will NOT fan out across instances.
+// If the owner confirms a multi-instance deploy, replace with a pub/sub backend
+// (e.g. Redis Streams, Pusher, or Ably) before going to production at scale.
 const globalForSse = global as unknown as { sseManager: SseManager };
 export const sseManager = globalForSse.sseManager || new SseManager();
 if (process.env.NODE_ENV !== "production") globalForSse.sseManager = sseManager;

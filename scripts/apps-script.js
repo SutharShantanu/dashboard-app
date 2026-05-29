@@ -1,43 +1,41 @@
 /**
- * Google Apps Script for Two-Way Sync
- * 
+ * Google Apps Script for One-Way Sync (Sheets → Dashboard)
+ *
  * Instructions:
  * 1. Open your Google Sheet.
- * 2. Go to Extensions -> Apps Script.
+ * 2. Go to Extensions → Apps Script.
  * 3. Replace all the code in Code.gs with this script.
- * 4. Replace `YOUR_DASHBOARD_URL` with your actual deployed dashboard URL (e.g., https://your-app.vercel.app).
- * 5. Replace `YOUR_SECRET` with the same secret used in your environment variable SHEET_WEBHOOK_SECRET.
- * 6. Save the script.
- * 7. In the Apps Script editor, go to Triggers (the clock icon on the left).
- * 8. Add a new trigger:
- *    - Choose which function to run: onEdit
- *    - Select event source: From spreadsheet
- *    - Select event type: On edit
- * 9. Authorize the script when prompted.
+ * 4. Replace `YOUR_DASHBOARD_URL` with your deployed dashboard URL.
+ * 5. Replace `YOUR_SECRET` with the value of SHEET_WEBHOOK_SECRET in your .env.
+ * 6. Save the script and add an installable onEdit trigger.
  */
 
 const WEBHOOK_URL = "YOUR_DASHBOARD_URL/api/sheet-webhook";
-const WEBHOOK_SECRET = "YOUR_SECRET"; // Should match process.env.SHEET_WEBHOOK_SECRET
+const WEBHOOK_SECRET = "YOUR_SECRET"; // Must match process.env.SHEET_WEBHOOK_SECRET
 
 function onEdit(e) {
   if (!e) return;
-  
+
   const range = e.range;
   const sheet = range.getSheet();
-  
+  const row = range.getRow();
+
+  // Ignore header row
+  if (row <= 1) return;
+
+  const spreadsheetId = SpreadsheetApp.getActiveSpreadsheet().getId();
+
   const payload = {
     sheetName: sheet.getName(),
-    row: range.getRow(),
+    spreadsheetId: spreadsheetId,
+    row: row,
     col: range.getColumn(),
     oldValue: e.oldValue,
     newValue: e.value,
     timestamp: new Date().toISOString()
   };
-  
-  // Only send webhook if it's a data row (ignoring header row 1)
-  if (payload.row > 1) {
-    sendWebhook(payload);
-  }
+
+  sendWebhook(payload);
 }
 
 function sendWebhook(payload) {
@@ -45,12 +43,12 @@ function sendWebhook(payload) {
     method: "post",
     contentType: "application/json",
     headers: {
-      "Authorization": "Bearer " + WEBHOOK_SECRET
+      "x-webhook-secret": WEBHOOK_SECRET
     },
     payload: JSON.stringify(payload),
     muteHttpExceptions: true
   };
-  
+
   try {
     UrlFetchApp.fetch(WEBHOOK_URL, options);
   } catch (error) {

@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
+import { useQuery } from "@tanstack/react-query"
 import {
   Folder,
   ChevronRight,
@@ -87,16 +88,32 @@ export function DriveBrowser({
   onSelect,
   onClose,
 }: DriveBrowserProps) {
-  const [files, setFiles] = useState<DriveFile[]>([])
-  const [loading, setLoading] = useState(true)
   const [currentFolderId, setCurrentFolderId] = useState<string | undefined>(
     undefined
   )
   const [history, setHistory] = useState<string[]>([])
   const [search, setSearch] = useState("")
   const debouncedSearch = useDebounce(search, 300)
-  const [error, setError] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<DriveFile | null>(null)
+
+  const {
+    data: files = [],
+    isLoading: loading,
+    error: fetchError,
+  } = useQuery({
+    queryKey: ["drive-files", currentFolderId],
+    queryFn: async () => {
+      const url = currentFolderId
+        ? `/api/drive/list?folderId=${currentFolderId}`
+        : "/api/drive/list"
+      const res = await fetch(url)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to fetch files")
+      return (data.files || []) as DriveFile[]
+    },
+  })
+
+  const error = fetchError ? (fetchError as Error).message : null
 
   // Local connection states for form submission inside DriveBrowser
   const [isConnecting, setIsConnecting] = useState(false)
@@ -116,10 +133,6 @@ export function DriveBrowser({
     },
     mode: "onTouched",
   })
-
-  useEffect(() => {
-    fetchFiles(currentFolderId)
-  }, [currentFolderId])
 
   useEffect(() => {
     if (selectedFile) {
@@ -145,27 +158,6 @@ export function DriveBrowser({
     }
     return () => clearInterval(interval)
   }, [isConnecting])
-
-  const fetchFiles = async (folderId?: string) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const url = folderId
-        ? `/api/drive/list?folderId=${folderId}`
-        : "/api/drive/list"
-      const res = await fetch(url)
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Failed to fetch files")
-      setFiles(data.files || [])
-    } catch (err: any) {
-      setError(
-        "The account isn't connected to Google. Kindly connect and then you can choose the sheet."
-      )
-      toast.error("Could not load Google Drive files")
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleFolderClick = (folderId: string) => {
     setHistory([...history, currentFolderId || "root"])

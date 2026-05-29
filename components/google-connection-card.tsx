@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { signIn } from "next-auth/react"
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -20,25 +20,15 @@ export function GoogleConnectionCard({
   callbackUrl = "/sheets",
   className,
 }: GoogleConnectionCardProps) {
-  const [internalIsConnected, setInternalIsConnected] = useState<boolean | null>(null)
-
-  useEffect(() => {
-    // If the component is controlled by a parent page/component, do not fetch connection state internally
-    if (controlledIsConnected !== undefined) {
-      return
-    }
-
-    async function checkConnection() {
-      try {
-        const res = await fetch("/api/drive/list")
-        setInternalIsConnected(res.ok)
-      } catch (err) {
-        setInternalIsConnected(false)
-      }
-    }
-
-    checkConnection()
-  }, [controlledIsConnected])
+  const { data: internalIsConnected = null } = useQuery({
+    queryKey: ["drive-connection"],
+    queryFn: async () => {
+      const res = await fetch("/api/drive/list")
+      return res.ok
+    },
+    // Skip when parent controls this value
+    enabled: controlledIsConnected === undefined,
+  })
 
   const isConnected = controlledIsConnected !== undefined ? controlledIsConnected : internalIsConnected
 
