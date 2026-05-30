@@ -10,6 +10,7 @@ import {
 } from "@tanstack/react-table"
 
 import { cn } from "@/lib/utils"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 declare module "@tanstack/react-table" {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -253,17 +254,18 @@ function DataGridContainer({
   border?: boolean
 }) {
   return (
-    <div
+    <ScrollArea
+      orientation="horizontal"
       data-slot="data-grid"
       className={cn(
-        "w-full overflow-hidden",
+        "w-full",
         border &&
           "border-border rounded-none border",
         className
       )}
     >
       {children}
-    </div>
+    </ScrollArea>
   )
 }
 

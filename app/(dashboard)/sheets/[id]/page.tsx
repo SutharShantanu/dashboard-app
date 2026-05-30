@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
@@ -18,6 +19,7 @@ import {
   History,
   X,
   Check,
+  Activity,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SkeletonBlock } from "@/components/ui/skeleton-block"
@@ -56,6 +58,7 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetTrigger,
 } from "@/components/ui/sheet"
 import {
   Timeline,
@@ -107,6 +110,7 @@ function CellTooltip({
 
   useEffect(() => {
     if (isEditing) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpen(false)
     }
   }, [isEditing])
@@ -139,11 +143,11 @@ function CellTooltip({
         </TooltipTrigger>
         {shouldShowTooltip &&
           (isLocked ? (
-            <TooltipContent className="z-[60]" sideOffset={8}>
+            <TooltipContent className="z-60" sideOffset={8}>
               <p className="text-xs">Read-only field</p>
             </TooltipContent>
           ) : (
-            <TooltipContent className="z-[60] max-w-xs p-2" sideOffset={8}>
+            <TooltipContent className="z-60 max-w-xs p-2" sideOffset={8}>
               <div className="flex flex-col gap-1.5">
                 <p className="mb-0.5 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
                   Last Activity
@@ -185,6 +189,104 @@ function CellTooltip({
           ))}
       </Tooltip>
     </TooltipProvider>
+  )
+}
+
+function SheetActivityDrawer({ sheetId }: { sheetId: string }) {
+  const { status: sessionStatus } = useSession()
+  const { data: logsData, isFetching: isLogsFetching } = useQuery({
+    queryKey: ["sheet_logs", sheetId],
+    queryFn: async () => {
+      const res = await fetch("/api/logs")
+      if (!res.ok) throw new Error("Failed to load logs")
+      const data = await res.json()
+      return data.logs || []
+    },
+    enabled: sessionStatus === "authenticated",
+  })
+
+  const displayLogs = logsData?.slice(0, 50) || []
+
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-1.5 h-8">
+          <Activity className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Activity</span>
+        </Button>
+      </SheetTrigger>
+      <SheetContent className="w-full sm:max-w-md flex flex-col gap-0 p-0 border-l border-border/40 shadow-2xl">
+        <SheetHeader className="px-6 py-4 border-b">
+          <SheetTitle>Sheet Activity</SheetTitle>
+          <SheetDescription>
+            Recent changes and events.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="flex-1 overflow-y-auto px-6 py-6">
+          {isLogsFetching ? (
+            <div className="flex items-center justify-center h-32">
+              <Spinner className="h-6 w-6 text-muted-foreground" />
+            </div>
+          ) : displayLogs.length === 0 ? (
+            <EmptyState
+              title="No activity yet"
+              description="Changes to this sheet will appear here."
+              icon={<History className="h-10 w-10 text-muted-foreground" />}
+            />
+          ) : (
+            <Timeline>
+              {displayLogs.map((log: any, i: number) => (
+                <TimelineItem key={i} step={i + 1} className="pb-6">
+                  <TimelineSeparator />
+                  <TimelineIndicator>
+                    <div className="h-2 w-2 rounded-full bg-primary" />
+                  </TimelineIndicator>
+                  <TimelineContent>
+                    <div className="flex flex-col gap-1 -mt-1.5">
+                      <div className="flex items-center justify-between gap-4">
+                        <TimelineTitle className="text-sm font-medium">
+                          {log.actorDisplayName || log.actor}
+                        </TimelineTitle>
+                        <TimelineDate className="text-xs text-muted-foreground whitespace-nowrap">
+                          {new Date(log.timestamp).toLocaleString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit"
+                          })}
+                        </TimelineDate>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {log.action === "STUDENT_UPDATE" ? (
+                          <span>
+                            Updated <span className="font-medium text-foreground">{log.columnChanged}</span> for row <span className="font-medium text-foreground">{log.targetRow}</span>
+                          </span>
+                        ) : log.action === "SHEET_CONNECT" ? (
+                          <span>Connected sheet <span className="font-medium text-foreground">{log.targetRow}</span></span>
+                        ) : (
+                          <span>{log.details || log.action}</span>
+                        )}
+                      </div>
+                      {(log.oldValue || log.newValue) && (
+                        <div className="mt-2 flex items-center gap-1.5 font-mono text-xs p-2 rounded-md bg-muted/50 border max-w-full overflow-hidden">
+                          <span className="flex-1 truncate text-destructive line-through" title={log.oldValue || '""'}>
+                            {log.oldValue || '""'}
+                          </span>
+                          <span className="text-muted-foreground shrink-0">→</span>
+                          <span className="flex-1 truncate text-success" title={log.newValue || '""'}>
+                            {log.newValue || '""'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </TimelineContent>
+                </TimelineItem>
+              ))}
+            </Timeline>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
   )
 }
 
@@ -520,36 +622,7 @@ export default function SheetDetailPage() {
                             }
                           }}
                         />
-                        <InputGroupAddon align="inline-end">
-                          <InputGroupButton
-                            variant="ghost"
-                            size="icon-xs"
-                            className="text-green-500 hover:text-green-600"
-                            title="Save changes"
-                            onMouseDown={(e) => {
-                              e.preventDefault()
-                              if (!isLocked && editValue !== value) {
-                                handleSave(studentId, colName, editValue)
-                              } else {
-                                setEditingCell(null)
-                              }
-                            }}
-                          >
-                            <Check className="h-3 w-3" />
-                          </InputGroupButton>
-                          <InputGroupButton
-                            variant="ghost"
-                            size="icon-xs"
-                            className="text-destructive hover:text-destructive"
-                            title="Discard changes"
-                            onMouseDown={(e) => {
-                              e.preventDefault()
-                              setEditingCell(null)
-                            }}
-                          >
-                            <X className="h-3 w-3" />
-                          </InputGroupButton>
-                        </InputGroupAddon>
+
                         {savingCell?.rowId === studentId &&
                         savingCell?.col === colName ? (
                           <InputGroupAddon
@@ -843,13 +916,15 @@ export default function SheetDetailPage() {
                     </AvatarFallback>
                   </Avatar>
                 </TooltipTrigger>
-                <TooltipContent className="flex flex-col items-start gap-0">
-                  <p className="text-xs font-semibold">{user.name}</p>
-                  <p className="text-tiny p-0 text-muted-foreground capitalize">
-                    {user.role}
-                  </p>
-                  <Badge variant={"secondary"}>
-                    <BadgeDot variant="success" />
+                <TooltipContent className="flex flex-col items-start gap-1 px-3 py-2 border-border/40 shadow-xl">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium leading-none">{user.name}</span>
+                    <span className="text-[10px] text-muted-foreground capitalize mt-1.5">
+                      {user.role}
+                    </span>
+                  </div>
+                  <Badge variant={user.isActive ? "success-light" : "secondary"} className="mt-1 h-5 px-1.5 text-[10px] w-fit">
+                    <BadgeDot variant={user.isActive ? "success" : "outline"} className="mr-1" pulse={user.isActive} />
                     {user.isActive ? "Active now" : "Offline"}
                   </Badge>
                 </TooltipContent>
@@ -861,6 +936,7 @@ export default function SheetDetailPage() {
           <Users className="h-3 w-3" />
           {activeUsersToRender.length} Users
         </Badge>
+        <SheetActivityDrawer sheetId={id} />
       </PageHeader>
 
       <div className="max-w-full" style={{ width: 0, minWidth: "100%" }}>
@@ -918,7 +994,7 @@ export default function SheetDetailPage() {
           </CardHeader>
           <CardContent className="w-full max-w-full">
             {filteredAndSortedData.length > 0 ? (
-              <div className="overflow-auto rounded-md border">
+              <div className="overflow-auto">
                 <AdvancedDataGrid
                   columns={tableColumns}
                   data={filteredAndSortedData}

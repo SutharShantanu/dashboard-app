@@ -363,7 +363,7 @@ export default function SheetsManagementPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="connections" className="space-y-6">
+        <TabsContent value="connections">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <div>
