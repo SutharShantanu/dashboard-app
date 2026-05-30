@@ -66,6 +66,7 @@ import {
 } from "@/components/ui/input-group"
 import { isStrongPassword } from "@/components/password-strength"
 import { Spinner } from "@/components/ui/spinner"
+import { SkeletonBlock } from "@/components/ui/skeleton-block"
 import { LogsDataTable } from "@/components/logs-data-table"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { getAvatarUrl } from "@/lib/utils"
@@ -245,8 +246,16 @@ export default function SettingsPage() {
 
   if (status === "loading") {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Spinner className="h-8 w-8" />
+      <div className="w-full space-y-8 p-4 md:p-8">
+        <div className="space-y-2">
+          <SkeletonBlock variant="rectangular" width={250} height={32} className="rounded-lg" />
+          <SkeletonBlock variant="rectangular" width={350} height={20} className="rounded-lg" />
+        </div>
+        <div className="flex gap-2">
+          <SkeletonBlock variant="rectangular" width={100} height={36} className="rounded-md" />
+          <SkeletonBlock variant="rectangular" width={100} height={36} className="rounded-md" />
+        </div>
+        <SkeletonBlock variant="rectangular" width="100%" height={400} className="rounded-xl" showSpinner={true} />
       </div>
     )
   }
@@ -586,8 +595,10 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
               {loadingLogs ? (
-                <div className="flex justify-center py-10">
-                  <Spinner className="h-6 w-6" />
+                <div className="flex flex-col gap-1 py-4">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <SkeletonBlock key={i} variant="rectangular" width="100%" height={48} className="rounded-sm" />
+                  ))}
                 </div>
               ) : logs.length === 0 ? (
                 <p className="rounded-lg border-2 border-dashed py-10 text-center text-sm text-muted-foreground">

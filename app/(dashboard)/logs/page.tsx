@@ -8,6 +8,7 @@ import { RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/page-header"
 import { Spinner } from "@/components/ui/spinner"
+import { SkeletonBlock } from "@/components/ui/skeleton-block"
 import { LogsDataTable } from "@/components/logs-data-table"
 
 async function fetchLogs() {
@@ -38,8 +39,12 @@ export default function LogsPage() {
 
   if (status === "loading" || isLoading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Spinner className="h-8 w-8 text-primary" />
+      <div className="py-10 space-y-8 w-full">
+        <div className="space-y-2">
+          <SkeletonBlock variant="rectangular" width={200} height={32} className="rounded-lg" />
+          <SkeletonBlock variant="rectangular" width={300} height={20} className="rounded-lg" />
+        </div>
+        <SkeletonBlock variant="rectangular" width="100%" height={500} className="rounded-xl" showSpinner={true} />
       </div>
     )
   }

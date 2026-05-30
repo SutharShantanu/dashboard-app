@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useState, useEffect } from "react"
+import { useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { formatDateTime } from "@/lib/date"
 import { ColumnDef } from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
@@ -8,10 +9,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ExportDropdown } from "@/components/export-dropdown"
 import { getAvatarUrl } from "@/lib/utils"
 import {
-  DataTable,
-  DataTableColumnFilter,
-  DataTableFilterOption,
-} from "@/components/ui/data-table"
+  AdvancedDataGrid,
+  DataGridColumnFilterDef,
+  DataGridFilterOption,
+} from "@/components/ui/advanced-data-grid"
 
 import { Monitor, Smartphone, Tablet, MapPin, Globe } from "lucide-react"
 
@@ -63,27 +64,25 @@ function DeviceIcon({ device }: { device: string | null }) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function LogsDataTable({ logs }: LogsDataTableProps) {
-  const [userGenderMap, setUserGenderMap] = useState<Record<string, string>>({})
-
-  useEffect(() => {
-    let active = true
-    fetch("/api/users")
-      .then((res) => res.json())
-      .then((data) => {
-        if (active && data?.users) {
-          const mapping: Record<string, string> = {}
-          data.users.forEach((u: any) => {
-            if (u.username) mapping[u.username.toLowerCase()] = u.gender || ""
-            if (u.email) mapping[u.email.toLowerCase()] = u.gender || ""
-          })
-          setUserGenderMap(mapping)
-        }
-      })
-      .catch((err) => console.error("Failed to load user genders in logs:", err))
-    return () => {
-      active = false
+  const { data: usersData } = useQuery({
+    queryKey: ["users"],
+    queryFn: async () => {
+      const res = await fetch("/api/users")
+      if (!res.ok) throw new Error("Failed to load users")
+      return res.json()
     }
-  }, [])
+  })
+
+  const userGenderMap = useMemo(() => {
+    const mapping: Record<string, string> = {}
+    if (usersData?.users) {
+      usersData.users.forEach((u: any) => {
+        if (u.username) mapping[u.username.toLowerCase()] = u.gender || ""
+        if (u.email) mapping[u.email.toLowerCase()] = u.gender || ""
+      })
+    }
+    return mapping
+  }, [usersData])
 
   const columns = useMemo<ColumnDef<LogEntry>[]>(() => [
     {
@@ -280,7 +279,7 @@ export function LogsDataTable({ logs }: LogsDataTableProps) {
     },
   ], [userGenderMap])
   // Build "All Actions" + unique action options for the filter dropdown
-  const actionFilterOptions = useMemo<DataTableFilterOption[]>(() => {
+  const actionFilterOptions = useMemo<DataGridFilterOption[]>(() => {
     const unique = Array.from(
       new Set(logs.map((l) => l.action).filter(Boolean))
     ).sort()
@@ -291,7 +290,7 @@ export function LogsDataTable({ logs }: LogsDataTableProps) {
   }, [logs])
 
   // Build unique user options for the filter dropdown
-  const userFilterOptions = useMemo<DataTableFilterOption[]>(() => {
+  const userFilterOptions = useMemo<DataGridFilterOption[]>(() => {
     const unique = Array.from(
       new Set(logs.map((l) => l.actorDisplayName || l.actor).filter((x): x is string => !!x))
     ).sort()
@@ -322,7 +321,7 @@ export function LogsDataTable({ logs }: LogsDataTableProps) {
   }, [logs, userGenderMap])
 
   // Build unique email options for the filter dropdown
-  const emailFilterOptions = useMemo<DataTableFilterOption[]>(() => {
+  const emailFilterOptions = useMemo<DataGridFilterOption[]>(() => {
     const unique = Array.from(
       new Set(logs.map((l) => l.actor).filter((x): x is string => !!x))
     ).sort()
@@ -347,7 +346,7 @@ export function LogsDataTable({ logs }: LogsDataTableProps) {
   }, [logs, userGenderMap])
 
   // Build unique browser options for the filter dropdown
-  const browserFilterOptions = useMemo<DataTableFilterOption[]>(() => {
+  const browserFilterOptions = useMemo<DataGridFilterOption[]>(() => {
     const unique = Array.from(
       new Set(logs.map((l) => parseLoginDetails(l.details).browser).filter(Boolean))
     ).sort()
@@ -355,7 +354,7 @@ export function LogsDataTable({ logs }: LogsDataTableProps) {
   }, [logs])
 
   // Build unique OS options for the filter dropdown
-  const osFilterOptions = useMemo<DataTableFilterOption[]>(() => {
+  const osFilterOptions = useMemo<DataGridFilterOption[]>(() => {
     const unique = Array.from(
       new Set(logs.map((l) => parseLoginDetails(l.details).os).filter(Boolean))
     ).sort()
@@ -363,14 +362,14 @@ export function LogsDataTable({ logs }: LogsDataTableProps) {
   }, [logs])
 
   // Build unique device options for the filter dropdown
-  const deviceFilterOptions = useMemo<DataTableFilterOption[]>(() => {
+  const deviceFilterOptions = useMemo<DataGridFilterOption[]>(() => {
     const unique = Array.from(
       new Set(logs.map((l) => parseLoginDetails(l.details).device).filter(Boolean))
     ).sort()
     return unique.map((d) => ({ label: d as string, value: d as string }))
   }, [logs])
 
-  const columnFilterDefs = useMemo<DataTableColumnFilter[]>(
+  const columnFilterDefs = useMemo<DataGridColumnFilterDef[]>(
     () => [
       { columnId: "timestamp", options: [] },
       { columnId: "user", options: userFilterOptions },
@@ -420,7 +419,7 @@ export function LogsDataTable({ logs }: LogsDataTableProps) {
   const exportFilename = `activity_logs_${new Date().toISOString().slice(0, 10)}`
 
   return (
-    <DataTable
+    <AdvancedDataGrid
       columns={columns}
       data={sortedLogs}
       enableSearch

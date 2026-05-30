@@ -15,7 +15,10 @@ import { cva } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group"
+import {
+  ButtonGroup,
+  ButtonGroupText,
+} from "@/components/ui/button-group"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -36,6 +39,7 @@ import {
   InputGroupInput,
   InputGroupText,
 } from "@/components/ui/input-group"
+import { Kbd } from "@/components/ui/kbd"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Tooltip,
@@ -43,35 +47,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import {
-  AlertCircleIcon,
-  CheckIcon,
-  PlusIcon,
-  XIcon,
-  CalendarIcon,
-  ClockIcon,
-  ChevronUp,
-  ChevronDown,
-} from "lucide-react"
-import {
-  format,
-  eachMonthOfInterval,
-  eachYearOfInterval,
-  endOfYear,
-  isAfter,
-  isBefore,
-  startOfYear,
-} from "date-fns"
-import type { CaptionLabelProps, MonthGridProps, DateRange } from "react-day-picker"
-import { Dispatch, SetStateAction, HTMLAttributes } from "react"
-import { Calendar } from "@/components/ui/calendar"
-import { Separator } from "@/components/ui/separator"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import { AlertCircleIcon, XIcon, CheckIcon, PlusIcon } from "lucide-react"
 
 // i18n Configuration Interface
 export interface FilterI18nConfig {
@@ -364,10 +340,13 @@ function FilterInput<T = unknown>({
   return (
     <InputGroup
       className={cn(
-        "w-fit",
-        context.size == "sm" && "",
-        context.size == "default" && "",
-        context.size == "lg" && "",
+        "w-36",
+        context.size == "sm" &&
+          "h-7!",
+        context.size == "default" &&
+          "h-8!",
+        context.size == "lg" &&
+          "h-9!",
         className
       )}
     >
@@ -387,9 +366,12 @@ function FilterInput<T = unknown>({
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         className={cn(
-          context.size == "sm" && "text-xs",
-          context.size == "default" && "",
-          context.size == "lg" && ""
+          context.size == "sm" &&
+            "h-7! text-xs",
+          context.size == "default" &&
+            "h-8!",
+          context.size == "lg" &&
+            "h-9!"
         )}
         {...props}
       />
@@ -399,7 +381,7 @@ function FilterInput<T = unknown>({
             <Tooltip>
               <TooltipTrigger asChild>
                 <InputGroupButton size="icon-xs">
-                  <AlertCircleIcon className="size-3.5 text-destructive" />
+                  <AlertCircleIcon className="text-destructive size-3.5" />
                 </InputGroupButton>
               </TooltipTrigger>
               <TooltipContent>
@@ -425,10 +407,19 @@ interface FilterRemoveButtonProps extends React.ButtonHTMLAttributes<HTMLButtonE
 
 function FilterRemoveButton({
   className,
-  icon = <XIcon />,
+  icon = (
+    <XIcon
+    />
+  ),
   ...props
 }: FilterRemoveButtonProps) {
   const context = useFilterContext()
+
+  const sizeMap = {
+    sm: "sm" as const,
+    default: "sm" as const,
+    lg: "default" as const,
+  }
 
   return (
     <Button
@@ -485,7 +476,7 @@ export interface FilterFieldConfig<T = unknown> {
   key?: string
   label?: string
   icon?: React.ReactNode
-  type?: "select" | "multiselect" | "text" | "custom" | "separator" | "date"
+  type?: "select" | "multiselect" | "text" | "custom" | "separator"
   // Group-level configuration
   group?: string
   fields?: FilterFieldConfig<T>[]
@@ -606,14 +597,6 @@ const createOperatorsFromI18n = (
     { value: "empty", label: i18n.operators.empty },
     { value: "not_empty", label: i18n.operators.notEmpty },
   ],
-  date: [
-    { value: "is", label: i18n.operators.is },
-    { value: "before", label: i18n.operators.before },
-    { value: "after", label: i18n.operators.after },
-    { value: "between", label: i18n.operators.between },
-    { value: "empty", label: i18n.operators.empty },
-    { value: "not_empty", label: i18n.operators.notEmpty },
-  ],
 })
 
 // Default operators for different field types (using default i18n)
@@ -684,16 +667,14 @@ function FilterOperatorDropdown<T = unknown>({
             key={op.value}
             onClick={() => onChange(op.value)}
             className={cn(
-              "flex items-center justify-between data-highlighted:bg-accent data-highlighted:text-accent-foreground"
+              "data-highlighted:bg-accent data-highlighted:text-accent-foreground flex items-center justify-between"
             )}
           >
             <span>{op.label}</span>
-            <CheckIcon
-              className={cn(
-                "ms-auto text-primary",
-                op.value === operator ? "opacity-100" : "opacity-0"
-              )}
-            />
+            <CheckIcon className={cn(
+                                "text-primary ms-auto",
+                                op.value === operator ? "opacity-100" : "opacity-0"
+                              )} />
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
@@ -789,7 +770,7 @@ function SelectOptionsPopover<T = unknown>({
               field.label || ""
             )}
             className={cn(
-              "h-8 border-0 border-input bg-transparent! px-2 text-sm shadow-none",
+              "border-input h-8 rounded-none border-0 bg-transparent! px-2 text-sm shadow-none",
               "focus-visible:border-border focus-visible:ring-0 focus-visible:ring-offset-0"
             )}
             value={searchInput}
@@ -855,7 +836,7 @@ function SelectOptionsPopover<T = unknown>({
         >
           <ScrollArea className="size-full min-h-0 **:data-[slot=scroll-area-scrollbar]:m-0 **:data-[slot=scroll-area-viewport]:h-full **:data-[slot=scroll-area-viewport]:overscroll-contain">
             {allFilteredOptions.length === 0 && (
-              <div className="py-2 text-center text-sm text-muted-foreground">
+              <div className="text-muted-foreground py-2 text-center text-sm">
                 {context.i18n.noResultsFound}
               </div>
             )}
@@ -1015,161 +996,6 @@ function SelectOptionsPopover<T = unknown>({
   )
 }
 
-function parse24HourTime(timeStr: string) {
-  const t = timeStr || "00:00:00"
-  const [hStr, mStr] = t.split(":")
-  const hour = parseInt(hStr || "0", 10)
-  const minute = parseInt(mStr || "0", 10)
-  return { hour, minute }
-}
-
-function format24HourTime(hour: number, minute: number) {
-  const hStr = String(hour).padStart(2, "0")
-  const mStr = String(minute).padStart(2, "0")
-  return `${hStr}:${mStr}:00`
-}
-
-function MonthGrid({
-  className,
-  children,
-  isYearView,
-  years,
-  currentYear,
-  currentMonth,
-  onMonthSelect,
-  selectedYear,
-  setSelectedYear,
-  startDate,
-  endDate,
-}: {
-  className?: string
-  children: React.ReactNode
-  isYearView: boolean
-  setIsYearView: Dispatch<SetStateAction<boolean>>
-  startDate: Date
-  endDate: Date
-  years: Date[]
-  currentYear: number
-  currentMonth: number
-  onMonthSelect: (date: Date) => void
-  selectedYear: number | null
-  setSelectedYear: Dispatch<SetStateAction<number | null>>
-}) {
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (isYearView && scrollAreaRef.current) {
-      const activeElement = scrollAreaRef.current.querySelector(
-        "[data-active='true']"
-      ) as HTMLElement | null
-
-      if (activeElement) {
-        activeElement.scrollIntoView({ block: "center" })
-      }
-    }
-  }, [isYearView, selectedYear])
-
-  return (
-    <div className="relative">
-      <table className={className}>{children}</table>
-      {isYearView && (
-        <div className="bg-background absolute inset-0 z-20 -m-2">
-          <div className="h-full" ref={scrollAreaRef}>
-            <ScrollArea className="h-full">
-              <div className="px-3 pt-1 pb-3">
-                {selectedYear === null ? (
-                  <div className="grid grid-cols-4 gap-2">
-                    {years.map((year) => {
-                      const y = year.getFullYear()
-                      const isCurrent = y === currentYear
-                      return (
-                        <Button
-                          key={y}
-                          variant={isCurrent ? "default" : "outline"}
-                          size="sm"
-                          className="h-8 rounded-none border border-border"
-                          data-active={isCurrent}
-                          onClick={() => setSelectedYear(y)}
-                        >
-                          {y}
-                        </Button>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="px-2 rounded-none"
-                        onClick={() => setSelectedYear(null)}
-                      >
-                        <ChevronDown className="mr-1 size-4 rotate-90" />
-                        {selectedYear}
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {eachMonthOfInterval({
-                        start: startOfYear(new Date(selectedYear, 0)),
-                        end: endOfYear(new Date(selectedYear, 0)),
-                      }).map((month) => {
-                        const isCurrent =
-                          month.getMonth() === currentMonth &&
-                          selectedYear === currentYear
-
-                        const isDisabled =
-                          isBefore(month, startOfYear(startDate)) ||
-                          isAfter(month, endOfYear(endDate))
-
-                        return (
-                          <Button
-                            key={month.getTime()}
-                            variant={isCurrent ? "default" : "outline"}
-                            size="sm"
-                            className="h-8 rounded-none border border-border"
-                            data-active={isCurrent}
-                            disabled={isDisabled}
-                            onClick={() => onMonthSelect(month)}
-                          >
-                            {format(month, "MMM")}
-                          </Button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function CaptionLabel({
-  children,
-  isYearView,
-  setIsYearView,
-}: {
-  isYearView: boolean
-  setIsYearView: Dispatch<SetStateAction<boolean>>
-} & HTMLAttributes<HTMLSpanElement>) {
-  return (
-    <Button
-      className="data-[state=open]:text-muted-foreground/80 -ms-2 flex items-center gap-2 text-sm font-medium hover:bg-transparent [&[data-state=open]>svg]:rotate-180 rounded-none"
-      data-state={isYearView ? "open" : "closed"}
-      onClick={() => setIsYearView((prev) => !prev)}
-      size="sm"
-      variant="ghost"
-    >
-      {children}
-      <ChevronDown aria-hidden="true" className="text-muted-foreground/80 shrink-0 transition-transform duration-200" />
-    </Button>
-  )
-}
-
 function FilterValueSelector<T = unknown>({
   field,
   values,
@@ -1178,25 +1004,6 @@ function FilterValueSelector<T = unknown>({
   autoFocus,
 }: FilterValueSelectorProps<T>) {
   const context = useFilterContext()
-  const dateId = useId()
-  const [isYearView, setIsYearView] = useState(false)
-  const [selectedYear, setSelectedYear] = useState<number | null>(null)
-  const [showTimeView, setShowTimeView] = useState(false)
-  
-  const today = new Date()
-  const [month, setMonth] = useState(() => {
-    return values[0] ? new Date(String(values[0])) : today
-  })
-
-  const startYear = today.getFullYear() - 10
-  const endYear = today.getFullYear() + 10
-  const startDate = startOfYear(new Date(startYear, 0))
-  const endDate = endOfYear(new Date(endYear, 11))
-
-  const years = eachYearOfInterval({
-    end: endOfYear(endDate),
-    start: startOfYear(startDate),
-  })
 
   if (operator === "empty" || operator === "not_empty") {
     return null
@@ -1204,352 +1011,9 @@ function FilterValueSelector<T = unknown>({
 
   if (field.customRenderer) {
     return (
-      <ButtonGroupText className="bg-background text-start whitespace-nowrap outline-hidden hover:bg-accent aria-expanded:bg-accent dark:bg-input/30">
+      <ButtonGroupText className="hover:bg-accent aria-expanded:bg-accent bg-background dark:bg-input/30 text-start whitespace-nowrap outline-hidden">
         {field.customRenderer({ field, values, onChange, operator })}
       </ButtonGroupText>
-    )
-  }
-
-  if (field.type === "date") {
-    const startDateVal = values[0] ? new Date(String(values[0])) : undefined
-    const endDateVal = values[1] ? new Date(String(values[1])) : undefined
-    const dateRange: DateRange = { from: startDateVal, to: endDateVal }
-
-    const startTime =
-      values[0] && String(values[0]).includes("T")
-        ? String(values[0]).split("T")[1].slice(0, 8)
-        : ""
-    const endTime =
-      values[1] && String(values[1]).includes("T")
-        ? String(values[1]).split("T")[1].slice(0, 8)
-        : ""
-
-    const isRangeMode =
-      operator === "is" ||
-      operator === "is_not" ||
-      operator === "between" ||
-      operator === "not_between"
-
-    const handleSelectDateRange = (newRange: DateRange | undefined) => {
-      if (!newRange) {
-        onChange([])
-        return
-      }
-      const fromDate = newRange.from
-      const toDate = newRange.to
-
-      const startT = startTime || "00:00:00"
-      const endT = endTime || "23:59:59"
-
-      const fromStr = fromDate ? format(fromDate, "yyyy-MM-dd") : ""
-      const toStr = toDate ? format(toDate, "yyyy-MM-dd") : ""
-
-      const newValues: T[] = []
-      if (fromStr) {
-        newValues.push(`${fromStr}T${startT}` as T)
-      }
-      if (toStr) {
-        newValues.push(`${toStr}T${endT}` as T)
-      }
-
-      onChange(newValues)
-
-      // Transition to Time view when both dates are selected
-      if (fromDate && toDate) {
-        setShowTimeView(true)
-      }
-    }
-
-    const handleSelectSingleDate = (newDate: Date | undefined) => {
-      if (!newDate) {
-        onChange([])
-        return
-      }
-      const startT = startTime || "00:00:00"
-      const dateStr = format(newDate, "yyyy-MM-dd")
-      onChange([`${dateStr}T${startT}`] as T[])
-      setShowTimeView(true)
-    }
-
-    const handleStartTimeChange = (newStart: string) => {
-      const activeDate = startDateVal || new Date()
-      const dateStr = format(activeDate, "yyyy-MM-dd")
-      const startT = newStart || "00:00:00"
-      const endT = endTime || "23:59:59"
-
-      if (isRangeMode) {
-        const toStr = endDateVal ? format(endDateVal, "yyyy-MM-dd") : ""
-        const newValues: T[] = [`${dateStr}T${startT}` as T]
-        if (toStr) newValues.push(`${toStr}T${endT}` as T)
-        onChange(newValues)
-      } else {
-        onChange([`${dateStr}T${startT}`] as T[])
-      }
-    }
-
-    const handleEndTimeChange = (newEnd: string) => {
-      const startActiveDate = startDateVal || new Date()
-      const endActiveDate = endDateVal || new Date()
-      const fromStr = format(startActiveDate, "yyyy-MM-dd")
-      const toStr = format(endActiveDate, "yyyy-MM-dd")
-      const startT = startTime || "00:00:00"
-      const endT = newEnd || "23:59:59"
-
-      onChange([`${fromStr}T${startT}`, `${toStr}T${endT}`] as T[])
-    }
-
-    const renderTimePicker = (label: string, timeStr: string, isStart: boolean) => {
-      const { hour, minute } = parse24HourTime(timeStr)
-
-      const handleTimePartChange = (part: "hour" | "minute", amount: number) => {
-        let nextHour = hour
-        let nextMin = minute
-        if (part === "hour") {
-          nextHour = (hour + amount + 24) % 24
-        } else if (part === "minute") {
-          nextMin = (minute + amount + 60) % 60
-        }
-        const nextTimeStr = format24HourTime(nextHour, nextMin)
-        if (isStart) {
-          handleStartTimeChange(nextTimeStr)
-        } else {
-          handleEndTimeChange(nextTimeStr)
-        }
-      }
-
-      return (
-        <div className="flex flex-col gap-2 items-center w-full">
-          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">{label}</span>
-          <div className="flex items-center gap-2 p-3 bg-accent/25 dark:bg-muted/20 border border-border/80 rounded-none w-full justify-center">
-            {/* Hours */}
-            <div className="flex flex-col items-center">
-              <button
-                onClick={() => handleTimePartChange("hour", 1)}
-                className="p-0.5 hover:bg-accent rounded-none transition-colors text-muted-foreground hover:text-foreground"
-              >
-                <ChevronUp className="h-4 w-4" />
-              </button>
-              <span className="text-2xl font-mono font-bold px-2.5 py-1 bg-background border border-border/85 rounded-none shadow-xs select-none min-w-[44px] text-center">
-                {String(hour).padStart(2, "0")}
-              </span>
-              <button
-                onClick={() => handleTimePartChange("hour", -1)}
-                className="p-0.5 hover:bg-accent rounded-none transition-colors text-muted-foreground hover:text-foreground"
-              >
-                <ChevronDown className="h-4 w-4" />
-              </button>
-            </div>
-            
-            <span className="text-xl font-mono select-none -mt-4 font-bold text-muted-foreground/60">:</span>
-            
-            {/* Minutes */}
-            <div className="flex flex-col items-center">
-              <button
-                onClick={() => handleTimePartChange("minute", 1)}
-                className="p-0.5 hover:bg-accent rounded-none transition-colors text-muted-foreground hover:text-foreground"
-              >
-                <ChevronUp className="h-4 w-4" />
-              </button>
-              <span className="text-2xl font-mono font-bold px-2.5 py-1 bg-background border border-border/85 rounded-none shadow-xs select-none min-w-[44px] text-center">
-                {String(minute).padStart(2, "0")}
-              </span>
-              <button
-                onClick={() => handleTimePartChange("minute", -1)}
-                className="p-0.5 hover:bg-accent rounded-none transition-colors text-muted-foreground hover:text-foreground"
-              >
-                <ChevronDown className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )
-    }
-
-    return (
-      <Popover onOpenChange={(open) => {
-        if (open) {
-          setShowTimeView(false)
-        }
-      }}>
-        <PopoverTrigger asChild>
-          <Button
-            className="group/pick-date w-fit justify-between text-xs font-medium rounded-none"
-            id={dateId}
-            variant="outline"
-          >
-            <span
-              className={cn("truncate", !startDateVal && "text-muted-foreground")}
-            >
-              {startDateVal ? (
-                isRangeMode && endDateVal ? (
-                  <>
-                    {format(startDateVal, "LLL dd, yyyy")} {startTime || "00:00:00"} -{" "}
-                    {format(endDateVal, "LLL dd, yyyy")} {endTime || "23:59:59"}
-                  </>
-                ) : (
-                  `${format(startDateVal, "LLL dd, yyyy")} ${startTime || "00:00:00"}`
-                )
-              ) : (
-                isRangeMode ? "Pick a date range" : "Pick a date and time"
-              )}
-            </span>
-            <CalendarIcon
-              aria-hidden="true"
-              className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80 transition-colors group-hover:text-foreground"
-            />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          className={cn(
-            "z-50 p-4 shadow-md border border-border rounded-none",
-            showTimeView ? "w-[280px] sm:w-[320px]" : "w-auto"
-          )}
-        >
-          {showTimeView ? (
-            <div className="flex flex-col gap-4 w-full">
-              {/* Back to Calendar Header */}
-              <div className="flex items-center justify-between border-b pb-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 rounded-none text-xs gap-1 px-2"
-                  onClick={() => setShowTimeView(false)}
-                >
-                  <ChevronDown className="h-4 w-4 rotate-90" />
-                  <span>Calendar</span>
-                </Button>
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">
-                  Select Time
-                </span>
-              </div>
-
-              {/* Time Pickers Panel */}
-              <div className="flex flex-col gap-4 justify-center w-full">
-                {isRangeMode ? (
-                  <div className="flex gap-4 justify-between w-full">
-                    {renderTimePicker("Start Time", startTime, true)}
-                    {renderTimePicker("End Time", endTime, false)}
-                  </div>
-                ) : (
-                  <div className="w-[120px] self-center">
-                    {renderTimePicker("Time", startTime, true)}
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            /* Calendar picker with year/month caption selector overrides */
-            <div className="flex flex-col gap-3">
-              {isRangeMode ? (
-                <Calendar
-                  mode="range"
-                  selected={dateRange}
-                  onSelect={handleSelectDateRange as any}
-                  classNames={{
-                    month_caption: "ms-2.5 justify-start",
-                    nav: "flex items-center w-full absolute inset-x-0 justify-end pointer-events-none [&>button]:pointer-events-auto",
-                  }}
-                  components={{
-                    CaptionLabel: (props: any) => (
-                      <CaptionLabel
-                        isYearView={isYearView}
-                        setIsYearView={(val) => {
-                          setIsYearView(val)
-                          if (!val) setSelectedYear(null)
-                        }}
-                        {...props}
-                      />
-                    ),
-                    MonthGrid: (props: any) => {
-                      return (
-                        <MonthGrid
-                          className={props.className}
-                          currentMonth={month.getMonth()}
-                          currentYear={month.getFullYear()}
-                          endDate={endDate}
-                          isYearView={isYearView}
-                          onMonthSelect={(selectedMonth: Date) => {
-                            setMonth(selectedMonth)
-                            setIsYearView(false)
-                            setSelectedYear(null)
-                          }}
-                          setIsYearView={setIsYearView}
-                          startDate={startDate}
-                          years={years}
-                          selectedYear={selectedYear}
-                          setSelectedYear={setSelectedYear}
-                        >
-                          {props.children}
-                        </MonthGrid>
-                      )
-                    },
-                  }}
-                  defaultMonth={new Date()}
-                  endMonth={endDate}
-                  month={month}
-                  onMonthChange={setMonth}
-                  startMonth={startDate}
-                  numberOfMonths={2}
-                  className="p-0 border rounded-none bg-card"
-                />
-              ) : (
-                <Calendar
-                  mode="single"
-                  selected={startDateVal}
-                  onSelect={handleSelectSingleDate as any}
-                  classNames={{
-                    month_caption: "ms-2.5 justify-start",
-                    nav: "flex items-center w-full absolute inset-x-0 justify-end pointer-events-none [&>button]:pointer-events-auto",
-                  }}
-                  components={{
-                    CaptionLabel: (props: any) => (
-                      <CaptionLabel
-                        isYearView={isYearView}
-                        setIsYearView={(val) => {
-                          setIsYearView(val)
-                          if (!val) setSelectedYear(null)
-                        }}
-                        {...props}
-                      />
-                    ),
-                    MonthGrid: (props: any) => {
-                      return (
-                        <MonthGrid
-                          className={props.className}
-                          currentMonth={month.getMonth()}
-                          currentYear={month.getFullYear()}
-                          endDate={endDate}
-                          isYearView={isYearView}
-                          onMonthSelect={(selectedMonth: Date) => {
-                            setMonth(selectedMonth)
-                            setIsYearView(false)
-                            setSelectedYear(null)
-                          }}
-                          setIsYearView={setIsYearView}
-                          startDate={startDate}
-                          years={years}
-                          selectedYear={selectedYear}
-                          setSelectedYear={setSelectedYear}
-                        >
-                          {props.children}
-                        </MonthGrid>
-                      )
-                    },
-                  }}
-                  defaultMonth={new Date()}
-                  endMonth={endDate}
-                  month={month}
-                  onMonthChange={setMonth}
-                  startMonth={startDate}
-                  numberOfMonths={2}
-                  className="p-0 border rounded-none bg-card"
-                />
-              )}
-            </div>
-          )}
-        </PopoverContent>
-      </Popover>
     )
   }
 
@@ -1578,25 +1042,11 @@ function FilterValueSelector<T = unknown>({
     <SelectOptionsPopover field={field} values={values} onChange={onChange} />
   )
 }
-
 export interface Filter<T = unknown> {
   id: string
   field: string
   operator: string
   values: T[]
-}
-
-export function createFilter<T = unknown>(
-  field: string,
-  operator: string,
-  values: T[] = []
-): Filter<T> {
-  return {
-    id: `${field}-${operator}-${Math.random().toString(36).substring(2, 9)}`,
-    field,
-    operator,
-    values,
-  }
 }
 
 export interface FilterGroup<T = unknown> {
@@ -1663,7 +1113,7 @@ export const FiltersContent = <T = unknown,>({
         if (!field) return null
 
         return (
-          <ButtonGroup key={filter.id} className="mr-2">
+          <ButtonGroup key={filter.id}>
             <ButtonGroupText>
               {field.icon && field.icon}
               {field.label}
@@ -1787,7 +1237,7 @@ function FilterSubmenuContent<T = unknown>({
             }
             placeholder={i18n.placeholders.searchField(field.label || "")}
             className={cn(
-              "border-0 bg-transparent! px-2 text-sm shadow-none",
+              "h-8 rounded-none border-0 bg-transparent! px-2 text-sm shadow-none",
               "focus-visible:border-border focus-visible:ring-0 focus-visible:ring-offset-0"
             )}
             value={searchInput}
@@ -1880,7 +1330,7 @@ function FilterSubmenuContent<T = unknown>({
         >
           <ScrollArea className="size-full min-h-0 **:data-[slot=scroll-area-scrollbar]:m-0 **:data-[slot=scroll-area-viewport]:h-full **:data-[slot=scroll-area-viewport]:overscroll-contain">
             {filteredOptions.length === 0 ? (
-              <div className="py-2 text-center text-sm text-muted-foreground">
+              <div className="text-muted-foreground py-2 text-center text-sm">
                 {i18n.noResultsFound}
               </div>
             ) : (
@@ -1943,6 +1393,7 @@ export function Filters<T = unknown>({
 }: FiltersProps<T>) {
   const [addFilterOpen, setAddFilterOpen] = useState(false)
   const [menuSearchInput, setMenuSearchInput] = useState("")
+  const [activeMenu, setActiveMenu] = useState<string>("root")
   const [openSubMenu, setOpenSubMenu] = useState<string | null>(null)
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
   const [lastAddedFilterId, setLastAddedFilterId] = useState<string | null>(
@@ -2083,43 +1534,6 @@ export function Filters<T = unknown>({
     )
   }, [selectableFields, menuSearchInput])
 
-  const handleToggleValue = (fieldKey: string, value: any) => {
-    const existing = filters.find((f) => f.field === fieldKey)
-    if (existing) {
-      const field = fieldsMap[fieldKey]
-      const isMulti = field?.type === "multiselect"
-      const isSelected = existing.values.includes(value)
-
-      let nextValues = [...existing.values]
-      if (isSelected) {
-        nextValues = nextValues.filter((v) => v !== value)
-      } else {
-        if (isMulti) {
-          nextValues.push(value)
-        } else {
-          nextValues = [value]
-        }
-      }
-
-      if (nextValues.length === 0) {
-        removeFilter(existing.id)
-      } else {
-        updateFilter(existing.id, { values: nextValues as T[] })
-      }
-    } else {
-      const field = fieldsMap[fieldKey]
-      if (field) {
-        const defaultOperator =
-          field.defaultOperator ||
-          (field.type === "multiselect" ? "is_any_of" : "is")
-        const newFilter = createFilter<T>(fieldKey, defaultOperator, [
-          value,
-        ] as T[])
-        onChange([...filters, newFilter])
-      }
-    }
-  }
-
   useEffect(() => {
     if (addFilterOpen && filteredFields.length > 0) {
       setHighlightedIndex(0)
@@ -2149,13 +1563,16 @@ export function Filters<T = unknown>({
               if (!open) {
                 setMenuSearchInput("")
                 setSessionFilterIds({})
+              } else {
+                setActiveMenu("root")
               }
             }}
           >
             <DropdownMenuTrigger asChild>
               {trigger || (
-                <Button variant="outline" size={size}>
-                  <PlusIcon className="h-4 w-4" />
+                <Button variant="outline">
+                  <PlusIcon
+                  />
                   {mergedI18n.addFilter}
                 </Button>
               )}
@@ -2170,82 +1587,302 @@ export function Filters<T = unknown>({
                     <Input
                       ref={rootInputRef}
                       role="combobox"
+                      aria-controls={`${rootId}-listbox`}
+                      aria-activedescendant={
+                        highlightedIndex >= 0
+                          ? `${rootId}-item-${highlightedIndex}`
+                          : undefined
+                      }
                       placeholder={mergedI18n.searchFields}
                       className={cn(
-                        "border-0 bg-transparent! px-2 text-sm shadow-none",
+                        "h-8 rounded-none border-0 bg-transparent! px-2 text-sm shadow-none",
                         "focus-visible:border-border focus-visible:ring-0 focus-visible:ring-offset-0"
                       )}
                       value={menuSearchInput}
                       onChange={(e) => setMenuSearchInput(e.target.value)}
                       onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => {
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault()
+                          if (filteredFields.length > 0) {
+                            setHighlightedIndex((prev) =>
+                              prev < filteredFields.length - 1 ? prev + 1 : 0
+                            )
+                          }
+                        } else if (e.key === "ArrowUp") {
+                          e.preventDefault()
+                          if (filteredFields.length > 0) {
+                            setHighlightedIndex((prev) =>
+                              prev > 0 ? prev - 1 : filteredFields.length - 1
+                            )
+                          }
+                        } else if (
+                          (e.key === "ArrowRight" || e.key === "ArrowLeft") &&
+                          highlightedIndex >= 0
+                        ) {
+                          const field = filteredFields[highlightedIndex]
+                          const hasSubMenu =
+                            field &&
+                            (field.type === "select" ||
+                              field.type === "multiselect") &&
+                            field.options?.length
+
+                          if (e.key === "ArrowRight" && hasSubMenu) {
+                            e.preventDefault()
+                            setOpenSubMenu(field.key || null)
+                            setActiveMenu(field.key || "root")
+                          } else if (e.key === "ArrowLeft") {
+                            e.preventDefault()
+                            if (openSubMenu) {
+                              setOpenSubMenu(null)
+                              setActiveMenu("root")
+                            }
+                          }
+                        } else if (e.key === "Enter" && highlightedIndex >= 0) {
+                          e.preventDefault()
+                          const field = filteredFields[highlightedIndex]
+                          if (field.key) {
+                            const hasSubMenu =
+                              (field.type === "select" ||
+                                field.type === "multiselect") &&
+                              field.options?.length
+                            if (!hasSubMenu) {
+                              addFilter(field.key)
+                            } else {
+                              if (openSubMenu === field.key) {
+                                setOpenSubMenu(null)
+                                setActiveMenu("root")
+                              } else {
+                                setOpenSubMenu(field.key)
+                                setActiveMenu(field.key)
+                              }
+                            }
+                          }
+                        } else if (e.key === "Escape") {
+                          setAddFilterOpen(false)
+                        }
+                        e.stopPropagation()
+                      }}
                     />
+                    {enableShortcut && shortcutLabel && (
+                      <Kbd className="bg-background absolute top-1/2 right-2 -translate-y-1/2 border">
+                        {shortcutLabel}
+                      </Kbd>
+                    )}
                   </div>
                   <DropdownMenuSeparator />
                 </>
               )}
 
-              <DropdownMenuGroup>
-                {filteredFields.map((field) => {
-                  const hasSubMenu =
-                    field.type === "select" || field.type === "multiselect"
-                  const existingFilter = filters.find(
-                    (f) => f.field === field.key
-                  )
-                  const currentValues = existingFilter?.values || []
+              <div className="relative flex max-h-full">
+                <div
+                  className="flex max-h-[min(var(--radix-dropdown-menu-content-available-height),24rem)] w-full scroll-pt-2 scroll-pb-2 flex-col overscroll-contain"
+                  role="listbox"
+                  id={`${rootId}-listbox`}
+                >
+                  <ScrollArea className="**:data-[slot=scroll-area-scrollbar]:m-0">
+                    {(() => {
+                      if (filteredFields.length === 0) {
+                        return (
+                          <div className="text-muted-foreground py-2 text-center text-sm">
+                            {mergedI18n.noFieldsFound}
+                          </div>
+                        )
+                      }
 
-                  if (hasSubMenu) {
-                    return (
-                      <DropdownMenuSub
-                        key={field.key}
-                        open={openSubMenu === field.key}
-                        onOpenChange={(open) =>
-                          setOpenSubMenu(open ? field.key! : null)
+                      return filteredFields.map((field, index) => {
+                        const isHighlighted = highlightedIndex === index
+                        const itemId = `${rootId}-item-${index}`
+                        const hasSubMenu =
+                          (field.type === "select" ||
+                            field.type === "multiselect") &&
+                          field.options?.length
+
+                        if (hasSubMenu) {
+                          const isMultiSelect = field.type === "multiselect"
+                          const fieldKey = field.key as string
+                          const sessionFilterId = sessionFilterIds[fieldKey]
+                          const sessionFilter = sessionFilterId
+                            ? filters.find((f) => f.id === sessionFilterId)
+                            : null
+                          const currentValues = sessionFilter?.values || []
+
+                          return (
+                            <DropdownMenuSub
+                              key={fieldKey}
+                              open={openSubMenu === fieldKey}
+                              onOpenChange={(open) => {
+                                if (open) {
+                                  setOpenSubMenu((prev) =>
+                                    prev === fieldKey ? prev : fieldKey
+                                  )
+                                } else {
+                                  if (openSubMenu === fieldKey) {
+                                    setOpenSubMenu(null)
+                                    setActiveMenu("root")
+                                  }
+                                }
+                              }}
+                            >
+                              <DropdownMenuSubTrigger
+                                id={itemId}
+                                role="option"
+                                aria-selected={isHighlighted}
+                                data-highlighted={isHighlighted || undefined}
+                                onMouseEnter={() => setHighlightedIndex(index)}
+                                className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground data-highlighted:bg-accent data-highlighted:text-accent-foreground"
+                              >
+                                {field.icon}
+                                <span>{field.label}</span>
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent className="w-[200px]">
+                                <FilterSubmenuContent
+                                  field={field}
+                                  currentValues={currentValues}
+                                  isMultiSelect={isMultiSelect}
+                                  i18n={mergedI18n}
+                                  isActive={activeMenu === fieldKey}
+                                  onActive={() => {
+                                    if (field.searchable !== false) {
+                                      setActiveMenu(fieldKey)
+                                    }
+                                  }}
+                                  onBack={() => {
+                                    setOpenSubMenu(null)
+                                    setActiveMenu("root")
+                                  }}
+                                  onClose={() => setAddFilterOpen(false)}
+                                  onToggle={(value, isSelected) => {
+                                    if (isMultiSelect) {
+                                      const nextValues = isSelected
+                                        ? (currentValues.filter(
+                                            (v) => v !== value
+                                          ) as T[])
+                                        : ([...currentValues, value] as T[])
+
+                                      if (sessionFilter) {
+                                        if (nextValues.length === 0) {
+                                          onChange(
+                                            filters.filter(
+                                              (f) => f.id !== sessionFilter.id
+                                            )
+                                          )
+                                          setSessionFilterIds((prev) => ({
+                                            ...prev,
+                                            [fieldKey]: "",
+                                          }))
+                                        } else {
+                                          onChange(
+                                            filters.map((f) =>
+                                              f.id === sessionFilter.id
+                                                ? { ...f, values: nextValues }
+                                                : f
+                                            )
+                                          )
+                                        }
+                                      } else {
+                                        const newFilter = createFilter<T>(
+                                          fieldKey,
+                                          field.defaultOperator || "is_any_of",
+                                          nextValues
+                                        )
+                                        onChange([...filters, newFilter])
+                                        setSessionFilterIds((prev) => ({
+                                          ...prev,
+                                          [fieldKey]: newFilter.id,
+                                        }))
+                                      }
+                                    } else {
+                                      const newFilter = createFilter<T>(
+                                        fieldKey,
+                                        field.defaultOperator || "is",
+                                        [value] as T[]
+                                      )
+                                      setLastAddedFilterId(newFilter.id)
+                                      onChange([...filters, newFilter])
+                                      setAddFilterOpen(false)
+                                    }
+                                  }}
+                                />
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                          )
                         }
-                      >
-                        <DropdownMenuSubTrigger className="gap-1.5 text-xs">
-                          {field.icon && field.icon}
-                          <span>{field.label}</span>
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent className="w-fit p-0">
-                          <FilterSubmenuContent
-                            field={field}
-                            currentValues={currentValues}
-                            isMultiSelect={field.type === "multiselect"}
-                            onToggle={(val) =>
-                              handleToggleValue(field.key!, val)
-                            }
-                            i18n={mergedI18n}
-                            isActive={openSubMenu === field.key}
-                            onClose={() => setAddFilterOpen(false)}
-                          />
-                        </DropdownMenuSubContent>
-                      </DropdownMenuSub>
-                    )
-                  }
 
-                  return (
-                    <DropdownMenuItem
-                      key={field.key}
-                      onClick={() => addFilter(field.key!)}
-                      className="gap-1.5 text-xs"
-                    >
-                      {field.icon && field.icon}
-                      <span>{field.label}</span>
-                    </DropdownMenuItem>
-                  )
-                })}
-                {filteredFields.length === 0 && (
-                  <div className="py-2 text-center text-xs text-muted-foreground">
-                    {mergedI18n.noFieldsFound}
-                  </div>
-                )}
-              </DropdownMenuGroup>
+                        return (
+                          <DropdownMenuItem
+                            key={field.key}
+                            id={itemId}
+                            role="option"
+                            aria-selected={isHighlighted}
+                            data-highlighted={isHighlighted || undefined}
+                            onMouseEnter={() => setHighlightedIndex(index)}
+                            onClick={() => field.key && addFilter(field.key)}
+                            className="data-highlighted:bg-accent data-highlighted:text-accent-foreground"
+                          >
+                            {field.icon}
+                            <span>{field.label}</span>
+                          </DropdownMenuItem>
+                        )
+                      })
+                    })()}
+                  </ScrollArea>
+                </div>
+              </div>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
 
-        <FiltersContent filters={filters} fields={fields} onChange={onChange} />
+        {filters.map((filter) => {
+          const field = fieldsMap[filter.field]
+          if (!field) return null
+          return (
+            <ButtonGroup key={filter.id}>
+              <ButtonGroupText className="bg-background dark:bg-input/30">
+                {field.icon && field.icon}
+                {field.label}
+              </ButtonGroupText>
+              <FilterOperatorDropdown<T>
+                field={field}
+                operator={filter.operator}
+                values={filter.values}
+                onChange={(operator) => updateFilter(filter.id, { operator })}
+              />
+              <FilterValueSelector<T>
+                field={field}
+                values={filter.values}
+                operator={filter.operator}
+                onChange={(values) => updateFilter(filter.id, { values })}
+                autoFocus={filter.id === lastAddedFilterId}
+              />
+              <FilterRemoveButton onClick={() => removeFilter(filter.id)} />
+            </ButtonGroup>
+          )
+        })}
       </div>
     </FilterContext.Provider>
   )
 }
+
+export const createFilter = <T = unknown,>(
+  field: string,
+  operator?: string,
+  values: T[] = []
+): Filter<T> => ({
+  id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+  field,
+  operator: operator || "is",
+  values,
+})
+
+export const createFilterGroup = <T = unknown,>(
+  id: string,
+  label: string,
+  fields: FilterFieldConfig<T>[],
+  initialFilters: Filter<T>[] = []
+): FilterGroup<T> => ({
+  id,
+  label,
+  filters: initialFilters,
+  fields,
+})

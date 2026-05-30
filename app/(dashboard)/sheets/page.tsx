@@ -5,7 +5,7 @@ import { useSession, signIn } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { ColumnDef } from "@tanstack/react-table"
-import { DataTable } from "@/components/ui/data-table"
+import { AdvancedDataGrid } from "@/components/ui/advanced-data-grid"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -25,7 +25,7 @@ import {
   FileText,
   FileSpreadsheet,
 } from "lucide-react"
-import { GoogleSheets2026 } from "@thesvg/react"
+import { GoogleSheetsIcon } from "@/components/icons/google-sheets"
 import { PageHeader } from "@/components/page-header"
 import { toast } from "sonner"
 import {
@@ -39,6 +39,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { BadgeDot } from "@/components/ui/badge-dot"
 import { GoogleConnectionCard } from "@/components/google-connection-card"
+import { SkeletonBlock } from "@/components/ui/skeleton-block"
 import {
   Table,
   TableBody,
@@ -300,8 +301,13 @@ export default function SheetsManagementPage() {
 
   if (status === "loading" || isInitialLoading) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
-        <Spinner className="h-8 w-8" />
+      <div className="flex flex-col gap-6 py-10 w-full h-full">
+        <div className="flex items-center justify-between">
+          <SkeletonBlock variant="rectangular" width={300} height={40} className="rounded-lg" />
+          <SkeletonBlock variant="rectangular" width={100} height={36} className="rounded-md" />
+        </div>
+        <SkeletonBlock variant="rectangular" width="100%" height={200} className="rounded-xl" />
+        <SkeletonBlock variant="rectangular" width="100%" height={400} className="rounded-xl flex-1" showSpinner={true} />
       </div>
     )
   }
@@ -404,11 +410,11 @@ export default function SheetsManagementPage() {
                 <EmptyState
                   title="No sheets connected"
                   description="Connect your first Google Sheet to start managing data."
-                  icon={<GoogleSheets2026 className="text-muted-foreground" />}
+                  icon={<GoogleSheetsIcon className="text-muted-foreground" />}
                   className="rounded-lg border-2 border-dashed"
                 />
               ) : (
-                <DataTable columns={columns} data={connectedSheets} />
+                <AdvancedDataGrid columns={columns} data={connectedSheets} />
               )}
             </CardContent>
           </Card>

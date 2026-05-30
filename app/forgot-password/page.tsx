@@ -23,6 +23,7 @@ import Link from "next/link"
 
 // Custom UI Components
 import { Button } from "@/components/ui/button"
+import { SkeletonBlock } from "@/components/ui/skeleton-block"
 import { Spinner } from "@/components/ui/spinner"
 import {
   Card,
@@ -671,12 +672,7 @@ export default function ForgotPasswordPage() {
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center bg-background p-6">
-          <div className="flex flex-col items-center gap-2">
-            <Spinner className="h-6 w-6 text-primary" />
-            <span className="text-xs text-muted-foreground">
-              Loading Aegis Portal...
-            </span>
-          </div>
+          <SkeletonBlock variant="rectangular" width={400} height={500} className="rounded-xl" />
         </div>
       }
     >

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { BadgeDot } from "@/components/ui/badge-dot"
 import { Plus } from "lucide-react"
-import { GoogleDrive2026 } from "@thesvg/react"
+import { GoogleDriveIcon } from "./icons/google-drive"
 
 interface GoogleConnectionCardProps {
   isGoogleConnected?: boolean | null
@@ -37,7 +37,7 @@ export function GoogleConnectionCard({
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <div className="flex items-center gap-4">
           <div className="rounded-full bg-muted p-3">
-            <GoogleDrive2026 className="h-6 w-6 text-muted-foreground" />
+            <GoogleDriveIcon className="h-6 w-6 text-muted-foreground" />
           </div>
           <div>
             <CardTitle className="flex items-center gap-2 text-lg">

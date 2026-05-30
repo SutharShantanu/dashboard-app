@@ -84,7 +84,7 @@ export async function POST(request: Request) {
       allowedColumns: allowedColumns || "",
       permissionPreset: permissionPreset,
       perSheetPermissions: perSheetPermissions || {},
-      isActive: "TRUE",
+      isActive: true,
       createdAt: new Date().toISOString(),
       createdBy: session.user.username,
       gender: gender ? String(gender).trim() : "male",

@@ -56,6 +56,7 @@
     --color-invert: var(--invert);
     --color-invert-foreground: var(--invert-foreground);
     --font-size-tiny: 0.625rem;
+    --color-destructive-foreground: var(--destructive-foreground);
 }
 
 :root {
@@ -101,6 +102,7 @@
     --warning-foreground: var(--color-yellow-900);
     --invert: var(--color-zinc-900);
     --invert-foreground: var(--color-zinc-50);
+    --destructive-foreground: var(--color-red-800);
 }
 
 .dark {
@@ -145,6 +147,7 @@
     --warning-foreground: var(--color-yellow-600);
     --invert: var(--color-zinc-700);
     --invert-foreground: var(--color-zinc-50);
+    --destructive-foreground: var(--color-red-600);
 }
 
 @layer base {

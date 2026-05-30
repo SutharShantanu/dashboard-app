@@ -20,7 +20,7 @@ import {
   Search,
   FileSpreadsheet,
 } from "lucide-react"
-import { GoogleSheets2026 } from "@thesvg/react"
+import { GoogleSheetsIcon } from "@/components/icons/google-sheets"
 import {
   Sidebar,
   SidebarHeader,
@@ -35,7 +35,7 @@ import {
   SidebarFooter,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { Skeleton } from "@/components/ui/skeleton"
+import { SkeletonBlock } from "@/components/ui/skeleton-block"
 import {
   InputGroup,
   InputGroupAddon,
@@ -102,13 +102,20 @@ export function AppSidebar({
   const activeSheet = searchParams?.get("sheet") || "Students"
   const activeSpreadsheetId = searchParams?.get("spreadsheetId") || ""
 
-  const { data: connectedSheets = [], isLoading: isLoadingSheets } = useConnectedSheets()
+  const { data: connectedSheets = [], isLoading: isLoadingSheets } =
+    useConnectedSheets()
 
   const [sheetToDelete, setSheetToDelete] = useState<{
     spreadsheetId: string
     title: string
   } | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    const timer = setTimeout(() => setMounted(true), 0)
+    return () => clearTimeout(timer)
+  }, [])
 
   const [searchTerm, setSearchTerm] = useState("")
   const [debouncedTerm, setDebouncedTerm] = useState("")
@@ -157,7 +164,7 @@ export function AppSidebar({
       items.push({
         title: s.title,
         url: `/sheets/${s.spreadsheetId}`,
-        icon: GoogleSheets2026,
+        icon: GoogleSheetsIcon,
       })
     })
 
@@ -200,7 +207,6 @@ export function AppSidebar({
     )
   }, [debouncedTerm, allNavItems])
 
-
   const handleDeleteSheet = (spreadsheetId: string, title: string) => {
     setSheetToDelete({ spreadsheetId, title })
   }
@@ -224,6 +230,75 @@ export function AppSidebar({
     } finally {
       setIsDeleting(false)
     }
+  }
+
+  if (!mounted) {
+    return (
+      <TooltipProvider delayDuration={0}>
+        <Sidebar collapsible="icon" {...props}>
+          <SidebarHeader className="gap-4">
+            <div className="flex items-center gap-3">
+              <SkeletonBlock width={36} height={36} variant="rectangular" className="rounded-xl shrink-0" />
+              <SkeletonBlock width={120} height={20} variant="rectangular" className="group-data-[collapsible=icon]:hidden" />
+            </div>
+            <div className="relative group-data-[collapsible=icon]:hidden">
+              <SkeletonBlock width="100%" height={32} variant="rectangular" className="rounded-md" />
+            </div>
+          </SidebarHeader>
+
+          <SidebarContent>
+            <SidebarGroup>
+              <div className="flex items-center justify-between px-2 py-1.5 group-data-[collapsible=icon]:hidden">
+                <SkeletonBlock width={120} height={16} variant="rectangular" />
+              </div>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <SidebarMenuItem key={i}>
+                      <div className="flex items-center gap-2 px-2 py-1.5">
+                        <SkeletonBlock width={16} height={16} variant="circular" />
+                        <SkeletonBlock width={96} height={16} variant="rectangular" />
+                      </div>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            <SidebarGroup>
+              <div className="px-2 py-1.5 group-data-[collapsible=icon]:hidden">
+                <SkeletonBlock width={100} height={16} variant="rectangular" />
+              </div>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <SidebarMenuItem key={i}>
+                      <div className="flex items-center gap-2 px-2 py-1.5">
+                        <SkeletonBlock width={16} height={16} variant="circular" />
+                        <SkeletonBlock width={120} height={16} variant="rectangular" />
+                      </div>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </SidebarContent>
+
+          <SidebarFooter>
+            <NavUser
+              user={{
+                name: user.displayName || user.username,
+                email: `${user.username}@aegis.local`,
+                avatar: getAvatarUrl(user.username, user.role, user.gender),
+                role: user.role,
+                username: user.username,
+              }}
+            />
+          </SidebarFooter>
+          <SidebarRail />
+        </Sidebar>
+      </TooltipProvider>
+    )
   }
 
   return (
@@ -331,8 +406,8 @@ export function AppSidebar({
                   ? Array.from({ length: 3 }).map((_, i) => (
                       <SidebarMenuItem key={i}>
                         <div className="flex items-center gap-2 px-2 py-1.5">
-                          <Skeleton className="h-4 w-4 rounded-full" />
-                          <Skeleton className="h-4 w-24" />
+                          <SkeletonBlock variant="circular" width={16} height={16} />
+                          <SkeletonBlock variant="rectangular" width={96} height={16} className="rounded-md" />
                         </div>
                       </SidebarMenuItem>
                     ))
@@ -344,17 +419,14 @@ export function AppSidebar({
                               <SidebarMenuButton
                                 asChild
                                 isActive={
-                                  pathname ===
-                                    `/sheets/${s.spreadsheetId}` ||
+                                  pathname === `/sheets/${s.spreadsheetId}` ||
                                   (pathname === "/dashboard" &&
                                     activeSpreadsheetId === s.spreadsheetId)
                                 }
                                 tooltip={s.title}
                               >
-                                <Link
-                                  href={`/sheets/${s.spreadsheetId}`}
-                                >
-                                  <GoogleSheets2026 className="h-3.5 w-3.5 text-primary" />
+                                <Link href={`/sheets/${s.spreadsheetId}`}>
+                                  <GoogleSheetsIcon className="h-3.5 w-3.5 text-primary" />
                                   <span className="truncate">{s.title}</span>
                                 </Link>
                               </SidebarMenuButton>
@@ -438,19 +510,6 @@ export function AppSidebar({
                   </SidebarMenuButton>
                 </SidebarMenuItem>
 
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname === "/students"}
-                    tooltip="Students Directory"
-                  >
-                    <Link href="/students">
-                      <GraduationCap className="h-4 w-4" />
-                      <span>Students Directory</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-
                 {user.role === "admin" && (
                   <>
                     <SidebarMenuItem>
@@ -472,8 +531,7 @@ export function AppSidebar({
                       <SidebarMenuButton
                         asChild
                         isActive={
-                          pathname === "/sheets" &&
-                          tab === "integrations"
+                          pathname === "/sheets" && tab === "integrations"
                         }
                         tooltip="Integrations"
                       >
@@ -499,6 +557,18 @@ export function AppSidebar({
                     </SidebarMenuItem>
                   </>
                 )}
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === "/students"}
+                    tooltip="Students Directory"
+                  >
+                    <Link href="/students">
+                      <GraduationCap className="h-4 w-4" />
+                      <span>Students Directory</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild

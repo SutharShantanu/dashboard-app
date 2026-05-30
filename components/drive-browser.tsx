@@ -11,13 +11,14 @@ import {
   AlertCircle,
   Plus,
 } from "lucide-react"
-import { GoogleSheets2026 } from "@thesvg/react"
+import { GoogleSheetsIcon } from "@/components/icons/google-sheets"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Spinner } from "./ui/spinner"
+import { SkeletonBlock } from "@/components/ui/skeleton-block"
 import { Card, CardContent } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { useForm, Controller } from "react-hook-form"
@@ -353,9 +354,15 @@ export function DriveBrowser({
       ) : (
         <ScrollArea className="flex-1 p-2">
           {loading ? (
-            <div className="flex h-full flex-col items-center justify-center gap-2 py-10">
-              <Spinner className="h-6 w-6 text-primary" />
-              <p className="text-sm text-muted-foreground">Loading files...</p>
+            <div className="space-y-1">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between p-2">
+                  <div className="flex items-center gap-3">
+                    <SkeletonBlock variant="circular" width={16} height={16} />
+                    <SkeletonBlock variant="rectangular" width={120} height={16} />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : error ? (
             <div className="p-4">
@@ -389,7 +396,7 @@ export function DriveBrowser({
                     {file.mimeType === "application/vnd.google-apps.folder" ? (
                       <Folder className="h-4 w-4 fill-blue-500/10 text-blue-500" />
                     ) : (
-                      <GoogleSheets2026 className="h-4 w-4" />
+                      <GoogleSheetsIcon className="h-4 w-4" />
                     )}
                     <span className="max-w-[200px] truncate text-sm font-medium">
                       {file.name}

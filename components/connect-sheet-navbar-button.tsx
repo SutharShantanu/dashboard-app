@@ -4,7 +4,6 @@ import React, { useState } from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { Plus, X, Link as LinkIcon, AlertCircle } from "lucide-react"
-import { GoogleDrive2026, GoogleSheets2026 } from "@thesvg/react"
 import {
   Dialog,
   DialogContent,
@@ -41,6 +40,7 @@ import {
 } from "@/components/ui/field"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { Card, CardContent } from "./ui/card"
+import { GoogleDriveIcon } from "./icons/google-drive"
 
 // Zod Validation Schema
 const connectSheetSchema = z.object({
@@ -238,7 +238,7 @@ export function ConnectSheetNavbarButton({ isAdmin }: { isAdmin: boolean }) {
                 Via URL
               </TabsTrigger>
               <TabsTrigger value="drive">
-                <GoogleDrive2026 className="h-3.5 w-3.5" />
+                <GoogleDriveIcon className="h-3.5 w-3.5" />
                 Browse Drive
               </TabsTrigger>
             </TabsList>

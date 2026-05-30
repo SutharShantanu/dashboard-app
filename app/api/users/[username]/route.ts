@@ -65,7 +65,7 @@ export async function PATCH(
           { status: 403 }
         );
       }
-      if (body.isActive !== undefined && body.isActive !== "TRUE") {
+      if (body.isActive !== undefined && body.isActive !== true) {
         return NextResponse.json(
           { error: "Forbidden: SabaAdmin must always remain active" },
           { status: 403 }
@@ -100,7 +100,7 @@ export async function PATCH(
     } else {
       // Must be SabaAdmin or standard admin modifying another user (sub-admin)
       if (body.displayName !== undefined) updates.displayName = String(body.displayName).trim();
-      if (body.isActive !== undefined) updates.isActive = body.isActive === "FALSE" ? "FALSE" : "TRUE";
+      if (body.isActive !== undefined) updates.isActive = body.isActive;
       if (body.role !== undefined) updates.role = body.role === "admin" ? "admin" : "sub-admin";
       if (body.permissionPreset !== undefined) updates.permissionPreset = body.permissionPreset;
       if (body.perSheetPermissions !== undefined) updates.perSheetPermissions = body.perSheetPermissions;

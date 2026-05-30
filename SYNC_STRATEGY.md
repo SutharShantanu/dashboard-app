@@ -47,6 +47,7 @@ function onEdit(e) {
     const payload = {
       range: range.getA1Notation(),
       sheetName: sheetName,
+      spreadsheetId: SpreadsheetApp.getActiveSpreadsheet().getId(),
       oldValue: e.oldValue,
       newValue: e.value,
       row: row,
@@ -106,6 +107,7 @@ function scheduledDiffCheck() {
         payload: JSON.stringify({
           type: "full_sync_required",
           sheetName: sheet.getName(),
+          spreadsheetId: SpreadsheetApp.getActiveSpreadsheet().getId(),
           timestamp: new Date().toISOString()
         }),
         headers: { "x-webhook-secret": WEBHOOK_SECRET },

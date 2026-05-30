@@ -29,7 +29,7 @@ async function migrate() {
         passwordHash: user.passwordHash,
         role: user.role,
         allowedColumns: user.allowedColumns,
-        isActive: user.isActive === "TRUE",
+        isActive: user.isActive,
         createdAt: new Date(user.createdAt || Date.now()),
         createdBy: user.createdBy,
         otpCode: user.otpCode,

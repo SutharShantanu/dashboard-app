@@ -153,7 +153,12 @@ export async function updateStudentCell(
   if (!row) throw new Error("Student record not found");
 
   const oldValue = row.data[column] || "";
-  row.data[column] = newValue;
+
+  if (String(oldValue).trim() === String(newValue).trim()) {
+    return; // Do nothing if the value hasn't changed
+  }
+
+  row.data[column] = newValue.trim();
   row.lastModifiedBy = actor;
   row.lastModifiedAt = new Date();
   row.markModified("data");

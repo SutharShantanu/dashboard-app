@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     const { data, columns } = await getStudents(sheet, spreadsheetId);
 
     const activeSheetName = sheet || "Students";
-    const allowedCols = resolveUserAllowedColumns(session.user, activeSheetName, columns);
+    const allowedCols = resolveUserAllowedColumns(session.user, activeSheetName, columns, spreadsheetId);
 
     let permittedCols = columns;
     let filteredData = data;
@@ -148,7 +148,7 @@ export async function PATCH(request: Request) {
     // Role-based permission check using the unified helper
     const activeSheetName = sheet || "Students";
     const { columns } = await getStudents(sheet, spreadsheetId);
-    const allowedCols = resolveUserAllowedColumns(session.user, activeSheetName, columns);
+    const allowedCols = resolveUserAllowedColumns(session.user, activeSheetName, columns, spreadsheetId);
 
     if (!allowedCols.includes(column)) {
       const gradeIndex = columns.indexOf("Grade");

@@ -20,9 +20,10 @@ import {
 } from "lucide-react"
 import { GoogleDrive2026, GoogleSheets2026 } from "@thesvg/react"
 import { Button } from "@/components/ui/button"
+import { SkeletonBlock } from "@/components/ui/skeleton-block"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { DataTable } from "@/components/ui/data-table"
+import { AdvancedDataGrid } from "@/components/ui/advanced-data-grid"
 import type { ColumnDef } from "@tanstack/react-table"
 import { Progress } from "@/components/ui/progress"
 import { Textarea } from "@/components/ui/textarea"
@@ -73,20 +74,34 @@ import {
   TimelineTitle,
 } from "@/components/ui/timeline"
 import { FileDropzone } from "@/components/file-dropzone"
+import { z } from "zod"
+import { useForm, Controller } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { Field, FieldLabel, FieldDescription, FieldError, FieldContent } from "@/components/ui/field"
+import { InputGroup, InputGroupInput } from "@/components/ui/input-group"
 
-
+const importLinkSchema = z.object({
+  googleUrl: z.string().url("Please enter a valid URL").includes("docs.google.com/spreadsheets", { message: "Must be a valid Google Sheets URL" }).or(z.literal("")),
+})
 
 export default function StudentsDirectoryPage() {
   const { data: session } = useSession()
   const queryClient = useQueryClient()
-  const user = session?.user as any
+  const user = session?.user as Record<string, unknown> | undefined
 
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false)
   const [importTab, setImportTab] = useState("file")
-  const [googleUrl, setGoogleUrl] = useState("")
+  const form = useForm<z.infer<typeof importLinkSchema>>({
+    resolver: zodResolver(importLinkSchema),
+    defaultValues: {
+      googleUrl: "",
+    },
+    mode: "onChange",
+  })
+  const googleUrl = form.watch("googleUrl")
   const [progress, setProgress] = useState(0)
 
-  const [selectedStudent, setSelectedStudent] = useState<any>(null)
+  const [selectedStudent, setSelectedStudent] = useState<Record<string, unknown> | null>(null)
   const [isSheetOpen, setIsSheetOpen] = useState(false)
 
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
@@ -142,10 +157,10 @@ export default function StudentsDirectoryPage() {
     onSuccess: (data) => {
       setIsImportDialogOpen(false)
       setUploadedFile(null)
-      setGoogleUrl("")
+      form.reset({ googleUrl: "" })
       queryClient.invalidateQueries({ queryKey: ["allStudentsData"] })
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       // Error handled by toast.promise
     },
   })
@@ -170,19 +185,19 @@ export default function StudentsDirectoryPage() {
   const columns = sheetData?.columns || []
   const data = sheetData?.data || []
 
-  const tableColumns = useMemo<ColumnDef<any>[]>(() => {
+  const tableColumns = useMemo<ColumnDef<Record<string, unknown>>[]>(() => {
     const baseColumns = columns.map((col: string, index: number) => {
       const maxCharLength = Math.max(
         col ? col.length : 0,
-        ...data.map((row: any) => String(row[col] || "").length)
+        ...data.map((row: Record<string, unknown>) => String(row[col] || "").length)
       )
       const minWidthCh = `${Math.max(maxCharLength + 4, 12)}ch`
 
       return {
         id: col || `col_${index}`,
-        accessorFn: (row: any) => row[col],
+        accessorFn: (row: Record<string, unknown>) => row[col],
         header: col || `Column ${index + 1}`,
-        cell: (info: any) => (
+        cell: (info: { getValue: () => unknown }) => (
           <div
             className="truncate"
             style={{ minWidth: minWidthCh, maxWidth: "400px" }}
@@ -198,7 +213,7 @@ export default function StudentsDirectoryPage() {
       {
         id: "actions",
         header: "Actions",
-        cell: ({ row }: any) => {
+        cell: ({ row }: { row: { original: Record<string, unknown> } }) => {
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -236,7 +251,7 @@ export default function StudentsDirectoryPage() {
     let result = [...data]
 
     if (statusFilter) {
-      result = result.filter((row: any) => row.Status === statusFilter)
+      result = result.filter((row: Record<string, unknown>) => row.Status === statusFilter)
     }
 
     if (sortConfig) {
@@ -255,21 +270,24 @@ export default function StudentsDirectoryPage() {
 
   const uniqueStatuses = useMemo(() => {
     const statuses = new Set<string>()
-    data.forEach((row: any) => {
-      if (row.Status) statuses.add(row.Status)
+    data.forEach((row: Record<string, unknown>) => {
+      if (row.Status) statuses.add(row.Status as string)
     })
     return Array.from(statuses)
   }, [data])
 
   if (isLoading) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
-        <div className="flex flex-col items-center gap-2">
-          <Spinner className="h-8 w-8 text-primary" />
-          <p className="text-sm text-muted-foreground">
-            Loading students directory...
-          </p>
+      <div className="flex flex-1 flex-col gap-6 py-8 w-full">
+        <div className="flex items-center justify-between">
+          <SkeletonBlock variant="rectangular" width={300} height={40} className="rounded-lg" />
+          <SkeletonBlock variant="rectangular" width={200} height={36} className="rounded-md" />
         </div>
+        <div className="flex gap-4">
+          <SkeletonBlock variant="rectangular" width="100%" height={36} className="rounded-md max-w-sm" />
+          <SkeletonBlock variant="rectangular" width={120} height={36} className="rounded-md" />
+        </div>
+        <SkeletonBlock variant="rectangular" width="100%" height={400} className="rounded-xl flex-1" showSpinner={true} />
       </div>
     )
   }
@@ -389,7 +407,7 @@ export default function StudentsDirectoryPage() {
             <CardContent className="w-full max-w-full">
               {filteredAndSortedData.length > 0 ? (
                 <div className="overflow-auto rounded-md border">
-                  <DataTable
+                  <AdvancedDataGrid
                     columns={tableColumns}
                     data={filteredAndSortedData}
                   />
@@ -438,19 +456,28 @@ export default function StudentsDirectoryPage() {
               />
             </TabsContent>
 
-            <TabsContent value="link" className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Google Sheet Link</label>
-                <Input
-                  placeholder="https://docs.google.com/spreadsheets/d/..."
-                  value={googleUrl}
-                  onChange={(e) => setGoogleUrl(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Ensure the sheet is accessible or shared with the service
-                  account.
-                </p>
-              </div>
+            <TabsContent value="link">
+              <Controller
+                control={form.control}
+                name="googleUrl"
+                render={({ field, fieldState }) => (
+                  <Field>
+                    <FieldLabel>Google Sheet Link</FieldLabel>
+                    <FieldContent>
+                      <InputGroup>
+                        <InputGroupInput
+                          placeholder="https://docs.google.com/spreadsheets/d/..."
+                          {...field}
+                        />
+                      </InputGroup>
+                      <FieldDescription>
+                        Ensure the sheet is accessible or shared with the service account.
+                      </FieldDescription>
+                      {fieldState.error && <FieldError>{fieldState.error.message}</FieldError>}
+                    </FieldContent>
+                  </Field>
+                )}
+              />
             </TabsContent>
           </Tabs>
 
@@ -480,14 +507,14 @@ export default function StudentsDirectoryPage() {
               onClick={() => {
                 toast.promise(importMutation.mutateAsync(), {
                   loading: "Importing students...",
-                  success: (data: any) => data.message || "Students imported successfully!",
-                  error: (err: any) => err.message || "Failed to import students.",
+                  success: (data: { message?: string }) => data.message || "Students imported successfully!",
+                  error: (err: Error) => err.message || "Failed to import students.",
                 })
               }}
               disabled={
                 importMutation.isPending ||
                 (importTab === "file" && !uploadedFile) ||
-                (importTab === "link" && !googleUrl)
+                (importTab === "link" && (!googleUrl || !!form.formState.errors.googleUrl))
               }
             >
               {importMutation.isPending ? (

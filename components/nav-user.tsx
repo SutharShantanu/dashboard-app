@@ -13,6 +13,7 @@ import {
 import { signOut } from "next-auth/react"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 
+import { SkeletonBlock } from "@/components/ui/skeleton-block"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -43,6 +44,30 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar()
   const router = useRouter()
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => setMounted(true), 0)
+    return () => clearTimeout(timer)
+  }, [])
+
+  if (!mounted) {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton size="lg" variant="outline">
+            <SkeletonBlock width={32} height={32} variant="rectangular" />
+            <div className="grid flex-1 gap-1.5 text-left text-sm leading-tight">
+              <SkeletonBlock width={80} height={12} variant="rectangular" />
+              <SkeletonBlock width={120} height={10} variant="rectangular" />
+            </div>
+            <SkeletonBlock width={16} height={16} variant="rectangular" className="ml-auto shrink-0" />
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    )
+  }
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>

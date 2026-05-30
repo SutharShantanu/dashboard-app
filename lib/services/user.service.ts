@@ -18,7 +18,7 @@ export async function getUsers(): Promise<UserInterface[]> {
     perSheetPermissions: u.perSheetPermissions
       ? Object.fromEntries((u.perSheetPermissions as Map<string, string[]>).entries())
       : undefined,
-    isActive: u.isActive ? "TRUE" : "FALSE",
+    isActive: u.isActive,
     createdAt: u.createdAt.toISOString(),
     createdBy: u.createdBy,
     gender: u.gender || "",
@@ -36,7 +36,7 @@ export async function createUser(
   await connectToDatabase();
   await User.create({
     ...user,
-    isActive: user.isActive === "TRUE",
+    isActive: user.isActive,
     createdAt: new Date(user.createdAt),
   });
 
@@ -62,7 +62,7 @@ export async function updateUser(
   await connectToDatabase();
   const mongoUpdates: Record<string, unknown> = { ...updates };
   if (updates.isActive !== undefined) {
-    mongoUpdates.isActive = updates.isActive === "TRUE";
+    mongoUpdates.isActive = updates.isActive;
   }
 
   const escaped = escapeRegex(username);
@@ -114,7 +114,8 @@ export function resolveUserAllowedColumns(
     perSheetPermissions?: Record<string, string[]>;
   },
   activeSheet: string,
-  allColumns: string[]
+  allColumns: string[],
+  spreadsheetId?: string
 ): string[] {
   const hasPerSheetConfig =
     user.perSheetPermissions &&
@@ -123,15 +124,18 @@ export function resolveUserAllowedColumns(
   if (hasPerSheetConfig) {
     const keys = Object.keys(user.perSheetPermissions!);
     const matchKey = keys.find(
-      (k) => k.toLowerCase() === activeSheet.toLowerCase()
+      (k) =>
+        k.toLowerCase() === activeSheet.toLowerCase() ||
+        (spreadsheetId && k === spreadsheetId)
     );
     const sheetPerms = matchKey
       ? user.perSheetPermissions![matchKey]
       : undefined;
 
     if (sheetPerms && Array.isArray(sheetPerms)) {
-      if (sheetPerms.includes("*")) return [...allColumns];
-      return allColumns.filter((col) => sheetPerms.includes(col));
+      if (sheetPerms.some(p => p.trim() === "*")) return [...allColumns];
+      const trimmedPerms = sheetPerms.map((c: string) => c.trim());
+      return allColumns.filter((col) => trimmedPerms.includes(col.trim()));
     }
     if (user.role === "admin") return [...allColumns];
     return [];

@@ -46,7 +46,7 @@ describe("Users API & Sub-Admin Directory Security", () => {
         email: "target@sub.com",
         passwordHash: "hash",
         allowedColumns: "Comments,Notes",
-        isActive: "TRUE",
+        isActive: true,
         createdAt: "2026-05-11",
         createdBy: "admin"
       }
@@ -87,7 +87,7 @@ describe("Users API & Sub-Admin Directory Security", () => {
           passwordHash: "hash",
           role: "sub-admin",
           allowedColumns: "Comments,Notes",
-          isActive: "TRUE",
+          isActive: true,
           createdAt: "2026-05-11",
           createdBy: "admin",
         },
@@ -115,7 +115,7 @@ describe("Users API & Sub-Admin Directory Security", () => {
           passwordHash: "hash",
           role: "admin",
           allowedColumns: "all",
-          isActive: "TRUE",
+          isActive: true,
           createdAt: "2026-05-11",
           createdBy: "system",
         },
@@ -179,7 +179,7 @@ describe("Users API & Sub-Admin Directory Security", () => {
           passwordHash: "hashed_pwd_abc",
           role: "sub-admin",
           allowedColumns: "Comments,Notes",
-          isActive: "TRUE",
+          isActive: true,
           createdBy: "standard_admin",
         }),
         "standard_admin",
@@ -237,7 +237,7 @@ describe("Users API & Sub-Admin Directory Security", () => {
           passwordHash: "hashed_pwd_abc",
           role: "sub-admin",
           allowedColumns: "Comments,Notes",
-          isActive: "TRUE",
+          isActive: true,
           createdBy: "SabaAdmin",
         }),
         "SabaAdmin",
@@ -274,7 +274,7 @@ describe("Users API & Sub-Admin Directory Security", () => {
           email: "target@sub.com",
           passwordHash: "hash",
           allowedColumns: "Comments,Notes",
-          isActive: "TRUE",
+          isActive: true,
           createdAt: "2026-05-11",
           createdBy: "admin"
         }
@@ -285,7 +285,7 @@ describe("Users API & Sub-Admin Directory Security", () => {
         body: JSON.stringify({
           displayName: "Updated Sub Name",
           allowedColumns: "Comments,Notes",
-          isActive: "FALSE",
+          isActive: false,
         }),
       });
       const res = await PATCH(req, { params: { username: "target_sub" } });
@@ -296,7 +296,7 @@ describe("Users API & Sub-Admin Directory Security", () => {
         {
           displayName: "Updated Sub Name",
           allowedColumns: "Comments,Notes",
-          isActive: "FALSE",
+          isActive: false,
         },
         "standard_admin",
         "admin",
@@ -316,7 +316,7 @@ describe("Users API & Sub-Admin Directory Security", () => {
           email: "other@admin.com",
           passwordHash: "hash",
           allowedColumns: "all",
-          isActive: "TRUE",
+          isActive: true,
           createdAt: "2026-05-11",
           createdBy: "system"
         }
@@ -347,7 +347,7 @@ describe("Users API & Sub-Admin Directory Security", () => {
           email: "admin@domain.com",
           passwordHash: "hash",
           allowedColumns: "all",
-          isActive: "TRUE",
+          isActive: true,
           createdAt: "2026-05-11",
           createdBy: "system"
         }
@@ -378,7 +378,7 @@ describe("Users API & Sub-Admin Directory Security", () => {
           email: "target@sub.com",
           passwordHash: "hash",
           allowedColumns: "Comments,Notes",
-          isActive: "TRUE",
+          isActive: true,
           createdAt: "2026-05-11",
           createdBy: "admin"
         }
@@ -430,7 +430,7 @@ describe("Users API & Sub-Admin Directory Security", () => {
         body: JSON.stringify({
           displayName: "Updated Sub Name",
           allowedColumns: "Comments,Notes",
-          isActive: "FALSE",
+          isActive: false,
         }),
       });
       const res = await PATCH(req, { params: { username: "target_sub" } });
@@ -441,7 +441,7 @@ describe("Users API & Sub-Admin Directory Security", () => {
         {
           displayName: "Updated Sub Name",
           allowedColumns: "Comments,Notes",
-          isActive: "FALSE",
+          isActive: false,
         },
         "SabaAdmin",
         "admin",
@@ -522,7 +522,7 @@ describe("Users API & Sub-Admin Directory Security", () => {
       const req = new Request("http://localhost:3000/api/users/SabaAdmin", {
         method: "PATCH",
         body: JSON.stringify({
-          isActive: "FALSE",
+          isActive: false,
         }),
       });
       const res = await PATCH(req, { params: { username: "SabaAdmin" } });
@@ -545,7 +545,7 @@ describe("Users API & Sub-Admin Directory Security", () => {
           email: "new_saba@domain.com",
           password: "new_password",
           role: "admin", // ignored/not treated as change
-          isActive: "TRUE", // ignored/not treated as change
+          isActive: true, // ignored/not treated as change
         }),
       });
       const res = await PATCH(req, { params: { username: "SabaAdmin" } });

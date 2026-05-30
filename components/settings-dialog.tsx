@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { GoogleSheets2026 } from "@thesvg/react"
+import { GoogleSheetsIcon } from "@/components/icons/google-sheets"
 import {
   Dialog,
   DialogContent,
@@ -130,7 +130,7 @@ export function SettingsDialog({
             </TabsTrigger>
             {user?.role === "admin" && (
               <TabsTrigger value="database">
-                <GoogleSheets2026 className="h-4 w-4" /> Database
+                <GoogleSheetsIcon className="h-4 w-4" /> Database
               </TabsTrigger>
             )}
             <TabsTrigger value="notifications">
@@ -281,7 +281,7 @@ export function SettingsDialog({
                 </div>
                 <div className="flex items-start gap-4 rounded-lg border p-3">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/10 text-blue-500">
-                    <GoogleSheets2026 className="h-4 w-4" />
+                    <GoogleSheetsIcon className="h-4 w-4" />
                   </div>
                   <div className="flex flex-col gap-1">
                     <span className="text-sm font-medium">Database Synced</span>

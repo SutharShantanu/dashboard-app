@@ -13,10 +13,11 @@ import {
   Calendar,
   AlertCircle,
 } from "lucide-react"
-import { GoogleDrive2026 } from "@thesvg/react"
+import { GoogleDriveIcon } from "@/components/icons/google-drive"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Spinner } from "@/components/ui/spinner"
+import { SkeletonBlock } from "@/components/ui/skeleton-block"
 import {
   Dialog,
   DialogContent,
@@ -232,7 +233,7 @@ export function FileDropzone({
                 type="button"
                 onClick={onGoogleDriveImport}
               >
-                <GoogleDrive2026 className="h-4 w-4" />
+                <GoogleDriveIcon className="h-5 w-5 shrink-0" />
                 Import from Google Drive
               </Button>
             </div>
@@ -280,11 +281,13 @@ export function FileDropzone({
           </DialogHeader>
 
           {isPreviewLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3 flex-1">
-              <Spinner className="h-8 w-8 text-primary" />
-              <p className="text-sm text-muted-foreground animate-pulse">
-                Reading and parsing file contents...
-              </p>
+            <div className="flex flex-col py-8 gap-4 flex-1 w-full">
+              <div className="flex flex-wrap gap-2 text-xs mb-2">
+                <SkeletonBlock variant="rectangular" width={100} height={24} className="rounded-full" />
+                <SkeletonBlock variant="rectangular" width={120} height={24} className="rounded-full" />
+                <SkeletonBlock variant="rectangular" width={90} height={24} className="rounded-full" />
+              </div>
+              <SkeletonBlock showSpinner={true} variant="rectangular" width="100%" height={300} className="rounded-md border" />
             </div>
           ) : previewData ? (
             <div className="flex-1 flex flex-col overflow-hidden space-y-4 pt-4 min-h-0">

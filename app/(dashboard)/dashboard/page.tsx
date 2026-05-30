@@ -32,7 +32,7 @@ import {
   Activity,
   FileSpreadsheet,
 } from "lucide-react"
-import { GoogleSheets2026 } from "@thesvg/react"
+import { GoogleSheetsIcon } from "@/components/icons/google-sheets"
 
 import {
   BarChart,
@@ -52,6 +52,7 @@ import {
 } from "@/components/ui/chart"
 
 // shadcn/ui components
+import { AnimatedNumber } from "@/components/ui/animated-number"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -88,6 +89,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { format, formatDistanceToNow } from "date-fns"
 import { EmptyState } from "@/components/empty-state"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
+import { SkeletonBlock } from "@/components/ui/skeleton-block"
 
 interface Student {
   ID: string
@@ -645,12 +647,18 @@ function DashboardPageContent() {
 
   if (sessionStatus === "loading") {
     return (
-      <div className="flex min-h-svh items-center justify-center bg-background text-foreground">
-        <div className="flex flex-col items-center gap-4">
-          <RefreshCw className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-sm font-medium tracking-wide text-muted-foreground">
-            Loading your session...
-          </p>
+      <div className="flex min-h-svh items-center justify-center bg-background p-4 md:p-8">
+        <div className="flex w-full max-w-5xl flex-col gap-6">
+          <div className="flex items-center justify-between">
+            <SkeletonBlock variant="rectangular" width={250} height={40} className="rounded-lg" />
+            <SkeletonBlock variant="circular" width={40} height={40} />
+          </div>
+          <div className="grid gap-4 md:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonBlock key={i} variant="rectangular" width="100%" height={120} className="rounded-xl" />
+            ))}
+          </div>
+          <SkeletonBlock variant="rectangular" width="100%" height={400} className="rounded-xl" showSpinner={true} />
         </div>
       </div>
     )
@@ -715,7 +723,9 @@ function DashboardPageContent() {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{totalStudents}</div>
+                <div className="text-2xl font-bold">
+                  <AnimatedNumber value={totalStudents} />
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Across all batches
                 </p>
@@ -729,7 +739,9 @@ function DashboardPageContent() {
                 <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{activeStudentsCount}</div>
+                <div className="text-2xl font-bold">
+                  <AnimatedNumber value={activeStudentsCount} />
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Currently enrolled
                 </p>
@@ -744,7 +756,7 @@ function DashboardPageContent() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {averageScore.toFixed(1)}
+                  <AnimatedNumber value={averageScore} format={{ minimumFractionDigits: 1, maximumFractionDigits: 1 }} />
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Mean performance
@@ -758,7 +770,7 @@ function DashboardPageContent() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {Object.keys(batchCounts).length}
+                  <AnimatedNumber value={Object.keys(batchCounts).length} />
                 </div>
                 <p className="text-xs text-muted-foreground">Active cohorts</p>
               </CardContent>
@@ -989,7 +1001,7 @@ function DashboardPageContent() {
                       connect to a live spreadsheet.
                     </>
                   }
-                  icon={<GoogleSheets2026 className="size-7 animate-pulse text-primary" />}
+                  icon={<GoogleSheetsIcon className="size-7 animate-pulse text-primary" />}
                   className="mx-auto max-w-xl p-12"
                   action={
                     <Button
@@ -1008,11 +1020,10 @@ function DashboardPageContent() {
                 />
               </div>
             ) : isQueryLoading && students.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-20">
-                <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-xs font-medium text-muted-foreground">
-                  Retrieving sheet records...
-                </p>
+              <div className="flex flex-col gap-2 py-4">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <SkeletonBlock key={i} variant="rectangular" width="100%" height={64} className="rounded-md" />
+                ))}
               </div>
             ) : filteredStudents.length === 0 ? (
               <div className="py-20">
@@ -1173,11 +1184,10 @@ function DashboardPageContent() {
               {/* Logs list table */}
               <div className="overflow-hidden rounded-xl border border-border bg-card">
                 {isLogsFetching && logs.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center gap-3 py-12">
-                    <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-                    <p className="text-xs font-medium text-muted-foreground">
-                      Loading system audit records...
-                    </p>
+                  <div className="flex flex-col gap-1 p-2">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <SkeletonBlock key={i} variant="rectangular" width="100%" height={48} className="rounded-sm" />
+                    ))}
                   </div>
                 ) : filteredLogs.length === 0 ? (
                   <div className="py-20">
@@ -1503,13 +1513,17 @@ export default function DashboardPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-svh items-center justify-center bg-background text-foreground">
-          <div className="flex flex-col items-center gap-4">
-            <RefreshCw className="h-10 w-10 animate-spin text-primary" />
-            <p className="animate-pulse text-sm font-medium tracking-wide text-muted-foreground">
-              Loading dashboard elements...
-            </p>
+        <div className="flex flex-1 flex-col gap-6 p-4 md:p-8">
+          <div className="flex items-center justify-between">
+            <SkeletonBlock variant="rectangular" width={250} height={40} className="rounded-lg" />
+            <SkeletonBlock variant="circular" width={40} height={40} />
           </div>
+          <div className="grid gap-4 md:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonBlock key={i} variant="rectangular" width="100%" height={120} className="rounded-xl" />
+            ))}
+          </div>
+          <SkeletonBlock variant="rectangular" width="100%" height={500} className="rounded-xl" showSpinner={true} />
         </div>
       }
     >

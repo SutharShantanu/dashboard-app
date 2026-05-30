@@ -14,6 +14,8 @@ import { ConnectSheetNavbarButton } from "@/components/connect-sheet-navbar-butt
 import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
+import { DashboardHeader } from "@/components/dashboard-header"
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -67,21 +69,7 @@ export default async function DashboardLayout({
         variant="inset"
       />
       <SidebarInset className="h-full min-h-0 min-w-0">
-        <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center justify-between border-b border-border bg-background/75 px-4 backdrop-blur-xl transition-colors duration-300 pl-0px-6">
-          <div className="flex min-w-0 flex-1 items-center gap-4 overflow-hidden">
-            <SidebarTrigger />
-            <Separator orientation="vertical" className="h-8"/>
-            <div className="truncate overflow-hidden">
-              <DashboardBreadcrumb />
-            </div>
-          </div>
-
-          <div className="flex min-w-[300px] shrink-0 items-center justify-end gap-3.5">
-            <SyncIndicator />
-            <ConnectSheetNavbarButton isAdmin={role === "admin"} />
-            <ModeToggle />
-          </div>
-        </header>
+        <DashboardHeader role={role} />
 
         <ScrollArea className="min-h-0 flex-1 min-w-0">
           <main className="flex max-w-full min-w-0 flex-col p-4">

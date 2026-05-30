@@ -32,7 +32,7 @@ export interface UserInterface {
   allowedColumns: string;
   permissionPreset?: string;
   perSheetPermissions?: Record<string, string[]>;
-  isActive: "TRUE" | "FALSE";
+  isActive: boolean;
   createdAt: string;
   createdBy: string;
   gender?: string;

@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   let clientController: ReadableStreamDefaultController;
 
   const stream = new ReadableStream({
-    start(controller) {
+    async start(controller) {
       clientController = controller;
       
       const client: ClientConnection = {
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
         controller,
       };
 
-      sseManager.addClient(client);
+      await sseManager.addClient(client);
 
       // Send initial connection event
       controller.enqueue(
@@ -35,13 +35,13 @@ export async function GET(req: NextRequest) {
 
       // Handle client disconnect
       req.signal.addEventListener("abort", () => {
-        sseManager.removeClient(client);
+        sseManager.removeClient(client).catch(console.error);
       });
     },
     cancel() {
       // In case cancel is called instead of abort
       const client = { id: clientId, username: session.user.username, controller: clientController };
-      sseManager.removeClient(client);
+      sseManager.removeClient(client).catch(console.error);
     }
   });
 

@@ -29,7 +29,7 @@ export async function PATCH(
     // Verify column edit authorization
     const { columns } = await getStudents(sheet, spreadsheetId);
     const activeSheetName = sheet || "Students";
-    const allowedCols = resolveUserAllowedColumns(session.user, activeSheetName, columns);
+    const allowedCols = resolveUserAllowedColumns(session.user, activeSheetName, columns, spreadsheetId);
 
     const gradeIndex = columns.indexOf("Grade");
     const targetIndex = columns.indexOf(column);

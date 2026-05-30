@@ -18,7 +18,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react"
-import { Google } from "@thesvg/react"
+import { GoogleIcon } from "@/components/icons/google-logo"
 import { UndrawLogin } from "react-undraw-illustrations"
 
 // shadcn/ui components
@@ -252,7 +252,7 @@ export default function LoginPage() {
                 className="mt-6 w-full"
                 onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
               >
-                <Google className="mr-2 h-4 w-4" />
+                <GoogleIcon className="mr-2 h-4 w-4" />
                 Google
               </Button>
             </form>

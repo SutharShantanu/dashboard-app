@@ -20,16 +20,18 @@ import {
   Check,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { SkeletonBlock } from "@/components/ui/skeleton-block"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { BadgeDot } from "@/components/ui/badge-dot"
 import { ExportDropdown } from "@/components/export-dropdown"
 import { EmptyState } from "@/components/empty-state"
-import { DataTable } from "@/components/ui/data-table"
+import { AdvancedDataGrid } from "@/components/ui/advanced-data-grid"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
+  InputGroupButton,
 } from "@/components/ui/input-group"
 import type { ColumnDef } from "@tanstack/react-table"
 import {
@@ -87,6 +89,104 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Spinner } from "@/components/ui/spinner"
+
+function CellTooltip({
+  rowId,
+  colName,
+  isLocked,
+  isEditing,
+  children,
+}: {
+  rowId: string
+  colName: string
+  isLocked: boolean
+  isEditing?: boolean
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (isEditing) {
+      setOpen(false)
+    }
+  }, [isEditing])
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["cellHistory", rowId, colName],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/students/history?rowId=${rowId}&column=${encodeURIComponent(colName)}`
+      )
+      if (!res.ok) throw new Error("Failed to fetch history")
+      return res.json()
+    },
+    enabled: open && !isLocked && !isEditing,
+  })
+
+  const hasHistory = data?.logs && data.logs.length > 0
+  const shouldShowTooltip = isLocked || isLoading || hasHistory
+
+  return (
+    <TooltipProvider delayDuration={300}>
+      <Tooltip
+        open={open && !isEditing}
+        onOpenChange={(v) => {
+          if (!isEditing) setOpen(v)
+        }}
+      >
+        <TooltipTrigger asChild>
+          <div className="relative h-full w-full">{children}</div>
+        </TooltipTrigger>
+        {shouldShowTooltip &&
+          (isLocked ? (
+            <TooltipContent className="z-[60]" sideOffset={8}>
+              <p className="text-xs">Read-only field</p>
+            </TooltipContent>
+          ) : (
+            <TooltipContent className="z-[60] max-w-xs p-2" sideOffset={8}>
+              <div className="flex flex-col gap-1.5">
+                <p className="mb-0.5 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                  Last Activity
+                </p>
+                {isLoading ? (
+                  <div className="flex items-center gap-2 py-1">
+                    <Spinner className="h-3 w-3" />
+                    <span className="text-xs">Loading...</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-xs font-medium text-foreground">
+                        {data.logs[0].actorDisplayName}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(data.logs[0].timestamp).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5 font-mono text-xs">
+                      <span
+                        className="max-w-[120px] truncate rounded-sm bg-destructive/15 px-1.5 py-0.5 text-destructive line-through"
+                        title={data.logs[0].oldValue || '""'}
+                      >
+                        {data.logs[0].oldValue || '""'}
+                      </span>
+                      <span className="text-muted-foreground">→</span>
+                      <span
+                        className="max-w-[120px] truncate rounded-sm bg-success/15 px-1.5 py-0.5 text-success"
+                        title={data.logs[0].newValue || '""'}
+                      >
+                        {data.logs[0].newValue || '""'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </TooltipContent>
+          ))}
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
 
 export default function SheetDetailPage() {
   const params = useParams()
@@ -356,6 +456,9 @@ export default function SheetDetailPage() {
               : "ring-2 ring-blue-500"
             : ""
 
+          const isEditingCell =
+            editingCell?.rowId === studentId && editingCell?.col === colName
+
           return (
             <ContextMenu>
               <ContextMenuTrigger asChild>
@@ -363,35 +466,27 @@ export default function SheetDetailPage() {
                   className="group relative w-full"
                   style={{ minWidth: minWidthCh }}
                 >
-                  {editingCell?.rowId === studentId &&
-                  editingCell?.col === colName ? (
-                    <InputGroup
-                      className={`h-8 w-full ${userColor} focus-within:border-primary focus-within:ring-1 focus-within:ring-primary`}
-                    >
-                      <InputGroupInput
-                        autoFocus
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        style={{ minWidth: minWidthCh }}
-                        disabled={
-                          savingCell?.rowId === studentId &&
-                          savingCell?.col === colName &&
-                          savingCell.status === "saving"
-                        }
-                        onBlur={() => {
-                          if (
+                  <CellTooltip
+                    rowId={studentId}
+                    colName={colName}
+                    isLocked={isLocked}
+                    isEditing={isEditingCell}
+                  >
+                    {isEditingCell ? (
+                      <InputGroup
+                        className={`h-8 w-full ${userColor} focus-within:border-primary focus-within:ring-1 focus-within:ring-primary`}
+                      >
+                        <InputGroupInput
+                          autoFocus
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          style={{ minWidth: minWidthCh }}
+                          disabled={
                             savingCell?.rowId === studentId &&
-                            savingCell?.col === colName
-                          )
-                            return
-                          if (!isLocked && editValue !== value) {
-                            handleSave(studentId, colName, editValue)
-                          } else {
-                            setEditingCell(null)
+                            savingCell?.col === colName &&
+                            savingCell.status === "saving"
                           }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
+                          onBlur={() => {
                             if (
                               savingCell?.rowId === studentId &&
                               savingCell?.col === colName
@@ -402,18 +497,61 @@ export default function SheetDetailPage() {
                             } else {
                               setEditingCell(null)
                             }
-                          } else if (e.key === "Escape") {
-                            if (
-                              savingCell?.rowId === studentId &&
-                              savingCell?.col === colName
-                            )
-                              return
-                            setEditingCell(null)
-                          }
-                        }}
-                      />
-                      {savingCell?.rowId === studentId &&
-                        savingCell?.col === colName && (
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              if (
+                                savingCell?.rowId === studentId &&
+                                savingCell?.col === colName
+                              )
+                                return
+                              if (!isLocked && editValue !== value) {
+                                handleSave(studentId, colName, editValue)
+                              } else {
+                                setEditingCell(null)
+                              }
+                            } else if (e.key === "Escape") {
+                              if (
+                                savingCell?.rowId === studentId &&
+                                savingCell?.col === colName
+                              )
+                                return
+                              setEditingCell(null)
+                            }
+                          }}
+                        />
+                        <InputGroupAddon align="inline-end">
+                          <InputGroupButton
+                            variant="ghost"
+                            size="icon-xs"
+                            className="text-green-500 hover:text-green-600"
+                            title="Save changes"
+                            onMouseDown={(e) => {
+                              e.preventDefault()
+                              if (!isLocked && editValue !== value) {
+                                handleSave(studentId, colName, editValue)
+                              } else {
+                                setEditingCell(null)
+                              }
+                            }}
+                          >
+                            <Check className="h-3 w-3" />
+                          </InputGroupButton>
+                          <InputGroupButton
+                            variant="ghost"
+                            size="icon-xs"
+                            className="text-destructive hover:text-destructive"
+                            title="Discard changes"
+                            onMouseDown={(e) => {
+                              e.preventDefault()
+                              setEditingCell(null)
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </InputGroupButton>
+                        </InputGroupAddon>
+                        {savingCell?.rowId === studentId &&
+                        savingCell?.col === colName ? (
                           <InputGroupAddon
                             align="inline-end"
                             className="flex items-center pr-1.5"
@@ -428,40 +566,68 @@ export default function SheetDetailPage() {
                               <X className="h-3.5 w-3.5 text-destructive" />
                             )}
                           </InputGroupAddon>
+                        ) : (
+                          <InputGroupAddon
+                            align="inline-end"
+                            className="flex items-center gap-1"
+                          >
+                            <InputGroupButton
+                              size="icon-xs"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (!isLocked && editValue !== value) {
+                                  handleSave(studentId, colName, editValue)
+                                } else {
+                                  setEditingCell(null)
+                                }
+                              }}
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </InputGroupButton>
+                            <InputGroupButton
+                              size="icon-xs"
+                              variant="destructive"
+                              onMouseDown={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                setEditingCell(null)
+                              }}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </InputGroupButton>
+                          </InputGroupAddon>
                         )}
-                    </InputGroup>
-                  ) : (
-                    <>
-                      <Input
-                        readOnly
-                        value={value || ""}
-                        style={{ minWidth: minWidthCh }}
-                        onClick={() => {
-                          if (!isLocked) {
-                            setEditingCell({ rowId: studentId, col: colName })
-                            setEditValue(value || "")
-                            handleFocus(studentId, colName)
-                          }
-                        }}
-                        disabled={isLocked}
-                        className={`h-8 w-full border-transparent bg-transparent transition-colors hover:border-input focus:border-transparent focus:bg-background ${userColor} ${isLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
-                      />
-                      {isLocked && (
-                        <div className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="text-xs">Read-only field</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                      )}
-                    </>
-                  )}
+                      </InputGroup>
+                    ) : (
+                      <InputGroup
+                        className={`h-8 w-full border-transparent bg-transparent transition-colors focus-within:border-transparent focus-within:bg-background hover:border-input ${userColor} ${isLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
+                      >
+                        <InputGroupInput
+                          readOnly
+                          value={value || ""}
+                          style={{ minWidth: minWidthCh }}
+                          onClick={() => {
+                            if (!isLocked) {
+                              setEditingCell({ rowId: studentId, col: colName })
+                              setEditValue(value || "")
+                              handleFocus(studentId, colName)
+                            }
+                          }}
+                          disabled={isLocked}
+                          className="truncate border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                        />
+                        {isLocked && (
+                          <InputGroupAddon
+                            align="inline-end"
+                            className="pointer-events-none flex items-center pr-2 opacity-0 transition-opacity group-hover:opacity-100"
+                          >
+                            <AlertCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                          </InputGroupAddon>
+                        )}
+                      </InputGroup>
+                    )}
+                  </CellTooltip>
                 </div>
               </ContextMenuTrigger>
               <ContextMenuContent className="w-64">
@@ -580,13 +746,42 @@ export default function SheetDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
-        <div className="flex flex-col items-center gap-2">
-          <Spinner className="h-8 w-8 text-primary" />
-          <p className="text-sm text-muted-foreground">
-            Loading sheet content...
-          </p>
+      <div className="flex h-[calc(100vh-4rem)] w-full flex-1 flex-col gap-6 p-4 md:p-8">
+        <div className="flex items-center justify-between">
+          <SkeletonBlock
+            variant="rectangular"
+            width={300}
+            height={40}
+            className="rounded-lg"
+          />
+          <SkeletonBlock
+            variant="rectangular"
+            width={100}
+            height={36}
+            className="rounded-md"
+          />
         </div>
+        <div className="flex gap-4">
+          <SkeletonBlock
+            variant="rectangular"
+            width="100%"
+            height={36}
+            className="max-w-sm rounded-md"
+          />
+          <SkeletonBlock
+            variant="rectangular"
+            width={120}
+            height={36}
+            className="rounded-md"
+          />
+        </div>
+        <SkeletonBlock
+          variant="rectangular"
+          width="100%"
+          height="100%"
+          className="flex-1 rounded-xl"
+          showSpinner={true}
+        />
       </div>
     )
   }
@@ -723,8 +918,11 @@ export default function SheetDetailPage() {
           </CardHeader>
           <CardContent className="w-full max-w-full">
             {filteredAndSortedData.length > 0 ? (
-              <div className="overflow-auto border rounded-md">
-                <DataTable columns={tableColumns} data={filteredAndSortedData} />
+              <div className="overflow-auto rounded-md border">
+                <AdvancedDataGrid
+                  columns={tableColumns}
+                  data={filteredAndSortedData}
+                />
               </div>
             ) : (
               <EmptyState
@@ -755,8 +953,18 @@ export default function SheetDetailPage() {
           </SheetHeader>
           <div className="flex flex-col gap-4 px-2 py-6">
             {isHistoryLoading ? (
-              <div className="flex items-center justify-center p-4">
-                <Spinner className="h-6 w-6 text-primary" />
+              <div className="flex flex-col gap-4 p-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-start gap-4">
+                    <SkeletonBlock variant="circular" width={24} height={24} />
+                    <SkeletonBlock
+                      variant="rectangular"
+                      width="100%"
+                      height={80}
+                      className="rounded-md"
+                    />
+                  </div>
+                ))}
               </div>
             ) : cellHistory?.logs?.length === 0 ? (
               <div className="p-4 text-center text-sm text-muted-foreground">

@@ -37,8 +37,9 @@ import {
   ExternalLink,
 } from "lucide-react"
 
+import { SkeletonBlock } from "@/components/ui/skeleton-block"
 import { ColumnDef } from "@tanstack/react-table"
-import { DataTable } from "@/components/ui/data-table"
+import { AdvancedDataGrid } from "@/components/ui/advanced-data-grid"
 import {
   Tooltip,
   TooltipProvider,
@@ -119,7 +120,7 @@ interface User {
   email: string
   role: string
   allowedColumns: string
-  isActive: string
+  isActive: boolean
   createdAt: string
   createdBy: string
   permissionPreset?: string
@@ -136,7 +137,7 @@ interface UserFormValues {
   allowedColumns?: string
   permissionPreset?: string
   perSheetPermissions?: Record<string, string[]>
-  isActive?: string
+  isActive?: boolean
   gender: string
 }
 
@@ -219,7 +220,7 @@ function UsersDirectoryContent() {
           .record(z.string(), z.array(z.string()))
           .optional()
           .default({}),
-        isActive: z.string().optional(),
+        isActive: z.boolean().optional(),
       })
       .superRefine((data, ctx) => {
         if (!isEditMode) {
@@ -267,7 +268,7 @@ function UsersDirectoryContent() {
       allowedColumns: "",
       permissionPreset: "",
       perSheetPermissions: {},
-      isActive: "TRUE",
+      isActive: true,
     },
     mode: "onTouched",
   })
@@ -443,7 +444,7 @@ function UsersDirectoryContent() {
             allowedColumns: "",
             permissionPreset: "",
             perSheetPermissions: {},
-            isActive: "TRUE",
+            isActive: true,
           })
         }
         setIsAddUserOpen(true)
@@ -625,9 +626,9 @@ function UsersDirectoryContent() {
   // Toggle user activation status
   const handleToggleUserActive = async (
     username: string,
-    currentActive: string
+    currentActive: boolean
   ) => {
-    const nextActive = currentActive === "TRUE" ? "FALSE" : "TRUE"
+    const nextActive = !currentActive
     setActiveActionId(username)
 
     const promise = async () => {
@@ -647,7 +648,7 @@ function UsersDirectoryContent() {
 
     toast.promise(promise(), {
       loading: `Updating status for ${username}...`,
-      success: `User account ${nextActive === "TRUE" ? "activated" : "suspended"} successfully.`,
+      success: `User account ${nextActive ? "activated" : "suspended"} successfully.`,
       error: (err) => err.message || "Failed to toggle user status.",
       finally: () => setActiveActionId(null),
     })
@@ -1029,13 +1030,13 @@ function UsersDirectoryContent() {
         cell: ({ row }) => (
           <Badge
             variant={
-              row.original.isActive === "TRUE"
+              row.original.isActive
                 ? "success-light"
                 : "destructive-light"
             }
             className="text-xs tracking-wider uppercase"
           >
-            {row.original.isActive === "TRUE" ? "Active" : "Suspended"}
+            {row.original.isActive ? "Active" : "Suspended"}
           </Badge>
         ),
       },
@@ -1146,13 +1147,9 @@ function UsersDirectoryContent() {
 
   if (sessionStatus === "loading") {
     return (
-      <div className="flex min-h-svh items-center justify-center bg-background text-foreground">
-        <div className="flex flex-col items-center gap-4">
-          <Spinner className="h-10 w-10 text-primary" />
-          <p className="text-sm font-medium tracking-wide text-muted-foreground">
-            Verifying administrative access...
-          </p>
-        </div>
+      <div className="flex flex-1 flex-col gap-6 py-8 w-full px-8">
+        <SkeletonBlock variant="rectangular" width="100%" height={200} className="rounded-xl" />
+        <SkeletonBlock variant="rectangular" width="100%" height={400} className="rounded-xl flex-1" showSpinner={true} />
       </div>
     )
   }
@@ -1216,11 +1213,10 @@ function UsersDirectoryContent() {
       <Card className="overflow-hidden">
         <CardContent>
           {loadingUsers ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-16">
-              <Spinner className="h-8 w-8 text-primary" />
-              <p className="text-xs font-medium text-muted-foreground">
-                Loading administrative accounts...
-              </p>
+            <div className="flex flex-col gap-2 py-8">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <SkeletonBlock key={i} variant="rectangular" width="100%" height={64} className="rounded-lg" />
+              ))}
             </div>
           ) : filteredUsers.length === 0 ? (
             <div className="py-20">
@@ -1233,7 +1229,7 @@ function UsersDirectoryContent() {
             </div>
           ) : (
             <>
-              <DataTable columns={columns} data={filteredUsers} />
+              <AdvancedDataGrid columns={columns} data={filteredUsers} />
             </>
           )}
         </CardContent>
@@ -1313,19 +1309,19 @@ function UsersDirectoryContent() {
                         <div className="flex shrink-0 flex-col items-end gap-1">
                           <Badge
                             variant={
-                              watch("isActive") === "TRUE"
+                              watch("isActive")
                                 ? "success-light"
                                 : "destructive-light"
                             }
                           >
                             <BadgeDot
                               variant={
-                                watch("isActive") === "TRUE"
+                                watch("isActive")
                                   ? "success"
                                   : "destructive"
                               }
                             />
-                            {watch("isActive") === "TRUE"
+                            {watch("isActive")
                               ? "Active"
                               : "Suspended"}
                           </Badge>
@@ -1829,7 +1825,7 @@ function UsersDirectoryContent() {
                                   field.onChange(permissions)
                                   setValue("permissionPreset", "")
                                 }}
-                                disabled={isViewMode}
+                                disabled={isViewMode || (isEditMode && watch("username")?.toLowerCase() === currentUsername?.toLowerCase() && currentUsername?.toLowerCase() !== "sabaadmin")}
                                 selectedSheet={selectedSheet}
                                 onSheetChange={setSelectedSheet}
                                 hideSelectors={true}
@@ -2088,13 +2084,9 @@ export default function UsersDirectoryPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-svh items-center justify-center bg-background text-foreground">
-          <div className="flex flex-col items-center gap-4">
-            <Spinner className="h-10 w-10 text-primary" />
-            <p className="animate-pulse text-sm font-medium tracking-wide text-muted-foreground">
-              Loading users directory...
-            </p>
-          </div>
+        <div className="flex flex-1 flex-col gap-6 py-8 w-full px-8">
+          <SkeletonBlock variant="rectangular" width="100%" height={200} className="rounded-xl" />
+          <SkeletonBlock variant="rectangular" width="100%" height={400} className="rounded-xl flex-1" showSpinner={true} />
         </div>
       }
     >

@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
       payload: { studentId, col, user, color }
     });
 
-    sseManager.updatePresence(session.user.username, `${studentId}:${col}`);
+    await sseManager.updatePresence(session.user.username, `${studentId}:${col}`);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
