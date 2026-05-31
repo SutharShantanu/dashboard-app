@@ -2,10 +2,19 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../../lib/auth";
 import { getStudents, getDbMode, updateStudentCell, createStudent, syncSheetData, resolveUserAllowedColumns } from "../../../lib/sheets";
+import { rateLimit } from "../../../lib/rate-limit";
+import { logger } from "../../../lib/logger";
 
 // GET: Retrieves all student records and the active database configuration (simulation mode status)
 export async function GET(request: Request) {
   try {
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "127.0.0.1";
+    const rl = await rateLimit(ip, 100, 60); // 100 requests per minute per IP
+    
+    if (!rl.success) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
@@ -36,15 +45,38 @@ export async function GET(request: Request) {
       });
     }
 
+    const pageParam = url.searchParams.get("page");
+    const limitParam = url.searchParams.get("limit");
+    
+    let page = pageParam ? parseInt(pageParam, 10) : 1;
+    let limit = limitParam ? parseInt(limitParam, 10) : undefined;
+    
+    if (page < 1) page = 1;
+
+    let paginatedData = filteredData;
+    let totalPages = 1;
+    
+    if (limit && limit > 0) {
+      totalPages = Math.ceil(filteredData.length / limit);
+      const startIndex = (page - 1) * limit;
+      paginatedData = filteredData.slice(startIndex, startIndex + limit);
+    }
+
     return NextResponse.json({
-      data: filteredData,
+      data: paginatedData,
       columns,
       allowedColumns: allowedCols,
       simulated: getDbMode().isSimulated,
       configured: getDbMode().isConfigured,
+      pagination: {
+        page,
+        limit: limit || filteredData.length,
+        total: filteredData.length,
+        totalPages
+      }
     });
   } catch (error: any) {
-    console.error("[GET /api/students] Error:", error);
+    logger.error({ err: error }, "[GET /api/students] Error");
     return NextResponse.json(
       { error: error.message || "Failed to fetch student data" },
       { status: 500 }
@@ -52,9 +84,43 @@ export async function GET(request: Request) {
   }
 }
 
+import { z } from "zod";
+
+const studentPostSchema = z.object({
+  ID: z.string().min(1, "ID is required"),
+  Name: z.string().min(1, "Name is required"),
+  Email: z.string().email("Invalid email"),
+  Phone: z.string().optional(),
+  Course: z.string().optional(),
+  Batch: z.string().optional(),
+  Status: z.string().optional(),
+  Score: z.string().optional(),
+  Remarks: z.string().optional(),
+  Grade: z.string().optional(),
+  Comments: z.string().optional(),
+  Notes: z.string().optional(),
+  sheet: z.string().optional(),
+  spreadsheetId: z.string().optional()
+});
+
+const studentPatchSchema = z.object({
+  id: z.string().min(1, "Student ID is required"),
+  column: z.string().min(1, "Target column is required"),
+  value: z.any(),
+  sheet: z.string().optional(),
+  spreadsheetId: z.string().optional()
+});
+
 // POST: Add a new student record (Admin Only)
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "127.0.0.1";
+    const rl = await rateLimit(`post_${ip}`, 30, 60); // 30 creates per minute
+    
+    if (!rl.success) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
@@ -69,18 +135,17 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { ID, Name, Email, Phone, Course, Batch, Status, Score, Remarks, Grade, Comments, Notes, sheet, spreadsheetId } = body;
-
-    if (!ID || !Name || !Email) {
+    
+    const parsed = studentPostSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "ID, Name, and Email are required fields." },
+        { error: "Validation failed", details: parsed.error.format() },
         { status: 400 }
       );
     }
+    
+    const { ID, Name, Email, Phone, Course, Batch, Status, Score, Remarks, Grade, Comments, Notes, sheet, spreadsheetId } = parsed.data;
 
-    const ip =
-      request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
-      "127.0.0.1";
 
     const newStudent = {
       ID: ID.trim(),
@@ -110,7 +175,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, student: newStudent });
   } catch (error: any) {
-    console.error("[POST /api/students] Error:", error);
+    logger.error({ err: error }, "[POST /api/students] Error");
     return NextResponse.json(
       { error: error.message || "Failed to create student record." },
       { status: 500 }
@@ -121,6 +186,13 @@ export async function POST(request: Request) {
 // PATCH: Updates a single cell inline (Admins can edit any; Sub-admins can edit only allowed columns on the right of M)
 export async function PATCH(request: Request) {
   try {
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0].trim() || "127.0.0.1";
+    const rl = await rateLimit(`patch_${ip}`, 60, 60); // 60 updates per minute
+    
+    if (!rl.success) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     const session = await getServerSession(authOptions);
 
     if (!session || !session.user) {
@@ -128,17 +200,19 @@ export async function PATCH(request: Request) {
     }
 
     const body = await request.json();
-    const { id, column, value, sheet, spreadsheetId } = body;
-
-    if (!id || !column) {
+    
+    const parsed = studentPatchSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Student ID and target Column are required." },
+        { error: "Validation failed", details: parsed.error.format() },
         { status: 400 }
       );
     }
+    
+    const { id, column, value, sheet, spreadsheetId } = parsed.data;
 
     // System columns can never be modified directly
-    if (column === "ID" || column === "LastModifiedBy" || column === "LastModifiedAt") {
+    if (column === "ID" || column === "LastModifiedBy" || column === "LastModifiedAt" || column === "_id") {
       return NextResponse.json(
         { error: "System columns cannot be directly modified." },
         { status: 400 }
@@ -165,9 +239,6 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const ip =
-      request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
-      "127.0.0.1";
 
     await updateStudentCell(
       id,
@@ -182,7 +253,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error("[PATCH /api/students] Error:", error);
+    logger.error({ err: error }, "[PATCH /api/students] Error");
     return NextResponse.json(
       { error: error.message || "Failed to update cell." },
       { status: 500 }

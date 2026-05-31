@@ -14,8 +14,33 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
       profile(profile) {
-        // TODO(owner): gate admin role behind an allowlist once Google sign-in usage in prod is confirmed.
-        // Defaulting to "sub-admin" (least privilege) until then.
+        // Security: Block all Google logins unless the email matches an allowlist
+        // or belongs to an approved domain. Configure via environment variables:
+        //   GOOGLE_ALLOWED_EMAILS=admin@company.com,ops@company.com
+        //   GOOGLE_ALLOWED_DOMAIN=company.com
+        const allowedEmails = (process.env.GOOGLE_ALLOWED_EMAILS || "")
+          .split(",")
+          .map((e) => e.trim().toLowerCase())
+          .filter(Boolean);
+        const allowedDomain = (process.env.GOOGLE_ALLOWED_DOMAIN || "").trim().toLowerCase();
+        const email = (profile.email || "").toLowerCase();
+
+        const isAllowedByEmail = allowedEmails.length > 0 && allowedEmails.includes(email);
+        const isAllowedByDomain =
+          allowedDomain.length > 0 && email.endsWith(`@${allowedDomain}`);
+
+        if (!isAllowedByEmail && !isAllowedByDomain) {
+          // When no allowlist is configured at all, reject all Google logins to fail-safe.
+          if (allowedEmails.length === 0 && !allowedDomain) {
+            throw new Error(
+              "Google sign-in is not configured. Set GOOGLE_ALLOWED_EMAILS or GOOGLE_ALLOWED_DOMAIN."
+            );
+          }
+          throw new Error(
+            `Access denied: ${profile.email} is not authorized to access this application.`
+          );
+        }
+
         return {
           id: profile.sub,
           username: profile.email.split("@")[0],

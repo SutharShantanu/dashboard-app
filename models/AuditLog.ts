@@ -53,6 +53,8 @@ const AuditLogSchema: Schema = new Schema({
   details: { type: String, required: true }
 });
 
+AuditLogSchema.index({ timestamp: -1 });
+
 const AuditLog: Model<IAuditLog> = mongoose.models.AuditLog || mongoose.model<IAuditLog>('AuditLog', AuditLogSchema);
 
 export default AuditLog;

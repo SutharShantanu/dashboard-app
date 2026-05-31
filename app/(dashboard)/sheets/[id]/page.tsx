@@ -3,6 +3,7 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { toast } from "sonner"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
 import {
@@ -197,7 +198,7 @@ function SheetActivityDrawer({ sheetId }: { sheetId: string }) {
   const { data: logsData, isFetching: isLogsFetching } = useQuery({
     queryKey: ["sheet_logs", sheetId],
     queryFn: async () => {
-      const res = await fetch("/api/logs")
+      const res = await fetch("/api/logs?type=sheet")
       if (!res.ok) throw new Error("Failed to load logs")
       const data = await res.json()
       return data.logs || []
@@ -398,10 +399,27 @@ export default function SheetDetailPage() {
           spreadsheetId: id,
         }),
       })
-      if (!res.ok) throw new Error("Failed to save data")
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({ error: "Failed to save data" }))
+        throw new Error(errBody.error || "Failed to save data")
+      }
+
+      // Optimistic cache update — mutate only the affected row instead of
+      // re-fetching the entire sheet (avoids redundant network round-trip).
+      queryClient.setQueryData(["sheetData", id], (old: any) => {
+        if (!old) return old
+        const now = new Date().toISOString()
+        return {
+          ...old,
+          data: old.data.map((row: any) =>
+            (row.ID ?? row._id) === studentId
+              ? { ...row, [col]: value, LastModifiedAt: now }
+              : row
+          ),
+        }
+      })
 
       setSavingCell({ rowId: studentId, col, status: "success" })
-      queryClient.invalidateQueries({ queryKey: ["sheetData", id] })
 
       // Wait for success micro-animation before closing
       await new Promise((resolve) => setTimeout(resolve, 800))
@@ -410,6 +428,7 @@ export default function SheetDetailPage() {
     } catch (err) {
       console.error("Failed to save data:", err)
       setSavingCell({ rowId: studentId, col, status: "error" })
+      toast.error((err as Error).message || "Failed to save data")
 
       // Wait to display error before letting them retry
       await new Promise((resolve) => setTimeout(resolve, 1500))
@@ -420,7 +439,7 @@ export default function SheetDetailPage() {
   const handleShare = () => {
     if (typeof window !== "undefined") {
       navigator.clipboard.writeText(window.location.href)
-      alert("Link copied to clipboard!")
+      toast.success("Link copied to clipboard!")
     }
   }
 
@@ -521,13 +540,10 @@ export default function SheetDetailPage() {
     return columns.map((col: string, index: number) => {
       const colId = col || `col_${index}`
 
-      // Calculate max length of values in this column dynamically based on content
-      const maxCharLength = Math.max(
-        col ? col.length : 0,
-        ...data.map((row: any) => String(row[col] || "").length)
-      )
-      // Allow a minimum of 8ch and add 4ch for safety (input padding, read-only icons, font variations)
-      const minWidthCh = `${Math.max(maxCharLength + 4, 8)}ch`
+      // Fixed min-width per column type to avoid O(N*M) scan of all rows on every render.
+      // System columns get a narrower width; others get a comfortable default.
+      const isSystemCol = col === "ID" || col === "LastModifiedBy" || col === "LastModifiedAt"
+      const minWidthCh = isSystemCol ? "10ch" : "16ch"
 
       return {
         id: colId,
@@ -565,7 +581,7 @@ export default function SheetDetailPage() {
             <ContextMenu>
               <ContextMenuTrigger asChild>
                 <div
-                  className="group relative w-full"
+                  className="group relative w-full min-w-0"
                   style={{ minWidth: minWidthCh }}
                 >
                   <CellTooltip
@@ -582,7 +598,6 @@ export default function SheetDetailPage() {
                           autoFocus
                           value={editValue}
                           onChange={(e) => setEditValue(e.target.value)}
-                          style={{ minWidth: minWidthCh }}
                           disabled={
                             savingCell?.rowId === studentId &&
                             savingCell?.col === colName &&
@@ -679,7 +694,6 @@ export default function SheetDetailPage() {
                         <InputGroupInput
                           readOnly
                           value={value || ""}
-                          style={{ minWidth: minWidthCh }}
                           onClick={() => {
                             if (!isLocked) {
                               setEditingCell({ rowId: studentId, col: colName })

@@ -123,34 +123,7 @@ import { appendAuditLog } from "./services/audit.service";
 
 export async function initSheets(): Promise<void> {
   await connectToDatabase();
-
-  const count = await User.countDocuments();
-  if (count === 0) {
-    const bcrypt = await import("bcryptjs");
-    const passwordHash = await bcrypt.default.hash("admin123", 12);
-    await User.create({
-      username: "admin",
-      displayName: "System Administrator",
-      email: "admin@example.com",
-      passwordHash,
-      role: "admin",
-      allowedColumns: "",
-      isActive: true,
-      createdBy: "system",
-    });
-
-    const subAdminHash = await bcrypt.default.hash("subadmin123", 12);
-    await User.create({
-      username: "subadmin",
-      displayName: "Sub Administrator",
-      email: "subadmin@example.com",
-      passwordHash: subAdminHash,
-      role: "sub-admin",
-      allowedColumns: "",
-      isActive: true,
-      createdBy: "system",
-    });
-  }
+  // Ensure we can connect to the database. Initial user seeding should be handled via a secure CLI script.
 }
 
 export function getDbMode() {

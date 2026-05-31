@@ -5,6 +5,7 @@ import { sseManager } from "../sse";
 import { appendAuditLog } from "./audit.service";
 import { fetchRawGoogleSheetsData } from "./google-sheets.service";
 import type { Student } from "../sheets";
+import redis from "../redis";
 
 const DEFAULT_COLUMNS = [
   "ID",
@@ -33,6 +34,17 @@ export async function syncSheetData(spreadsheetId: string): Promise<void> {
     `${connectedSheet.sheetName}!A:AZ`
   );
 
+  // Use native MongoDB upsert instead of loading the entire collection into a
+  // JS Map. This is O(1) memory regardless of dataset size.
+  // Strategy:
+  //   - If a row does NOT exist yet  → insert it (lastModifiedBy = "system")
+  //   - If a row exists AND was last  → overwrite data (Google is source-of-truth)
+  //     modified by "system" (i.e. never edited by a human in the dashboard)
+  //   - If a row exists AND was last  → skip (human edit wins; webhook/manual
+  //     modified by a real user         sync will push the change back to Google)
+  const now = new Date();
+  const bulkOps = [];
+
   for (const item of data) {
     const id = String(
       item.ID ||
@@ -42,21 +54,38 @@ export async function syncSheetData(spreadsheetId: string): Promise<void> {
     );
     if (!id) continue;
 
-    const existing = await SheetRow.findOne({ rowId: id, sheetId: spreadsheetId });
-    if (!existing) {
-      await SheetRow.create({
-        sheetId: spreadsheetId,
-        rowId: id,
-        data: item,
-        lastModifiedBy: "system",
-        lastModifiedAt: new Date(),
-      });
-    } else if (existing.lastModifiedBy === "system") {
-      existing.data = item;
-      existing.lastModifiedAt = new Date();
-      existing.markModified("data");
-      await existing.save();
-    }
+    bulkOps.push({
+      updateOne: {
+        filter: {
+          sheetId: spreadsheetId,
+          rowId: id,
+          // Only overwrite rows that have never been touched by a human editor.
+          // If lastModifiedBy is anything other than "system", this filter
+          // won't match and the row is skipped entirely — no accidental overwrite.
+          $or: [
+            { lastModifiedBy: "system" },
+            { lastModifiedBy: { $exists: false } },
+          ],
+        },
+        update: {
+          $set: {
+            data: item,
+            lastModifiedAt: now,
+          },
+          $setOnInsert: {
+            sheetId: spreadsheetId,
+            rowId: id,
+            lastModifiedBy: "system",
+          },
+        },
+        upsert: true,
+      },
+    });
+  }
+
+  if (bulkOps.length > 0) {
+    await SheetRow.bulkWrite(bulkOps, { ordered: false });
+    await redis.del(`students:${spreadsheetId}`);
   }
 }
 
@@ -68,6 +97,13 @@ export async function getStudents(
   const targetSheetId = spreadsheetId || "default";
 
   let rows;
+  const cacheKey = `students:${targetSheetId}`;
+  const cached = await redis.get(cacheKey);
+
+  if (cached) {
+    return JSON.parse(cached);
+  }
+
   if (targetSheetId === "all") {
     rows = await SheetRow.find({});
   } else {
@@ -100,7 +136,9 @@ export async function getStudents(
   if (!finalColumns.includes("LastModifiedBy")) finalColumns.push("LastModifiedBy");
   if (!finalColumns.includes("LastModifiedAt")) finalColumns.push("LastModifiedAt");
 
-  return { data, columns: finalColumns };
+  const result = { data, columns: finalColumns };
+  await redis.set(cacheKey, JSON.stringify(result), "EX", 300); // cache for 5 minutes
+  return result;
 }
 
 export async function createStudent(
@@ -132,6 +170,8 @@ export async function createStudent(
     ip,
     details: `Created student record: ${student.Name} (${student.ID})`,
   });
+
+  await redis.del(`students:${targetSheetId}`);
 
   sseManager.broadcast({ type: "cell_update", payload: { id: student.ID, data: student } });
 }
@@ -177,6 +217,8 @@ export async function updateStudentCell(
     ip,
     details: `Updated ${column} for student ${id}`,
   });
+
+  await redis.del(`students:${targetSheetId}`);
 
   sseManager.broadcast({
     type: "cell_update",

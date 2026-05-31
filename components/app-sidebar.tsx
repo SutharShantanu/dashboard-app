@@ -3,12 +3,11 @@
 import React, { useState, useEffect } from "react"
 import { useConnectedSheets } from "@/hooks/useConnectedSheets"
 import Link from "next/link"
-import { useSearchParams, useRouter, usePathname } from "next/navigation"
+import { useSearchParams, usePathname } from "next/navigation"
 import {
   Sparkles,
   GraduationCap,
   Users,
-  UserPlus,
   History,
   LayoutDashboard,
   Plus,
@@ -16,8 +15,6 @@ import {
   RefreshCw,
   Trash2,
   Globe,
-  Settings2,
-  Search,
   FileSpreadsheet,
 } from "lucide-react"
 import { GoogleSheetsIcon } from "@/components/icons/google-sheets"
@@ -35,21 +32,6 @@ import {
   SidebarFooter,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { SkeletonBlock } from "@/components/ui/skeleton-block"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@/components/ui/input-group"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
-import { Card } from "@/components/ui/card"
-import { Kbd } from "@/components/ui/kbd"
 import {
   ContextMenu,
   ContextMenuTrigger,
@@ -57,15 +39,6 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
 } from "@/components/ui/context-menu"
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { NavUser } from "@/components/nav-user"
@@ -76,7 +49,10 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip"
-import { Spinner } from "./ui/spinner"
+import { SkeletonBlock } from "@/components/ui/skeleton-block"
+import { SidebarSkeleton } from "./sidebar/sidebar-skeleton"
+import { SidebarSearch } from "./sidebar/sidebar-search"
+import { SidebarDeleteDialog } from "./sidebar/sidebar-delete-dialog"
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   user: {
@@ -96,10 +72,8 @@ export function AppSidebar({
   ...props
 }: AppSidebarProps) {
   const searchParams = useSearchParams()
-  const router = useRouter()
   const pathname = usePathname()
   const tab = searchParams?.get("tab") || "students"
-  const activeSheet = searchParams?.get("sheet") || "Students"
   const activeSpreadsheetId = searchParams?.get("spreadsheetId") || ""
 
   const { data: connectedSheets = [], isLoading: isLoadingSheets } =
@@ -110,24 +84,12 @@ export function AppSidebar({
     title: string
   } | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-
   const [mounted, setMounted] = useState(false)
+
   useEffect(() => {
     const timer = setTimeout(() => setMounted(true), 0)
     return () => clearTimeout(timer)
   }, [])
-
-  const [searchTerm, setSearchTerm] = useState("")
-  const [debouncedTerm, setDebouncedTerm] = useState("")
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedTerm(searchTerm)
-    }, 300)
-    return () => clearTimeout(handler)
-  }, [searchTerm])
-
-  const inputRef = React.useRef<HTMLInputElement>(null)
 
   const handleSync = async (spreadsheetId: string, title: string) => {
     const toastId = toast.loading(`Syncing "${title}"...`)
@@ -142,17 +104,6 @@ export function AppSidebar({
       toast.error(`Failed to sync "${title}"`, { id: toastId })
     }
   }
-
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault()
-        inputRef.current?.focus()
-      }
-    }
-    document.addEventListener("keydown", down)
-    return () => document.removeEventListener("keydown", down)
-  }, [])
 
   const allNavItems = React.useMemo(() => {
     const items: { title: string; url: string; icon?: any }[] = [
@@ -200,17 +151,6 @@ export function AppSidebar({
     return items
   }, [connectedSheets, user.role, user.username])
 
-  const searchResults = React.useMemo(() => {
-    if (!debouncedTerm) return []
-    return allNavItems.filter((item) =>
-      item.title.toLowerCase().includes(debouncedTerm.toLowerCase())
-    )
-  }, [debouncedTerm, allNavItems])
-
-  const handleDeleteSheet = (spreadsheetId: string, title: string) => {
-    setSheetToDelete({ spreadsheetId, title })
-  }
-
   const handleConfirmDelete = async () => {
     if (!sheetToDelete) return
     setIsDeleting(true)
@@ -233,72 +173,7 @@ export function AppSidebar({
   }
 
   if (!mounted) {
-    return (
-      <TooltipProvider delayDuration={0}>
-        <Sidebar collapsible="icon" {...props}>
-          <SidebarHeader className="gap-4">
-            <div className="flex items-center gap-3">
-              <SkeletonBlock width={36} height={36} variant="rectangular" className="rounded-xl shrink-0" />
-              <SkeletonBlock width={120} height={20} variant="rectangular" className="group-data-[collapsible=icon]:hidden" />
-            </div>
-            <div className="relative group-data-[collapsible=icon]:hidden">
-              <SkeletonBlock width="100%" height={32} variant="rectangular" className="rounded-md" />
-            </div>
-          </SidebarHeader>
-
-          <SidebarContent>
-            <SidebarGroup>
-              <div className="flex items-center justify-between px-2 py-1.5 group-data-[collapsible=icon]:hidden">
-                <SkeletonBlock width={120} height={16} variant="rectangular" />
-              </div>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <SidebarMenuItem key={i}>
-                      <div className="flex items-center gap-2 px-2 py-1.5">
-                        <SkeletonBlock width={16} height={16} variant="circular" />
-                        <SkeletonBlock width={96} height={16} variant="rectangular" />
-                      </div>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-
-            <SidebarGroup>
-              <div className="px-2 py-1.5 group-data-[collapsible=icon]:hidden">
-                <SkeletonBlock width={100} height={16} variant="rectangular" />
-              </div>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <SidebarMenuItem key={i}>
-                      <div className="flex items-center gap-2 px-2 py-1.5">
-                        <SkeletonBlock width={16} height={16} variant="circular" />
-                        <SkeletonBlock width={120} height={16} variant="rectangular" />
-                      </div>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </SidebarContent>
-
-          <SidebarFooter>
-            <NavUser
-              user={{
-                name: user.displayName || user.username,
-                email: `${user.username}@aegis.local`,
-                avatar: getAvatarUrl(user.username, user.role, user.gender),
-                role: user.role,
-                username: user.username,
-              }}
-            />
-          </SidebarFooter>
-          <SidebarRail />
-        </Sidebar>
-      </TooltipProvider>
-    )
+    return <SidebarSkeleton user={user} {...props} />
   }
 
   return (
@@ -314,63 +189,7 @@ export function AppSidebar({
             </span>
           </div>
 
-          <div className="relative group-data-[collapsible=icon]:hidden">
-            <InputGroup className="w-full min-w-0">
-              <InputGroupAddon>
-                <Search className="size-3.5" />
-              </InputGroupAddon>
-              <InputGroupInput
-                ref={inputRef}
-                placeholder="Search sheets or config..."
-                className="min-w-0 text-xs"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <InputGroupAddon align="inline-end">
-                {searchTerm !== debouncedTerm && searchTerm.length > 0 ? (
-                  <Spinner className="size-3.5 text-muted-foreground" />
-                ) : (
-                  <Kbd className="text-xs">CTRL + K</Kbd>
-                )}
-              </InputGroupAddon>
-            </InputGroup>
-
-            {searchTerm.length > 0 && (
-              <div className="absolute top-full right-0 left-0 z-50 mt-1">
-                <Card className="overflow-hidden p-0 shadow-lg">
-                  <Command className="h-auto max-h-75">
-                    <CommandList className="max-h-75">
-                      <CommandEmpty>
-                        No results found for &quot;{searchTerm}&quot;
-                      </CommandEmpty>
-
-                      {searchResults.length > 0 && (
-                        <CommandGroup heading="Results">
-                          {searchResults.map((item) => (
-                            <CommandItem
-                              key={item.url}
-                              onSelect={() => {
-                                router.push(item.url)
-                                setSearchTerm("")
-                              }}
-                              className="flex cursor-pointer items-center gap-3 px-3 py-2.5 sm:gap-2 sm:py-1.5"
-                            >
-                              {item.icon && (
-                                <item.icon className="size-4 text-muted-foreground sm:size-3.5" />
-                              )}
-                              <span className="text-sm sm:text-xs">
-                                {item.title}
-                              </span>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      )}
-                    </CommandList>
-                  </Command>
-                </Card>
-              </div>
-            )}
-          </div>
+          <SidebarSearch allNavItems={allNavItems} />
         </SidebarHeader>
 
         <SidebarContent>
@@ -412,7 +231,7 @@ export function AppSidebar({
                       </SidebarMenuItem>
                     ))
                   : connectedSheets.length > 0
-                    ? connectedSheets.map((s: any, index: number) => (
+                    ? connectedSheets.map((s: any) => (
                         <ContextMenu key={s.spreadsheetId}>
                           <ContextMenuTrigger asChild>
                             <SidebarMenuItem>
@@ -473,7 +292,7 @@ export function AppSidebar({
                                 <ContextMenuItem
                                   variant="destructive"
                                   onClick={() =>
-                                    handleDeleteSheet(s.spreadsheetId, s.title)
+                                    setSheetToDelete({ spreadsheetId: s.spreadsheetId, title: s.title })
                                   }
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -485,7 +304,6 @@ export function AppSidebar({
                         </ContextMenu>
                       ))
                     : null}
-                {/* Manage Sheets moved to Configuration section */}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -601,45 +419,14 @@ export function AppSidebar({
         <SidebarRail />
       </Sidebar>
 
-      <AlertDialog
-        open={sheetToDelete !== null}
+      <SidebarDeleteDialog
+        sheetToDelete={sheetToDelete}
+        isDeleting={isDeleting}
         onOpenChange={(open) => {
           if (!open && !isDeleting) setSheetToDelete(null)
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Are you sure you want to remove &quot;{sheetToDelete?.title}
-              &quot;?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              This action will unbind the Google Sheet from the dashboard. Your
-              underlying spreadsheet data in Google Sheets will remain intact.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <Button
-              variant="destructive"
-              disabled={isDeleting}
-              onClick={handleConfirmDelete}
-            >
-              {isDeleting ? (
-                <>
-                  <Spinner className="h-4 w-4" />
-                  Removing...
-                </>
-              ) : (
-                <>
-                  <Trash2 className="h-4 w-4" />
-                  Remove
-                </>
-              )}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onConfirm={handleConfirmDelete}
+      />
     </TooltipProvider>
   )
 }

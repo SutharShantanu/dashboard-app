@@ -14,6 +14,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const selfOnly = searchParams.get("self") === "true";
+    const type = searchParams.get("type");
 
     const logs = await getLogs();
 
@@ -21,7 +22,13 @@ export async function GET(request: Request) {
     const userObj = session.user as any;
     
     if (userObj.role !== "admin" || selfOnly) {
-      filteredLogs = logs.filter(l => l.actor === userObj.username);
+      filteredLogs = filteredLogs.filter(l => l.actor === userObj.username);
+    }
+
+    if (type === "sheet") {
+      filteredLogs = filteredLogs.filter(
+        l => !["LOGIN", "LOGOUT", "USER_CREATE", "USER_UPDATE", "USER_DEACTIVATE", "USER_ACTIVATE", "USER_DELETE"].includes(l.action)
+      );
     }
 
     // Sort logs descending by timestamp to show latest edits first

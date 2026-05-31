@@ -1,12 +1,13 @@
 import connectToDatabase from "./mongodb";
-import { SseEventModel } from "../models/SseEvent";
 import { SsePresenceModel } from "../models/SsePresence";
+import Redis from "ioredis";
 
 export type EventType = "cell_update" | "presence" | "cell_focus" | "cell_blur" | "presence_update_trigger";
 
 export interface SseEvent {
   type: EventType;
   payload: any;
+  senderId?: string;
 }
 
 export interface ClientConnection {
@@ -15,43 +16,78 @@ export interface ClientConnection {
   controller: ReadableStreamDefaultController;
 }
 
-// Unique ID for this serverless instance to prevent processing its own broadcasts
 const INSTANCE_ID = crypto.randomUUID();
+const REDIS_CHANNEL = "sse_events";
+
+function createRedisClient() {
+  const url = process.env.REDIS_URL || "redis://localhost:6379";
+  const client = new Redis(url, {
+    lazyConnect: true,
+    maxRetriesPerRequest: 3,
+    retryStrategy(times) {
+      if (times > 3) return null;
+      return Math.min(times * 200, 2000);
+    },
+    enableOfflineQueue: false,
+  });
+  // Suppress unhandled errors — callers handle rejections themselves.
+  client.on("error", () => {});
+  return client;
+}
 
 class SseManager {
   private clients: Set<ClientConnection> = new Set();
+  // Subscriber is created lazily — NOT at class instantiation time.
+  // This prevents ioredis from attempting TCP connections during next build.
+  private subscriber: Redis | null = null;
   private initialized = false;
 
   constructor() {
-    this.initMongoWatcher();
+    // Do NOT call initRedisSubscriber() here.
+    // It will be called lazily on the first addClient() call at request time.
   }
 
-  private async initMongoWatcher() {
+  private getOrCreateSubscriber(): Redis {
+    if (!this.subscriber) {
+      this.subscriber = createRedisClient();
+    }
+    return this.subscriber;
+  }
+
+  private initRedisSubscriber() {
     if (this.initialized) return;
     this.initialized = true;
 
-    try {
-      await connectToDatabase();
-      const changeStream = SseEventModel.watch([], { fullDocument: 'updateLookup' });
-      
-      changeStream.on('change', async (change) => {
-        if (change.operationType === 'insert') {
-          const event = change.fullDocument;
-          if (event && event.senderId !== INSTANCE_ID) {
-            if (event.type === 'presence_update_trigger') {
+    const sub = this.getOrCreateSubscriber();
+
+    sub.subscribe(REDIS_CHANNEL, (err) => {
+      if (err) {
+        console.error("[SSE] Failed to subscribe to Redis:", err);
+      }
+    });
+
+    sub.on("message", async (channel, message) => {
+      if (channel === REDIS_CHANNEL) {
+        try {
+          const event = JSON.parse(message) as SseEvent;
+          if (event.senderId !== INSTANCE_ID) {
+            if (event.type === "presence_update_trigger") {
               await this.broadcastMongoPresence();
             } else {
-              this.localBroadcast({ type: event.type as EventType, payload: event.payload });
+              this.localBroadcast({ type: event.type, payload: event.payload });
             }
           }
+        } catch (e) {
+          console.error("[SSE] Error parsing Redis message:", e);
         }
-      });
-    } catch (err) {
-      console.error("[SSE] Failed to initialize MongoDB Change Stream:", err);
-    }
+      }
+    });
   }
 
   async addClient(client: ClientConnection) {
+    // Initialize the Redis subscriber on the first real client connection
+    // (i.e. at request time, never at build time).
+    this.initRedisSubscriber();
     this.clients.add(client);
     await this.updatePresence(client.username, null);
   }
@@ -60,25 +96,23 @@ class SseManager {
     this.clients.delete(client);
     await connectToDatabase();
     await SsePresenceModel.deleteOne({ username: client.username });
-    
+
     // Trigger others to update their presence view
     this.broadcast({ type: "presence_update_trigger", payload: {} });
-    await this.broadcastMongoPresence(); // Update local clients
+    await this.broadcastMongoPresence();
   }
 
   broadcast(event: SseEvent) {
-    // 1. Broadcast locally first (instant for clients connected to this instance)
+    // 1. Broadcast locally first (instant for clients on this instance)
     this.localBroadcast(event);
 
-    // 2. Broadcast via MongoDB to other Vercel instances
-    connectToDatabase().then(() => {
-      return SseEventModel.create({
-        type: event.type,
-        payload: event.payload,
-        senderId: INSTANCE_ID
-      });
-    }).catch(err => {
-      console.error("[SSE] Failed to broadcast via MongoDB:", err);
+    // 2. Broadcast via Redis to other instances — skip if no Redis configured
+    if (!process.env.REDIS_URL && process.env.NODE_ENV !== "production") return;
+
+    const payload = JSON.stringify({ ...event, senderId: INSTANCE_ID });
+    const pub = createRedisClient();
+    pub.publish(REDIS_CHANNEL, payload).catch((err) => {
+      console.error("[SSE] Failed to broadcast via Redis:", err);
     });
   }
 
@@ -89,7 +123,7 @@ class SseManager {
     for (const client of this.clients) {
       try {
         client.controller.enqueue(new TextEncoder().encode(data));
-      } catch (err) {
+      } catch {
         this.removeClient(client).catch(console.error);
       }
     }
@@ -102,8 +136,7 @@ class SseManager {
       { focusedCell, updatedAt: new Date() },
       { upsert: true, new: true }
     );
-    
-    // Trigger others to fetch presence
+
     this.broadcast({ type: "presence_update_trigger", payload: {} });
     await this.broadcastMongoPresence();
   }
@@ -112,9 +145,9 @@ class SseManager {
     try {
       await connectToDatabase();
       const docs = await SsePresenceModel.find({});
-      const activeUsers = docs.map(doc => ({
+      const activeUsers = docs.map((doc) => ({
         username: doc.username,
-        focusedCell: doc.focusedCell
+        focusedCell: doc.focusedCell,
       }));
 
       this.localBroadcast({
@@ -127,7 +160,7 @@ class SseManager {
   }
 }
 
-// Global instance to persist across HMR in development.
+// Global singleton — persists across HMR in development.
 const globalForSse = global as unknown as { sseManager: SseManager };
 export const sseManager = globalForSse.sseManager || new SseManager();
 if (process.env.NODE_ENV !== "production") globalForSse.sseManager = sseManager;

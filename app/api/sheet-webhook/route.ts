@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import connectToDatabase from "../../../lib/mongodb";
 import ConnectedSheet from "../../../models/ConnectedSheet";
 import { getStudents, updateStudentCell } from "../../../lib/sheets";
+import { logger } from "../../../lib/logger";
 
 export async function POST(req: NextRequest) {
   // Fail closed: refuse if the secret is not configured
   const webhookSecret = process.env.SHEET_WEBHOOK_SECRET;
   if (!webhookSecret) {
-    console.error("[POST /api/sheet-webhook] SHEET_WEBHOOK_SECRET is not set — rejecting all requests");
+    logger.error("[POST /api/sheet-webhook] SHEET_WEBHOOK_SECRET is not set — rejecting all requests");
     return NextResponse.json({ error: "Webhook not configured" }, { status: 503 });
   }
 
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal Server Error";
-    console.error("[POST /api/sheet-webhook] Error:", error);
+    logger.error({ err: error }, "[POST /api/sheet-webhook] Error");
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
