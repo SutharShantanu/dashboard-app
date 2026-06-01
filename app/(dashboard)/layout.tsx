@@ -15,7 +15,6 @@ import { DashboardBreadcrumb } from "@/components/dashboard-breadcrumb"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 import { DashboardHeader } from "@/components/dashboard-header"
-import { AnnouncementBanner } from "@/components/announcement-banner"
 
 export default async function DashboardLayout({
   children,
@@ -73,7 +72,6 @@ export default async function DashboardLayout({
         <DashboardHeader role={role} />
 
         <ScrollArea className="min-h-0 flex-1 min-w-0">
-          <AnnouncementBanner />
           <main className="flex max-w-full min-w-0 flex-col p-4">
             <div className="min-w-0 flex-1">{children}</div>
           </main>
