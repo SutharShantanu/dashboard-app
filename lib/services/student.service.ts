@@ -85,7 +85,7 @@ export async function syncSheetData(spreadsheetId: string): Promise<void> {
 
   if (bulkOps.length > 0) {
     await SheetRow.bulkWrite(bulkOps, { ordered: false });
-    await redis.del(`students:${spreadsheetId}`);
+    try { await redis.del(`students:${spreadsheetId}`); } catch(e) {}
   }
 }
 
@@ -98,7 +98,13 @@ export async function getStudents(
 
   let rows;
   const cacheKey = `students:${targetSheetId}`;
-  const cached = await redis.get(cacheKey);
+  
+  let cached = null;
+  try {
+    cached = await redis.get(cacheKey);
+  } catch (e) {
+    console.warn("[Redis] Failed to get cache:", e.message);
+  }
 
   if (cached) {
     return JSON.parse(cached);
@@ -137,7 +143,11 @@ export async function getStudents(
   if (!finalColumns.includes("LastModifiedAt")) finalColumns.push("LastModifiedAt");
 
   const result = { data, columns: finalColumns };
-  await redis.set(cacheKey, JSON.stringify(result), "EX", 300); // cache for 5 minutes
+  try {
+    await redis.set(cacheKey, JSON.stringify(result), "EX", 300); // cache for 5 minutes
+  } catch (e) {
+    console.warn("[Redis] Failed to set cache:", e.message);
+  }
   return result;
 }
 
@@ -171,7 +181,7 @@ export async function createStudent(
     details: `Created student record: ${student.Name} (${student.ID})`,
   });
 
-  await redis.del(`students:${targetSheetId}`);
+  try { await redis.del(`students:${targetSheetId}`); } catch(e) {}
 
   sseManager.broadcast({ type: "cell_update", payload: { id: student.ID, data: student } });
 }
@@ -218,7 +228,7 @@ export async function updateStudentCell(
     details: `Updated ${column} for student ${id}`,
   });
 
-  await redis.del(`students:${targetSheetId}`);
+  try { await redis.del(`students:${targetSheetId}`); } catch(e) {}
 
   sseManager.broadcast({
     type: "cell_update",

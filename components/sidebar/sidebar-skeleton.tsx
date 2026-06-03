@@ -80,7 +80,7 @@ export function SidebarSkeleton({ user, ...props }: SidebarSkeletonProps & React
           <NavUser
             user={{
               name: user.displayName || user.username,
-              email: `${user.username}@aegis.local`,
+              email: `@${user.username}`,
               avatar: getAvatarUrl(user.username, user.role, user.gender),
               role: user.role,
               username: user.username,

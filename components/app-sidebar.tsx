@@ -17,7 +17,7 @@ import {
   Globe,
   FileSpreadsheet,
 } from "lucide-react"
-import { GoogleSheetsIcon } from "@/components/icons/google-sheets"
+import Icon from "@/components/icons/Icon"
 import {
   Sidebar,
   SidebarHeader,
@@ -115,7 +115,7 @@ export function AppSidebar({
       items.push({
         title: s.title,
         url: `/sheets/${s.spreadsheetId}`,
-        icon: GoogleSheetsIcon,
+        icon: (props: any) => <Icon name="GoogleSheets2026" {...props} />,
       })
     })
 
@@ -142,11 +142,13 @@ export function AppSidebar({
       })
     }
 
-    items.push({
-      title: "Activity Logs",
-      url: "/logs",
-      icon: History,
-    })
+    if (user.role === "admin") {
+      items.push({
+        title: "Activity Logs",
+        url: "/logs",
+        icon: History,
+      })
+    }
 
     return items
   }, [connectedSheets, user.role, user.username])
@@ -245,7 +247,7 @@ export function AppSidebar({
                                 tooltip={s.title}
                               >
                                 <Link href={`/sheets/${s.spreadsheetId}`}>
-                                  <GoogleSheetsIcon className="h-3.5 w-3.5 text-primary" />
+                                  <Icon name="GoogleSheets2026" className="h-3.5 w-3.5 text-primary" />
                                   <span className="truncate">{s.title}</span>
                                 </Link>
                               </SidebarMenuButton>
@@ -408,7 +410,7 @@ export function AppSidebar({
           <NavUser
             user={{
               name: user.displayName || user.username,
-              email: `${user.username}@aegis.local`,
+              email: `@${user.username}`,
               avatar: getAvatarUrl(user.username, user.role, user.gender),
               role: user.role,
               username: user.username,

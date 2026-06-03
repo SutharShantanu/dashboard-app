@@ -61,7 +61,12 @@ export function NavUser({
               <SkeletonBlock width={80} height={12} variant="rectangular" />
               <SkeletonBlock width={120} height={10} variant="rectangular" />
             </div>
-            <SkeletonBlock width={16} height={16} variant="rectangular" className="ml-auto shrink-0" />
+            <SkeletonBlock
+              width={16}
+              height={16}
+              variant="rectangular"
+              className="ml-auto shrink-0"
+            />
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
@@ -87,7 +92,7 @@ export function NavUser({
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
                 <span className="truncate text-xs text-muted-foreground">
-                  {user.email}
+                  @{user.username}
                 </span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
@@ -99,37 +104,39 @@ export function NavUser({
             align="end"
             sideOffset={4}
           >
-            <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="bg-primary font-bold text-primary-foreground">
-                    {user.name?.[0]?.toUpperCase() || "U"}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">{user.name}</span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {user.email}
-                  </span>
-                </div>
+            <DropdownMenuLabel className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={user.avatar} alt={user.name} />
+                <AvatarFallback className="bg-primary font-bold text-primary-foreground">
+                  {user.name?.[0]?.toUpperCase() || "U"}
+                </AvatarFallback>
+              </Avatar>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-medium">{user.name}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  @{user.username}
+                </span>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => router.push("/settings?tab=profile")}>
+              <DropdownMenuItem
+                onClick={() => router.push("/settings?tab=profile")}
+              >
                 <Settings />
-                <span>Profile & Settings</span>
+                <span>Settings</span>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              variant="destructive"
-              onClick={() => signOut({ callbackUrl: "/login" })}
-            >
-              <LogOut />
-              <span>Log out</span>
-            </DropdownMenuItem>
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => signOut({ callbackUrl: "/login" })}
+              >
+                <LogOut />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

@@ -918,6 +918,7 @@ function UsersDirectoryContent() {
                       <div className="space-y-3">
                         {hasNoAccess ? (
                           <EmptyState
+                            variant="muted"
                             title=""
                             description={<span className="text-xs italic">No columns assigned yet</span>}
                             className="border-0 p-4 py-6"
@@ -1180,7 +1181,7 @@ function UsersDirectoryContent() {
   }
 
   return (
-    <div className="mx-auto w-full space-y-6">
+    <div className="mx-auto w-full space-y-4">
       {/* Header Dashboard Banner */}
       <PageHeader
         subtitle="System Administration"
@@ -1221,9 +1222,10 @@ function UsersDirectoryContent() {
           ) : filteredUsers.length === 0 ? (
             <div className="py-20">
               <EmptyState
+                variant="muted"
                 title="No accounts found"
                 description={null}
-                icon={<Users className="size-6 text-muted-foreground" />}
+                icon={<Users className="size-6" />}
                 className="mx-auto max-w-md p-12"
               />
             </div>

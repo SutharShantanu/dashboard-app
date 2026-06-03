@@ -269,7 +269,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="w-full space-y-8">
+    <div className="w-full space-y-4">
       <PageHeader
         subtitle="Account Settings"
         title="Settings"
@@ -442,6 +442,21 @@ export default function SettingsPage() {
                   </h4>
                   <FieldSet>
                     <FieldGroup className="flex flex-row items-center gap-2">
+                      <Field>
+                        <FieldLabel htmlFor="username">Username</FieldLabel>
+                        <InputGroup>
+                          <InputGroupAddon align="inline-start">
+                            <UserIcon className="h-4 w-4 text-muted-foreground" />
+                          </InputGroupAddon>
+                          <InputGroupInput
+                            id="username"
+                            type="text"
+                            value={user?.username || ""}
+                            readOnly
+                            className="cursor-not-allowed px-1"
+                          />
+                        </InputGroup>
+                      </Field>
                       <Controller
                         control={profileControl}
                         name="displayName"

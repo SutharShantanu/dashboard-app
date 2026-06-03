@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -18,7 +18,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react"
-import { GoogleIcon } from "@/components/icons/google-logo"
+import Icon from "@/components/icons/Icon"
 import { UndrawLogin } from "react-undraw-illustrations"
 
 // shadcn/ui components
@@ -65,6 +65,29 @@ export default function LoginPage() {
   const router = useRouter()
   const [error, setError] = useState("")
   const [showPassword, setShowPassword] = useState(false)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const errorParam = params.get("error");
+    if (errorParam) {
+      if (errorParam === "Callback") {
+        setError("Authentication failed: There was a problem during the sign-in callback.");
+      } else if (
+        errorParam === "OAuthSignin" ||
+        errorParam === "OAuthCallback" ||
+        errorParam === "OAuthCreateAccount" ||
+        errorParam === "EmailCreateAccount" ||
+        errorParam === "OAuthAccountNotLinked" ||
+        errorParam === "EmailSignin" ||
+        errorParam === "CredentialsSignin" ||
+        errorParam === "SessionRequired"
+      ) {
+        setError(`Authentication failed: ${errorParam}`);
+      } else {
+        setError(errorParam);
+      }
+    }
+  }, []);
 
   const {
     register,
@@ -252,7 +275,7 @@ export default function LoginPage() {
                 className="mt-6 w-full"
                 onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
               >
-                <GoogleIcon className="mr-2 h-4 w-4" />
+                <Icon name="Google" className="mr-2 h-4 w-4" />
                 Google
               </Button>
             </form>

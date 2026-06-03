@@ -1,13 +1,13 @@
 "use client"
 
 import { useQuery } from "@tanstack/react-query"
-import { signIn } from "next-auth/react"
+import { signIn, signOut } from "next-auth/react"
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { BadgeDot } from "@/components/ui/badge-dot"
-import { Plus } from "lucide-react"
-import { GoogleDriveIcon } from "./icons/google-drive"
+import { Plus, Link2Off } from "lucide-react"
+import Icon from "@/components/icons/Icon"
 
 interface GoogleConnectionCardProps {
   isGoogleConnected?: boolean | null
@@ -37,7 +37,7 @@ export function GoogleConnectionCard({
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <div className="flex items-center gap-4">
           <div className="rounded-full bg-muted p-3">
-            <GoogleDriveIcon className="h-6 w-6 text-muted-foreground" />
+            <Icon name="GoogleDrive2026" className="h-6 w-6 text-muted-foreground" />
           </div>
           <div>
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -60,7 +60,7 @@ export function GoogleConnectionCard({
           </div>
         </div>
         <div>
-          {!isConnected && (
+          {!isConnected ? (
             <Button
               onClick={() =>
                 signIn("google", {
@@ -71,6 +71,19 @@ export function GoogleConnectionCard({
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Connect Now</span>
               <span className="sm:hidden">Connect</span>
+            </Button>
+          ) : (
+            <Button
+              variant="destructive"
+              onClick={() =>
+                signOut({
+                  callbackUrl: "/login",
+                })
+              }
+            >
+              <Link2Off className="h-4 w-4" />
+              <span className="hidden sm:inline">Withdraw Integration</span>
+              <span className="sm:hidden">Withdraw</span>
             </Button>
           )}
         </div>

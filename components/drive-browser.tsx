@@ -11,7 +11,7 @@ import {
   AlertCircle,
   Plus,
 } from "lucide-react"
-import { GoogleSheetsIcon } from "@/components/icons/google-sheets"
+import Icon from "@/components/icons/Icon"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
@@ -396,7 +396,7 @@ export function DriveBrowser({
                     {file.mimeType === "application/vnd.google-apps.folder" ? (
                       <Folder className="h-4 w-4 fill-blue-500/10 text-blue-500" />
                     ) : (
-                      <GoogleSheetsIcon className="h-4 w-4" />
+                      <Icon name="GoogleSheets2026" className="h-4 w-4" />
                     )}
                     <span className="max-w-[200px] truncate text-sm font-medium">
                       {file.name}

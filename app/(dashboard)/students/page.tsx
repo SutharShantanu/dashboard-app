@@ -307,7 +307,7 @@ export default function StudentsDirectoryPage() {
   }
 
   return (
-    <div className="max-w-full min-w-0 space-y-6">
+    <div className="max-w-full min-w-0 space-y-4">
       <PageHeader
         subtitle="Global Directory"
         title="Students Directory"
@@ -350,6 +350,7 @@ export default function StudentsDirectoryPage() {
       <div className="max-w-full" style={{ width: 0, minWidth: "100%" }}>
         {data.length === 0 ? (
           <EmptyState
+            variant="muted"
             title="No students found"
             description="Your student directory is currently empty. Import a CSV or Google Sheet to get started."
             useIllustration={true}
@@ -414,6 +415,7 @@ export default function StudentsDirectoryPage() {
                 </div>
               ) : (
                 <EmptyState
+                  variant="muted"
                   title="No Student Found."
                   description="No students match your current filters."
                   icon={<Users className="h-4 w-4" />}

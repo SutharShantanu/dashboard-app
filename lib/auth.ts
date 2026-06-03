@@ -14,33 +14,6 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
       profile(profile) {
-        // Security: Block all Google logins unless the email matches an allowlist
-        // or belongs to an approved domain. Configure via environment variables:
-        //   GOOGLE_ALLOWED_EMAILS=admin@company.com,ops@company.com
-        //   GOOGLE_ALLOWED_DOMAIN=company.com
-        const allowedEmails = (process.env.GOOGLE_ALLOWED_EMAILS || "")
-          .split(",")
-          .map((e) => e.trim().toLowerCase())
-          .filter(Boolean);
-        const allowedDomain = (process.env.GOOGLE_ALLOWED_DOMAIN || "").trim().toLowerCase();
-        const email = (profile.email || "").toLowerCase();
-
-        const isAllowedByEmail = allowedEmails.length > 0 && allowedEmails.includes(email);
-        const isAllowedByDomain =
-          allowedDomain.length > 0 && email.endsWith(`@${allowedDomain}`);
-
-        if (!isAllowedByEmail && !isAllowedByDomain) {
-          // When no allowlist is configured at all, reject all Google logins to fail-safe.
-          if (allowedEmails.length === 0 && !allowedDomain) {
-            throw new Error(
-              "Google sign-in is not configured. Set GOOGLE_ALLOWED_EMAILS or GOOGLE_ALLOWED_DOMAIN."
-            );
-          }
-          throw new Error(
-            `Access denied: ${profile.email} is not authorized to access this application.`
-          );
-        }
-
         return {
           id: profile.sub,
           username: profile.email.split("@")[0],
@@ -48,6 +21,7 @@ export const authOptions: NextAuthOptions = {
           displayName: profile.name,
           role: "sub-admin" as const,
           allowedColumns: "",
+          email: profile.email,
         };
       },
     }),
@@ -114,6 +88,28 @@ export const authOptions: NextAuthOptions = {
   ],
   useSecureCookies: !!process.env.VERCEL || (process.env.NEXTAUTH_URL?.startsWith("https://") ?? false),
   callbacks: {
+    async signIn({ account, profile, user }) {
+      if (account?.provider === "google") {
+        const allowedEmails = (process.env.GOOGLE_ALLOWED_EMAILS || "")
+          .split(",")
+          .map((e) => e.trim().toLowerCase())
+          .filter(Boolean);
+        const allowedDomain = (process.env.GOOGLE_ALLOWED_DOMAIN || "").trim().toLowerCase();
+        const email = (profile?.email || user?.email || "").toLowerCase();
+
+        const isAllowedByEmail = allowedEmails.length > 0 && allowedEmails.includes(email);
+        const isAllowedByDomain =
+          allowedDomain.length > 0 && email.endsWith(`@${allowedDomain}`);
+
+        if (!isAllowedByEmail && !isAllowedByDomain) {
+          if (allowedEmails.length === 0 && !allowedDomain) {
+            return "/auth-error?error=Configuration";
+          }
+          return "/auth-error?error=AccessDenied";
+        }
+      }
+      return true;
+    },
     async jwt({ token, user, trigger, session }) {
       if (user) {
         token.username = (user as any).username;

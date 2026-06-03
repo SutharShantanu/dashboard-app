@@ -44,6 +44,12 @@ function AuthErrorContent() {
         "The token or authentication session could not be verified. Please log in again."
       icon = <ShieldAlert className="h-12 w-12 animate-pulse text-red-500" />
       break
+    case "Callback":
+      title = "Authentication Callback Error"
+      message =
+        "An error occurred during the authentication callback. This usually happens if the connection failed or Google sign-in is misconfigured."
+      icon = <ShieldAlert className="h-12 w-12 animate-pulse text-red-500" />
+      break
     default:
       if (errorType && errorType !== "Default") {
         message = decodeURIComponent(errorType)

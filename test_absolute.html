@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  .cell { width: 100px; height: 32px; border: 1px solid black; position: relative; }
+  .input-wrapper { position: absolute; left: 0; top: 0; z-index: 50; width: calc(100% + 60px); display: flex; height: 32px; background: white; border: 1px solid blue; }
+  input { flex-grow: 1; min-width: 0; width: 100%; border: none; }
+  .buttons { width: 60px; background: red; }
+</style>
+</head>
+<body>
+  <div style="display: flex;">
+    <div class="cell">
+      <div class="input-wrapper">
+        <input type="text" value="some long text here">
+        <div class="buttons">BTN</div>
+      </div>
+    </div>
+    <div class="cell">Next cell</div>
+  </div>
+</body>
+</html>

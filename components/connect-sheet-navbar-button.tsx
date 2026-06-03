@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/field"
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 import { Card, CardContent } from "./ui/card"
-import { GoogleDriveIcon } from "./icons/google-drive"
+import Icon from "@/components/icons/Icon"
 
 // Zod Validation Schema
 const connectSheetSchema = z.object({
@@ -238,7 +238,7 @@ export function ConnectSheetNavbarButton({ isAdmin }: { isAdmin: boolean }) {
                 Via URL
               </TabsTrigger>
               <TabsTrigger value="drive">
-                <GoogleDriveIcon className="h-3.5 w-3.5" />
+                <Icon name="GoogleDrive2026" className="h-3.5 w-3.5" />
                 Browse Drive
               </TabsTrigger>
             </TabsList>

@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/input-group"
 import { Spinner } from "@/components/ui/spinner"
 import { useDebounce } from "@/hooks/use-debounce"
-import { Empty, EmptyHeader, EmptyDescription } from "@/components/ui/empty"
+import { EmptyState } from "@/components/empty-state"
 import { Toggle } from "@/components/ui/toggle"
 import { Badge } from "@/components/ui/badge"
 import { useMemoizedFn } from "@/hooks/use-memoized-fn"
@@ -263,13 +263,12 @@ export function PermissionSelector({
           <CardContent className="flex flex-1 flex-col">
             <div className="h-[300px] w-full overflow-y-auto border p-1">
               {filteredAvailable.length === 0 ? (
-                <Empty className="border-0 p-4 py-8">
-                  <EmptyHeader className="gap-1">
-                    <EmptyDescription className="text-xs">
-                      No columns available
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
+                <EmptyState
+                  variant="muted"
+                  title=""
+                  description={<span className="text-xs">No columns available</span>}
+                  className="border-0 p-4 py-8"
+                />
               ) : (
                 <div className="space-y-1">
                   {/* Select All Button */}
@@ -390,13 +389,12 @@ export function PermissionSelector({
           <CardContent className="flex flex-1 flex-col">
             <div className="h-[335px] w-full overflow-y-auto border p-1">
               {grantedColumns.length === 0 ? (
-                <Empty className="border-0 p-4 py-8">
-                  <EmptyHeader className="gap-1">
-                    <EmptyDescription className="text-xs">
-                      No columns granted
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
+                <EmptyState
+                  variant="muted"
+                  title=""
+                  description={<span className="text-xs">No columns granted</span>}
+                  className="border-0 p-4 py-8"
+                />
               ) : (
                 <div className="space-y-1">
                   {/* Select All Button */}

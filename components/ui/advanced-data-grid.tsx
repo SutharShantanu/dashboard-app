@@ -23,7 +23,11 @@ import { DataGridTable } from "@/components/ui/data-grid/data-grid-table"
 import { DataGridPagination } from "@/components/ui/data-grid/data-grid-pagination"
 import { DataGridColumnFilter } from "@/components/ui/data-grid/data-grid-column-filter"
 import { DataGridColumnVisibility } from "@/components/ui/data-grid/data-grid-column-visibility"
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group"
 import { Spinner } from "@/components/ui/spinner"
 import { Button } from "@/components/ui/button"
 import { SlidersHorizontal, Search } from "lucide-react"
@@ -211,7 +215,7 @@ export function AdvancedDataGrid<TData extends object>({
         {hasToolbar && (
           <div className="flex flex-wrap items-center gap-2">
             {enableSearch && (
-              <InputGroup className="flex-1 min-w-[180px] max-w-xs">
+              <InputGroup className="max-w-xs min-w-[180px] flex-1">
                 <InputGroupAddon align="inline-start">
                   <Search className="h-3.5 w-3.5 text-muted-foreground" />
                 </InputGroupAddon>
@@ -221,7 +225,10 @@ export function AdvancedDataGrid<TData extends object>({
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="text-xs"
                 />
-                <InputGroupAddon align="inline-end" className="flex justify-center">
+                <InputGroupAddon
+                  align="inline-end"
+                  className="flex justify-center"
+                >
                   {searchQuery !== globalFilter && (
                     <Spinner className="h-3.5 w-3.5 text-muted-foreground" />
                   )}
@@ -290,9 +297,7 @@ export function AdvancedDataGrid<TData extends object>({
 
         {/* ── Pagination ── */}
         {enablePagination && recordCount > 0 && (
-          <div className="border-t px-3">
-            <DataGridPagination sizes={[10, 25, 50, 100]} />
-          </div>
+          <DataGridPagination sizes={[10, 25, 50, 100]} />
         )}
       </div>
     </DataGrid>

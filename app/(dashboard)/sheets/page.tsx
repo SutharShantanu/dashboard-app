@@ -25,7 +25,7 @@ import {
   FileText,
   FileSpreadsheet,
 } from "lucide-react"
-import { GoogleSheetsIcon } from "@/components/icons/google-sheets"
+import Icon from "@/components/icons/Icon"
 import { PageHeader } from "@/components/page-header"
 import { toast } from "sonner"
 import {
@@ -316,9 +316,10 @@ export default function SheetsManagementPage() {
     return (
       <div className="w-full py-10">
         <EmptyState
+          variant="destructive"
           title="Access Denied"
           description="Only administrators can manage connected Google Sheets."
-          icon={<AlertCircle className="text-destructive" />}
+          icon={<AlertCircle />}
           className="border-none"
         />
       </div>
@@ -326,7 +327,7 @@ export default function SheetsManagementPage() {
   }
 
   return (
-    <div className="mx-auto space-y-8">
+    <div className="mx-auto space-y-4">
       <PageHeader
         subtitle="Workspace Setup"
         title="Sheet Management"
@@ -408,9 +409,10 @@ export default function SheetsManagementPage() {
             <CardContent>
               {connectedSheets.length === 0 ? (
                 <EmptyState
+                  variant="muted"
                   title="No sheets connected"
                   description="Connect your first Google Sheet to start managing data."
-                  icon={<GoogleSheetsIcon className="text-muted-foreground" />}
+                  icon={<Icon name="GoogleSheets2026" className="size-6" />}
                   className="rounded-lg border-2 border-dashed"
                 />
               ) : (

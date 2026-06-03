@@ -13,7 +13,7 @@ import {
   Calendar,
   AlertCircle,
 } from "lucide-react"
-import { GoogleDriveIcon } from "@/components/icons/google-drive"
+import Icon from "@/components/icons/Icon"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Spinner } from "@/components/ui/spinner"
@@ -233,7 +233,7 @@ export function FileDropzone({
                 type="button"
                 onClick={onGoogleDriveImport}
               >
-                <GoogleDriveIcon className="h-5 w-5 shrink-0" />
+                <Icon name="GoogleDrive2026" className="h-5 w-5 shrink-0" />
                 Import from Google Drive
               </Button>
             </div>

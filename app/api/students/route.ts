@@ -78,7 +78,7 @@ export async function GET(request: Request) {
   } catch (error: any) {
     logger.error({ err: error }, "[GET /api/students] Error");
     return NextResponse.json(
-      { error: error.message || "Failed to fetch student data" },
+      { error: error.message || "Failed to fetch student data", stack: error.stack },
       { status: 500 }
     );
   }

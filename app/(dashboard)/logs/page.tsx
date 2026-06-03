@@ -50,7 +50,7 @@ export default function LogsPage() {
   }
 
   return (
-    <div className="py-10 space-y-8 w-full">
+    <div className="space-y-4 w-full">
       <PageHeader
         subtitle="System Audit"
         title="Activity Logs"

@@ -1,6 +1,7 @@
 "use client"
 
-import React, { useState, useEffect, Suspense, useRef } from "react"
+import React, { useState, useEffect, Suspense, useRef, useMemo } from "react"
+import { CalendarHeatmap } from "@/components/ui/calendar-heatmap"
 import { useSession } from "next-auth/react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
@@ -32,7 +33,7 @@ import {
   Activity,
   FileSpreadsheet,
 } from "lucide-react"
-import { GoogleSheetsIcon } from "@/components/icons/google-sheets"
+import Icon from "@/components/icons/Icon"
 
 import {
   BarChart,
@@ -43,6 +44,19 @@ import {
   PieChart,
   Pie,
   Cell,
+  AreaChart,
+  Area,
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  LineChart,
+  Line,
+  RadialBarChart,
+  RadialBar,
+  Legend,
+  ComposedChart,
 } from "recharts"
 import {
   ChartConfig,
@@ -251,6 +265,18 @@ function DashboardPageContent() {
   })
 
   const logs = logsData || []
+
+  // Layer 1.8: Analytics Data Fetching via React Query
+  const { data: analyticsData, isLoading: isAnalyticsLoading } = useQuery({
+    queryKey: ["analytics"],
+    queryFn: async () => {
+      const res = await fetch("/api/analytics")
+      if (!res.ok) throw new Error("Failed to load analytics")
+      return res.json()
+    },
+    enabled: sessionStatus === "authenticated",
+    staleTime: 60000,
+  })
 
   // Synchronize query data with local state
   useEffect(() => {
@@ -597,75 +623,81 @@ function DashboardPageContent() {
       (l.details || "").toLowerCase().includes(logSearchQuery.toLowerCase())
   )
 
-  // Analytics Computations
-  const totalStudents = students.length
-  const activeStudentsCount = students.filter(
-    (s) => s.Status === "Active"
-  ).length
-  const averageScore =
-    students.length > 0
-      ? students.reduce((acc, s) => acc + parseFloat(s.Score || "0"), 0) /
-        students.length
-      : 0
-
-  // Group by Batch
-  const batchCounts: Record<string, number> = {}
-  students.forEach((s) => {
-    const batch = s.Batch || "Unknown"
-    batchCounts[batch] = (batchCounts[batch] || 0) + 1
-  })
-  const batchChartData = Object.entries(batchCounts).map(([name, count]) => ({
-    name,
-    count,
-  }))
-
-  // Group by Status
-  const statusCounts: Record<string, number> = {}
-  students.forEach((s) => {
-    const status = s.Status || "Unknown"
-    statusCounts[status] = (statusCounts[status] || 0) + 1
-  })
-  const statusChartData = Object.entries(statusCounts).map(([name, count]) => ({
-    name,
-    count,
-  }))
+  const totalStudents = analyticsData?.totalStudents || 0
+  const activeStudentsCount = analyticsData?.activeStudentsCount || 0
+  const averageScore = analyticsData?.averageScore || 0
+  const batchChartData: { name: string; count: number }[] =
+    analyticsData?.batchChartData || []
+  const statusChartData: { name: string; count: number }[] =
+    analyticsData?.statusChartData || []
+  const courseChartData: { name: string; count: number }[] =
+    analyticsData?.courseChartData || []
+  const scoreChartData: { range: string; count: number }[] =
+    analyticsData?.scoreChartData || []
+  const timelineData: { month: string; users: number; students: number }[] =
+    analyticsData?.timelineData || []
+  const totalSystemUsers = analyticsData?.totalUsers || 0
+  const activeSystemUsers = analyticsData?.activeUsers || 0
 
   const chartConfig = {
-    count: {
-      label: "Students",
-      color: "hsl(var(--primary))",
-    },
+    count: { label: "Count", color: "var(--color-sky)" },
+    users: { label: "Users", color: "var(--color-sky)" },
+    students: { label: "Students", color: "var(--color-info)" },
+    score: { label: "Score", color: "var(--color-warning)" },
+    course: { label: "Course", color: "var(--color-success)" },
+    status: { label: "Status", color: "var(--color-primary)" },
   } satisfies ChartConfig
 
   const COLORS = [
-    "var(--color-chart-1)",
-    "var(--color-chart-2)",
-    "var(--color-chart-3)",
-    "var(--color-chart-4)",
-    "var(--color-chart-5)",
+    "var(--color-sky)",
+    "var(--color-info)",
+    "var(--color-warning)",
+    "var(--color-success)",
+    "var(--color-primary)",
   ]
+
+  const weightedDates = useMemo(() => {
+    return Array.from({ length: 365 }).map((_, i) => {
+      const date = new Date()
+      date.setDate(date.getDate() - (364 - i))
+      return {
+        date,
+        weight: Math.floor(Math.random() * 5),
+      }
+    })
+  }, [])
 
   if (sessionStatus === "loading") {
     return (
       <div className="flex min-h-svh items-center justify-center bg-background p-4 md:p-8">
         <div className="flex w-full max-w-5xl flex-col gap-6">
           <div className="flex items-center justify-between">
-            <SkeletonBlock variant="rectangular" width={250} height={40} className="rounded-lg" />
+            <SkeletonBlock variant="rectangular" width={250} height={40} />
             <SkeletonBlock variant="circular" width={40} height={40} />
           </div>
           <div className="grid gap-4 md:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <SkeletonBlock key={i} variant="rectangular" width="100%" height={120} className="rounded-xl" />
+              <SkeletonBlock
+                key={i}
+                variant="rectangular"
+                width="100%"
+                height={120}
+              />
             ))}
           </div>
-          <SkeletonBlock variant="rectangular" width="100%" height={400} className="rounded-xl" showSpinner={true} />
+          <SkeletonBlock
+            variant="rectangular"
+            width="100%"
+            height={400}
+            showSpinner={true}
+          />
         </div>
       </div>
     )
   }
 
   return (
-    <div className="mx-auto w-full space-y-8">
+    <div className="mx-auto w-full space-y-4">
       <PageHeader
         subtitle="Secured Sheet Database"
         title="Spreadsheet Portal Dashboard"
@@ -713,17 +745,52 @@ function DashboardPageContent() {
         {/* =========================================================================
               TAB 0: ANALYTICS OVERVIEW
               ========================================================================= */}
-        <TabsContent value="analytics" className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
+        <TabsContent value="analytics" className="space-y-4">
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-4 lg:grid-cols-4">
+            <div className="col-span-1 md:col-span-4 grid gap-4 grid-cols-2 lg:grid-cols-4">
+            <Card className="border-l-4 border-l-primary bg-card hover:bg-muted/40 transition-colors shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Total Users
+                </CardTitle>
+                <Shield className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-primary">
+                  <AnimatedNumber value={totalSystemUsers} />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Registered on platform
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-success bg-card hover:bg-muted/40 transition-colors shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Active Users
+                </CardTitle>
+                <Activity className="h-4 w-4 text-success" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-success">
+                  <AnimatedNumber value={activeSystemUsers} />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Currently active accounts
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-l-sky bg-card hover:bg-muted/40 transition-colors shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   Total Students
                 </CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+                <Users className="h-4 w-4 text-sky" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
+                <div className="text-2xl font-bold text-sky">
                   <AnimatedNumber value={totalStudents} />
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -731,15 +798,16 @@ function DashboardPageContent() {
                 </p>
               </CardContent>
             </Card>
-            <Card>
+
+            <Card className="border-l-4 border-l-info bg-card hover:bg-muted/40 transition-colors shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   Active Students
                 </CardTitle>
-                <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                <CheckCircle2 className="h-4 w-4 text-info" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
+                <div className="text-2xl font-bold text-info">
                   <AnimatedNumber value={activeStudentsCount} />
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -747,100 +815,389 @@ function DashboardPageContent() {
                 </p>
               </CardContent>
             </Card>
-            <Card>
+
+            <Card className="border-l-4 border-l-warning bg-card hover:bg-muted/40 transition-colors shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   Average Score
                 </CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <TrendingUp className="h-4 w-4 text-warning" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  <AnimatedNumber value={averageScore} format={{ minimumFractionDigits: 1, maximumFractionDigits: 1 }} />
+                <div className="text-2xl font-bold text-warning">
+                  <AnimatedNumber
+                    value={averageScore}
+                    format={{
+                      minimumFractionDigits: 1,
+                      maximumFractionDigits: 1,
+                    }}
+                  />
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Mean performance
                 </p>
               </CardContent>
             </Card>
-            <Card>
+
+            </div>
+          <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-4 auto-rows-min col-span-1 md:col-span-4 lg:col-span-4">
+            <Card className="border-l-4 border-l-secondary bg-card hover:bg-muted/40 transition-colors shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Batches</CardTitle>
-                <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
+                <FileSpreadsheet className="h-4 w-4 text-secondary-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  <AnimatedNumber value={Object.keys(batchCounts).length} />
+                <div className="text-2xl font-bold text-secondary-foreground">
+                  <AnimatedNumber value={batchChartData.length} />
                 </div>
                 <p className="text-xs text-muted-foreground">Active cohorts</p>
               </CardContent>
             </Card>
-          </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
+            {/* 1. Area Chart (Timeline) */}
+            <Card className="col-span-1 md:col-span-2 lg:col-span-2 row-span-2 group hover:shadow-md transition-all duration-300 border-border hover:border-sky/50 flex flex-col">
               <CardHeader>
-                <CardTitle>Students by Batch</CardTitle>
+                <CardTitle>Platform Growth Over Time</CardTitle>
                 <CardDescription>
-                  Distribution of students across batches
+                  Historical data for students and users
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ChartContainer config={chartConfig} className="h-[300px]">
-                  <BarChart data={batchChartData}>
-                    <CartesianGrid vertical={false} />
+                <ChartContainer
+                  config={chartConfig}
+                  className="h-[350px] w-full"
+                >
+                  <AreaChart
+                    data={timelineData}
+                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient
+                        id="colorStudents"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="5%"
+                          stopColor="var(--color-info)"
+                          stopOpacity={0.8}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor="var(--color-info)"
+                          stopOpacity={0}
+                        />
+                      </linearGradient>
+                      <linearGradient
+                        id="colorUsers"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="5%"
+                          stopColor="var(--color-sky)"
+                          stopOpacity={0.8}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor="var(--color-sky)"
+                          stopOpacity={0}
+                        />
+                      </linearGradient>
+                    </defs>
                     <XAxis
-                      dataKey="name"
+                      dataKey="month"
                       tickLine={false}
-                      tickMargin={10}
                       axisLine={false}
+                      tickMargin={8}
                     />
-                    <YAxis tickLine={false} tickMargin={10} axisLine={false} />
+                    <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
                     <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar
-                      dataKey="count"
-                      fill="hsl(var(--primary))"
-                      radius={4}
+                    <Area
+                      type="monotone"
+                      dataKey="students"
+                      stroke="var(--color-info)"
+                      fillOpacity={1}
+                      fill="url(#colorStudents)"
                     />
-                  </BarChart>
+                    <Area
+                      type="monotone"
+                      dataKey="users"
+                      stroke="var(--color-sky)"
+                      fillOpacity={1}
+                      fill="url(#colorUsers)"
+                    />
+                  </AreaChart>
                 </ChartContainer>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Status Distribution</CardTitle>
-                <CardDescription>Breakdown of student statuses</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ChartContainer config={chartConfig} className="h-[300px]">
-                  <PieChart>
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Pie
-                      data={statusChartData}
-                      dataKey="count"
-                      nameKey="name"
+            {/* Grid of diverse charts inspired by reference */}
+              {/* 1. Bar Chart - Vertical */}
+              <Card className="col-span-1 group hover:shadow-md transition-all duration-300 border-border hover:border-sky/50">
+                <CardHeader>
+                  <CardTitle>Score Distribution</CardTitle>
+                  <CardDescription>Vertical Bar Chart</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer
+                    config={chartConfig}
+                    className="h-[250px] w-full"
+                  >
+                    <BarChart
+                      data={scoreChartData}
+                      margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                    >
+                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="range"
+                        tickLine={false}
+                        tickMargin={10}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        tickLine={false}
+                        tickMargin={10}
+                        axisLine={false}
+                      />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar
+                        dataKey="count"
+                        fill="var(--color-sky)"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+
+              {/* 2. Line Chart */}
+              <Card className="col-span-1 md:col-span-2 lg:col-span-2 group hover:shadow-md transition-all duration-300 border-border hover:border-sky/50">
+                <CardHeader>
+                  <CardTitle>Trend Analysis</CardTitle>
+                  <CardDescription>Line Chart with Dots</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer
+                    config={chartConfig}
+                    className="h-[250px] w-full"
+                  >
+                    <LineChart
+                      data={timelineData}
+                      margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                    >
+                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="month"
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                      />
+                      <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Line
+                        type="monotone"
+                        dataKey="students"
+                        stroke="var(--color-info)"
+                        strokeWidth={2}
+                        dot={{ r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="users"
+                        stroke="var(--color-warning)"
+                        strokeWidth={2}
+                        dot={{ r: 4 }}
+                      />
+                    </LineChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+
+              {/* 3. Bar Chart - Horizontal */}
+              <Card className="col-span-1 md:col-span-2 lg:col-span-2 group hover:shadow-md transition-all duration-300 border-border hover:border-sky/50">
+                <CardHeader>
+                  <CardTitle>Batch Sizes</CardTitle>
+                  <CardDescription>Horizontal Bar Chart</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer
+                    config={chartConfig}
+                    className="h-[250px] w-full"
+                  >
+                    <BarChart
+                      data={batchChartData}
+                      layout="vertical"
+                      margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                    >
+                      <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+                      <XAxis type="number" tickLine={false} axisLine={false} />
+                      <YAxis
+                        dataKey="name"
+                        type="category"
+                        tickLine={false}
+                        axisLine={false}
+                        width={80}
+                      />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar
+                        dataKey="count"
+                        fill="var(--color-success)"
+                        radius={[0, 4, 4, 0]}
+                      />
+                    </BarChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+
+              {/* 4. Donut Chart */}
+              <Card className="col-span-1 group hover:shadow-md transition-all duration-300 border-border hover:border-sky/50">
+                <CardHeader>
+                  <CardTitle>Status Breakdown</CardTitle>
+                  <CardDescription>Donut Chart</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer
+                    config={chartConfig}
+                    className="h-[250px] w-full"
+                  >
+                    <PieChart>
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Pie
+                        data={statusChartData}
+                        dataKey="count"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                      >
+                        {statusChartData.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={COLORS[index % COLORS.length]}
+                          />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+
+              {/* 5. Radar Chart */}
+              <Card className="col-span-1 md:col-span-2 lg:col-span-2 group hover:shadow-md transition-all duration-300 border-border hover:border-sky/50">
+                <CardHeader>
+                  <CardTitle>Course Popularity</CardTitle>
+                  <CardDescription>Radar Chart</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer
+                    config={chartConfig}
+                    className="h-[250px] w-full"
+                  >
+                    <RadarChart
                       cx="50%"
                       cy="50%"
-                      outerRadius={80}
-                      label={({ name, percent }) =>
-                        `${name} ${(percent ? percent * 100 : 0).toFixed(0)}%`
-                      }
+                      outerRadius="70%"
+                      data={courseChartData}
                     >
-                      {statusChartData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={COLORS[index % COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ChartContainer>
-              </CardContent>
-            </Card>
+                      <PolarGrid />
+                      <PolarAngleAxis
+                        dataKey="name"
+                        tick={{ fill: "var(--foreground)", fontSize: 10 }}
+                      />
+                      <PolarRadiusAxis
+                        angle={30}
+                        domain={[0, "auto"]}
+                        tick={false}
+                      />
+                      <Radar
+                        name="Students"
+                        dataKey="count"
+                        stroke="var(--color-primary)"
+                        fill="var(--color-primary)"
+                        fillOpacity={0.6}
+                      />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                    </RadarChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+
+              {/* 6. Radial Bar Chart */}
+              <Card className="col-span-1 group hover:shadow-md transition-all duration-300 border-border hover:border-sky/50">
+                <CardHeader>
+                  <CardTitle>Score Ranges</CardTitle>
+                  <CardDescription>Radial Bar Chart</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer
+                    config={chartConfig}
+                    className="flex h-[250px] w-full items-center justify-center"
+                  >
+                    <RadialBarChart
+                      cx="50%"
+                      cy="50%"
+                      innerRadius="20%"
+                      outerRadius="100%"
+                      barSize={10}
+                      data={scoreChartData.map((d, i) => ({
+                        ...d,
+                        fill: COLORS[i % COLORS.length],
+                      }))}
+                      width={300}
+                      height={250}
+                    >
+                      <RadialBar background dataKey="count" cornerRadius={10} />
+                      <Legend
+                        iconSize={10}
+                        layout="vertical"
+                        verticalAlign="middle"
+                        wrapperStyle={{ right: 0, fontSize: "12px" }}
+                      />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                    </RadialBarChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+              {/* 7. Heatmap (Activity) */}
+              <Card className="col-span-1 md:col-span-4 lg:col-span-4 group hover:shadow-md transition-all duration-300 border-border hover:border-sky/50 overflow-hidden">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-warning" />
+                    Activity Heatmap
+                  </CardTitle>
+                  <CardDescription>System interaction frequency mapped over the year</CardDescription>
+                </CardHeader>
+                <CardContent className="flex justify-center p-6 overflow-x-auto">
+                  <CalendarHeatmap
+                    levelClassNames={[
+                      "bg-muted",
+                      "bg-sky/20",
+                      "bg-sky/40",
+                      "bg-sky/60",
+                      "bg-sky/80",
+                      "bg-sky",
+                    ]}
+                    data={weightedDates.map((d) => ({
+                      date: d.date,
+                      value: d.weight,
+                    }))}
+                  />
+                </CardContent>
+              </Card>
           </div>
 
-          <Card>
+          </div>
+
+          <Card className="col-span-1 md:col-span-4 lg:col-span-4 border-border hover:border-sky/50 transition-all duration-300">
             <CardHeader>
               <CardTitle>Batch Performance Breakdown</CardTitle>
               <CardDescription>Detailed metrics per batch</CardDescription>
@@ -855,19 +1212,21 @@ function DashboardPageContent() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {Object.entries(batchCounts).map(([batch, count]) => {
+                  {batchChartData.map(({ name: batch, count }) => {
                     const batchStudents = students.filter(
                       (s) => s.Batch === batch
                     )
                     const avgScore =
-                      batchStudents.reduce(
-                        (acc, s) => acc + parseFloat(s.Score || "0"),
-                        0
-                      ) / batchStudents.length
+                      batchStudents.length > 0
+                        ? batchStudents.reduce(
+                            (acc, s) => acc + parseFloat(s.Score || "0"),
+                            0
+                          ) / batchStudents.length
+                        : 0
                     return (
                       <TableRow key={batch}>
                         <TableCell className="font-medium">{batch}</TableCell>
-                        <TableCell>{count}</TableCell>
+                        <TableCell>{count as number}</TableCell>
                         <TableCell>{avgScore.toFixed(1)}</TableCell>
                       </TableRow>
                     )
@@ -1001,7 +1360,12 @@ function DashboardPageContent() {
                       connect to a live spreadsheet.
                     </>
                   }
-                  icon={<GoogleSheetsIcon className="size-7 animate-pulse text-primary" />}
+                  icon={
+                    <Icon
+                      name="GoogleSheets2026"
+                      className="size-7 animate-pulse text-primary"
+                    />
+                  }
                   className="mx-auto max-w-xl p-12"
                   action={
                     <Button
@@ -1022,15 +1386,22 @@ function DashboardPageContent() {
             ) : isQueryLoading && students.length === 0 ? (
               <div className="flex flex-col gap-2 py-4">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <SkeletonBlock key={i} variant="rectangular" width="100%" height={64} className="rounded-md" />
+                  <SkeletonBlock
+                    key={i}
+                    variant="rectangular"
+                    width="100%"
+                    height={64}
+                    className="rounded-md"
+                  />
                 ))}
               </div>
             ) : filteredStudents.length === 0 ? (
               <div className="py-20">
                 <EmptyState
+                  variant="muted"
                   title="No records match your filters"
                   description="Try adjusting your search queries or category toggles."
-                  icon={<Search className="size-6 text-muted-foreground" />}
+                  icon={<Search className="size-6" />}
                   className="mx-auto max-w-md p-12"
                 />
               </div>
@@ -1186,17 +1557,24 @@ function DashboardPageContent() {
                 {isLogsFetching && logs.length === 0 ? (
                   <div className="flex flex-col gap-1 p-2">
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <SkeletonBlock key={i} variant="rectangular" width="100%" height={48} className="rounded-sm" />
+                      <SkeletonBlock
+                        key={i}
+                        variant="rectangular"
+                        width="100%"
+                        height={48}
+                        className="rounded-sm"
+                      />
                     ))}
                   </div>
                 ) : filteredLogs.length === 0 ? (
                   <div className="py-20">
-                      <EmptyState
-                        title="No audit logs found"
-                        description={null}
-                        icon={<FileText className="size-6 text-muted-foreground" />}
-                        className="mx-auto max-w-md p-12"
-                      />
+                    <EmptyState
+                      variant="muted"
+                      title="No audit logs found"
+                      description={null}
+                      icon={<FileText className="size-6" />}
+                      className="mx-auto max-w-md p-12"
+                    />
                   </div>
                 ) : (
                   <ScrollArea className="w-full">
@@ -1515,15 +1893,32 @@ export default function DashboardPage() {
       fallback={
         <div className="flex flex-1 flex-col gap-6 p-4 md:p-8">
           <div className="flex items-center justify-between">
-            <SkeletonBlock variant="rectangular" width={250} height={40} className="rounded-lg" />
+            <SkeletonBlock
+              variant="rectangular"
+              width={250}
+              height={40}
+              className="rounded-lg"
+            />
             <SkeletonBlock variant="circular" width={40} height={40} />
           </div>
           <div className="grid gap-4 md:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <SkeletonBlock key={i} variant="rectangular" width="100%" height={120} className="rounded-xl" />
+              <SkeletonBlock
+                key={i}
+                variant="rectangular"
+                width="100%"
+                height={120}
+                className="rounded-xl"
+              />
             ))}
           </div>
-          <SkeletonBlock variant="rectangular" width="100%" height={500} className="rounded-xl" showSpinner={true} />
+          <SkeletonBlock
+            variant="rectangular"
+            width="100%"
+            height={500}
+            className="rounded-xl"
+            showSpinner={true}
+          />
         </div>
       }
     >
