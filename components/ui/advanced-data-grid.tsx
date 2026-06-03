@@ -82,6 +82,8 @@ export interface AdvancedDataGridProps<TData extends object> {
   export?: boolean
   /** Message shown when there are no rows. */
   emptyMessage?: ReactNode
+  /** Filename for exported data. */
+  exportFilename?: string
   /** Called when a row is clicked. */
   onRowClick?: (row: TData) => void
   className?: string
@@ -117,6 +119,7 @@ export function AdvancedDataGrid<TData extends object>({
   initialColumnVisibility = {},
   toolbar,
   export: enableExport = false,
+  exportFilename = "export",
   emptyMessage = "No data available.",
   onRowClick,
   className,
@@ -205,6 +208,7 @@ export function AdvancedDataGrid<TData extends object>({
         headerBorder: true,
         headerBackground: true,
         width: "auto",
+        cellBorder: true,
       }}
       tableClassNames={{
         base: allowWrap ? "" : "",
@@ -268,6 +272,7 @@ export function AdvancedDataGrid<TData extends object>({
               {enableExport && (
                 <ExportDropdown
                   data={table.getFilteredRowModel().rows.map((r) => r.original)}
+                  filename={exportFilename}
                 />
               )}
 
@@ -276,7 +281,7 @@ export function AdvancedDataGrid<TData extends object>({
                 <DataGridColumnVisibility
                   table={table}
                   trigger={
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline">
                       <SlidersHorizontal className="h-3.5 w-3.5" />
                       View
                     </Button>

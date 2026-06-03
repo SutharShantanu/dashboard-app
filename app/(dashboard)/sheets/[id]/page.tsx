@@ -23,6 +23,9 @@ import {
   X,
   Check,
   Activity,
+  ArrowDown,
+  ArrowUp,
+  ChevronsUpDown,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SkeletonBlock } from "@/components/ui/skeleton-block"
@@ -31,6 +34,7 @@ import { BadgeDot } from "@/components/ui/badge-dot"
 import { ExportDropdown } from "@/components/export-dropdown"
 import { EmptyState } from "@/components/empty-state"
 import { AdvancedDataGrid } from "@/components/ui/advanced-data-grid"
+import { DataGridColumnHeader } from "@/components/ui/data-grid/data-grid-column-header"
 import {
   InputGroup,
   InputGroupAddon,
@@ -150,7 +154,7 @@ function CellTooltip({
         }}
       >
         <TooltipTrigger asChild>
-          <div className="relative h-full w-full">{children}</div>
+          <div className="relative block h-full w-full min-w-full">{children}</div>
         </TooltipTrigger>
         {shouldShowTooltip &&
           (isLocked ? (
@@ -158,72 +162,81 @@ function CellTooltip({
               <p className="text-xs">Read-only field</p>
             </TooltipContent>
           ) : (
-            <TooltipContent className="z-60 w-fit max-w-xs p-0">
-              <Card className="flex w-full flex-col bg-transparent">
-                <CardHeader className="border-b">
-                  <CardTitle className="text-primary-foreground">Edit history</CardTitle>
-                </CardHeader>
+            <TooltipContent className="z-60 w-fit max-w-xs">
+              <div className="border-b px-3 py-2">
+                <span className="text-xs font-semibold">Edit history</span>
+              </div>
 
-                <CardContent>
-                  {isLoading ? (
-                    <div className="flex items-center justify-center gap-2 px-4 py-2">
-                      <Spinner className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-[10px] font-medium text-muted-foreground">
-                        Loading...
-                      </span>
-                    </div>
-                  ) : (
-                    <Item
-                      size="xs"
-                      className="w-full items-start gap-3 border-0 bg-transparent px-0 py-0"
-                      asChild
-                    >
-                      <div>
-                        <ItemMedia
-                          variant="image"
-                          className="size-8 shrink-0 rounded-full"
-                        >
-                          <Avatar className="size-full">
-                            <AvatarImage
-                              src={getAvatarUrl(
-                                data.logs[0].actor || "user",
-                                data.logs[0].actorRole
-                              )}
-                            />
-                            <AvatarFallback className="text-xs font-medium text-primary-foreground">
-                              {(
-                                data.logs[0].actorDisplayName ||
-                                data.logs[0].actor ||
-                                "U"
-                              )
-                                .substring(0, 2)
-                                .toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                        </ItemMedia>
+              <div className="p-3">
+                {isLoading ? (
+                  <div className="flex items-center justify-center gap-2 px-1 py-1">
+                    <Spinner className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-[10px] font-medium text-muted-foreground">
+                      Loading...
+                    </span>
+                  </div>
+                ) : (
+                  <Item
+                    size="xs"
+                    className="w-full items-start gap-3 border-0 bg-transparent px-0 py-0"
+                    asChild
+                  >
+                    <div>
+                      <ItemMedia
+                        variant="image"
+                        className="size-8 shrink-0 rounded-full"
+                      >
+                        <Avatar className="size-full">
+                          <AvatarImage
+                            src={getAvatarUrl(
+                              data.logs[0].actor || "user",
+                              data.logs[0].actorRole
+                            )}
+                          />
+                          <AvatarFallback className="text-xs font-medium">
+                            {(
+                              data.logs[0].actorDisplayName ||
+                              data.logs[0].actor ||
+                              "U"
+                            )
+                              .substring(0, 2)
+                              .toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      </ItemMedia>
 
-                        <ItemContent className="min-w-0 flex-1 gap-1.5">
-                          <ItemHeader className="w-full items-center justify-between">
-                            <ItemTitle className="truncate text-xs text-primary-foreground font-medium">
-                              {data.logs[0].actorDisplayName ||
-                                data.logs[0].actor ||
-                                "Unknown User"}
-                            </ItemTitle>
-                            <span className="text-[10px] text-muted-foreground">
-                              {formatDateTime(data.logs[0].timestamp)}
+                      <ItemContent className="min-w-0 flex-1 gap-1.5">
+                        <ItemHeader className="w-full flex-row items-baseline justify-between gap-2">
+                          <ItemTitle className="truncate text-xs font-medium">
+                            {data.logs[0].actorDisplayName ||
+                              data.logs[0].actor ||
+                              "Unknown User"}
+                          </ItemTitle>
+                          <span className="shrink-0 text-[10px] text-muted-foreground">
+                            {formatDateTime(data.logs[0].timestamp)}
+                          </span>
+                        </ItemHeader>
+
+                        <ItemDescription className="mt-0.5 text-xs break-words whitespace-normal">
+                          {!data.logs[0].oldValue && data.logs[0].newValue ? (
+                            <span>
+                              Added: <span className="text-success font-medium">"{data.logs[0].newValue}"</span>
                             </span>
-                          </ItemHeader>
-
-                          <ItemDescription className="mt-0.5 text-xs break-words whitespace-normal">
-                            Replaced: "{data.logs[0].oldValue || ""}" with "
-                            {data.logs[0].newValue || ""}"
-                          </ItemDescription>
-                        </ItemContent>
-                      </div>
-                    </Item>
-                  )}
-                </CardContent>
-              </Card>
+                          ) : data.logs[0].oldValue && !data.logs[0].newValue ? (
+                            <span className="text-destructive">
+                              Deleted: <span className="font-medium line-through">"{data.logs[0].oldValue}"</span>
+                            </span>
+                          ) : (
+                            <span>
+                              Replaced: <span className="text-warning font-medium line-through">"{data.logs[0].oldValue}"</span> with <span className="text-success font-medium">"{data.logs[0].newValue}"</span>
+                            </span>
+                          )}
+                        </ItemDescription>
+                      </ItemContent>
+                    </div>
+                  </Item>
+                )}
+              </div>
             </TooltipContent>
           ))}
       </Tooltip>
@@ -353,12 +366,6 @@ export default function SheetDetailPage() {
   const router = useRouter()
   const id = params?.id as string
   const { data: session } = useSession()
-  const [searchQuery, setSearchQuery] = useState("")
-  const [sortConfig, setSortConfig] = useState<{
-    key: string
-    direction: "asc" | "desc"
-  } | null>(null)
-  const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [editingCell, setEditingCell] = useState<{
     rowId: string
     col: string
@@ -596,28 +603,42 @@ export default function SheetDetailPage() {
   const allowedColumns = sheetData?.allowedColumns || []
 
   const tableColumns = useMemo<ColumnDef<any>[]>(() => {
-    return columns.map((col: string, index: number) => {
+    const baseCols: ColumnDef<any>[] = [
+      {
+        id: "_index",
+        header: "#",
+        cell: (info) => (
+          <div className="w-8 text-center text-muted-foreground">
+            {info.row.index + 1}
+          </div>
+        ),
+        enableSorting: false,
+        size: 50,
+      },
+    ]
+
+    const dataCols = columns.map((col: string, index: number) => {
       const colId = col || `col_${index}`
 
       // Fixed min-width per column type to avoid O(N*M) scan of all rows on every render.
       // System columns get a narrower width; others get a comfortable default.
       const isSystemCol =
         col === "ID" || col === "LastModifiedBy" || col === "LastModifiedAt"
-      const minWidthCh = isSystemCol ? "10ch" : "16ch"
 
       return {
         id: colId,
         accessorFn: (row: any) => row[col],
-        header: col || `Column ${index + 1}`,
+        header: ({ column }: { column: any }) => (
+          <DataGridColumnHeader
+            column={column}
+            title={col || `Column ${index + 1}`}
+          />
+        ),
         cell: (info: any) => {
           const value = info.getValue()
           const studentId = info.row.original.ID || info.row.original._id
           const colName = col // Use original key for saving!
-          const isSystemColumn =
-            colName === "ID" ||
-            colName === "LastModifiedBy" ||
-            colName === "LastModifiedAt"
-          const isLocked = !allowedColumns.includes(colName) || isSystemColumn
+          const isLocked = !allowedColumns.includes(colName)
 
           // Check if another user is focusing this cell
           const focusingUser = realActiveUsers.find(
@@ -640,10 +661,7 @@ export default function SheetDetailPage() {
           return (
             <ContextMenu>
               <ContextMenuTrigger asChild>
-                <div
-                  className="group relative w-full min-w-0"
-                  style={{ minWidth: minWidthCh }}
-                >
+                <div className="group relative block w-full min-w-full">
                   <CellTooltip
                     rowId={studentId}
                     colName={colName}
@@ -652,7 +670,7 @@ export default function SheetDetailPage() {
                   >
                     {isEditingCell ? (
                       <InputGroup
-                        className={`h-8 w-full min-w-fit ${userColor} focus-within:border-primary focus-within:ring-1 focus-within:ring-primary`}
+                        className={`h-8 w-full min-w-full ${userColor} focus-within:border-primary focus-within:ring-1 focus-within:ring-primary`}
                       >
                         <InputGroupInput
                           autoFocus
@@ -761,9 +779,7 @@ export default function SheetDetailPage() {
                       <InputGroup
                         className={`h-8 w-full border-transparent bg-transparent transition-colors focus-within:border-transparent focus-within:bg-background hover:border-input ${userColor} ${isLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
                       >
-                        <InputGroupInput
-                          readOnly
-                          value={value || ""}
+                        <div
                           onClick={() => {
                             if (!isLocked) {
                               setEditingCell({ rowId: studentId, col: colName })
@@ -771,9 +787,10 @@ export default function SheetDetailPage() {
                               handleFocus(studentId, colName)
                             }
                           }}
-                          disabled={isLocked}
-                          className="truncate border-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
-                        />
+                          className="flex-1 whitespace-nowrap border-none bg-transparent px-3 py-1.5 text-sm outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                        >
+                          {String(value ?? "")}
+                        </div>
                         {isLocked && (
                           <InputGroupAddon
                             align="inline-end"
@@ -860,6 +877,8 @@ export default function SheetDetailPage() {
         },
       }
     })
+
+    return [...baseCols, ...dataCols]
   }, [
     columns,
     data,
@@ -870,35 +889,18 @@ export default function SheetDetailPage() {
     allUsers,
   ])
 
-  const filteredAndSortedData = useMemo(() => {
-    let result = [...data]
-
-    // Filter by status (assuming "Status" column exists)
-    if (statusFilter) {
-      result = result.filter((row: any) => row.Status === statusFilter)
-    }
-
-    // Sort
-    if (sortConfig) {
-      result.sort((a, b) => {
-        const aVal = a[sortConfig.key]
-        const bVal = b[sortConfig.key]
-
-        if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1
-        if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1
-        return 0
-      })
-    }
-
-    return result
-  }, [data, searchQuery, sortConfig, statusFilter])
-
-  const uniqueStatuses = useMemo(() => {
+  const columnFilters = useMemo(() => {
     const statuses = new Set<string>()
     data.forEach((row: any) => {
       if (row.Status) statuses.add(row.Status)
     })
-    return Array.from(statuses)
+    
+    const options = Array.from(statuses).map(status => ({
+      label: status,
+      value: status
+    }))
+
+    return options.length > 0 ? [{ columnId: "Status", options }] : []
   }, [data])
 
   if (isLoading) {
@@ -1021,58 +1023,29 @@ export default function SheetDetailPage() {
               <div>
                 <CardTitle>Sheet Data</CardTitle>
                 <CardDescription>
-                  Showing {filteredAndSortedData.length} of {data.length}{" "}
-                  records
+                  Total: {data.length} records
                 </CardDescription>
               </div>
-
-              {data.length > 0 && (
-                <div className="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
-                  {/* FILTERS */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" className="gap-2">
-                        <Filter className="h-4 w-4" />
-                        Status
-                        <ChevronDown className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-fit">
-                      <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => setStatusFilter(null)}>
-                        All Statuses
-                      </DropdownMenuItem>
-                      {uniqueStatuses.map((status) => (
-                        <DropdownMenuItem
-                          key={status}
-                          onClick={() => setStatusFilter(status)}
-                        >
-                          {status}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  {/* ACTIONS */}
-                  <ExportDropdown
-                    data={filteredAndSortedData}
-                    filename={sheetTitle}
-                  />
-                  <Button variant="outline" onClick={handleShare}>
-                    <Share2 className="h-4 w-4" />
-                    Share
-                  </Button>
-                </div>
-              )}
             </div>
           </CardHeader>
           <CardContent className="w-full max-w-full">
-            {filteredAndSortedData.length > 0 ? (
+            {data.length > 0 ? (
               <div className="overflow-auto">
                 <AdvancedDataGrid
                   columns={tableColumns}
-                  data={filteredAndSortedData}
+                  data={data}
+                  columnFilters={columnFilters}
+                  enableSorting={true}
+                  enablePagination={true}
+                  pageSize={10}
+                  export={true}
+                  exportFilename={sheetTitle}
+                  toolbar={
+                    <Button variant="outline" onClick={handleShare}>
+                      <Share2 className="h-4 w-4" />
+                      Share
+                    </Button>
+                  }
                 />
               </div>
             ) : (
@@ -1140,7 +1113,7 @@ export default function SheetDetailPage() {
                         {log.oldValue || '""'}
                       </span>{" "}
                       to{" "}
-                      <span className="font-semibold text-green-600 dark:text-green-400">
+                      <span className="font-semibold text-success dark:text-success">
                         {log.newValue || '""'}
                       </span>
                     </TimelineContent>
