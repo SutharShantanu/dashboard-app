@@ -26,6 +26,8 @@ import {
   ArrowDown,
   ArrowUp,
   ChevronsUpDown,
+  Mail,
+  MessageCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SkeletonBlock } from "@/components/ui/skeleton-block"
@@ -107,6 +109,7 @@ import {
   ItemDescription,
   ItemHeader,
 } from "@/components/ui/item"
+import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard"
 
 function CellTooltip({
   rowId,
@@ -162,9 +165,9 @@ function CellTooltip({
               <p className="text-xs">Read-only field</p>
             </TooltipContent>
           ) : (
-            <TooltipContent className="z-60 w-fit max-w-xs">
-              <div className="border-b px-3 py-2">
-                <span className="text-xs font-semibold">Edit history</span>
+            <TooltipContent className="z-60 w-fit flex-col items-start max-w-xs p-0">
+              <div className="border-b px-3 py-2 w-full border-background/20">
+                <span className="text-xs text-left font-semibold">Edit history</span>
               </div>
 
               <div className="p-3">
@@ -366,6 +369,7 @@ export default function SheetDetailPage() {
   const router = useRouter()
   const id = params?.id as string
   const { data: session } = useSession()
+  const { isCopied, copyToClipboard } = useCopyToClipboard()
   const [editingCell, setEditingCell] = useState<{
     rowId: string
     col: string
@@ -890,18 +894,44 @@ export default function SheetDetailPage() {
   ])
 
   const columnFilters = useMemo(() => {
-    const statuses = new Set<string>()
-    data.forEach((row: any) => {
-      if (row.Status) statuses.add(row.Status)
-    })
+    const filters: { columnId: string; options: { label: string; value: string }[] }[] = []
     
-    const options = Array.from(statuses).map(status => ({
-      label: status,
-      value: status
-    }))
+    columns.forEach((col: string) => {
+      // skip high cardinality or system columns
+      if (
+        col === "ID" ||
+        col === "_index" ||
+        col === "LastModifiedBy" ||
+        col === "LastModifiedAt" ||
+        col.toLowerCase().includes("id") ||
+        col.toLowerCase().includes("date") ||
+        col.toLowerCase().includes("time")
+      ) {
+        return
+      }
 
-    return options.length > 0 ? [{ columnId: "Status", options }] : []
-  }, [data])
+      const uniqueValues = new Set<string>()
+      data.forEach((row: any) => {
+        const val = row[col]
+        if (val !== undefined && val !== null && val !== "") {
+          uniqueValues.add(String(val))
+        }
+      })
+      
+      // Create a filter if there are between 1 and 15 unique categorical values
+      if (uniqueValues.size > 0 && uniqueValues.size <= 15) {
+        filters.push({
+          columnId: col,
+          options: Array.from(uniqueValues).map((v) => ({
+            label: v,
+            value: v,
+          })),
+        })
+      }
+    })
+
+    return filters
+  }, [data, columns])
 
   if (isLoading) {
     return (
@@ -984,7 +1014,7 @@ export default function SheetDetailPage() {
                     </AvatarFallback>
                   </Avatar>
                 </TooltipTrigger>
-                <TooltipContent className="flex flex-col items-start gap-1 border-border/40 px-3 py-2 shadow-xl">
+                <TooltipContent className="flex flex-col items-start gap-1 border border-background/20 px-3 py-2 shadow-xl">
                   <div className="flex flex-col">
                     <span className="text-sm leading-none font-medium">
                       {user.name}
@@ -1041,10 +1071,32 @@ export default function SheetDetailPage() {
                   export={true}
                   exportFilename={sheetTitle}
                   toolbar={
-                    <Button variant="outline" onClick={handleShare}>
-                      <Share2 className="h-4 w-4" />
-                      Share
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="gap-1.5">
+                          <Share2 className="h-4 w-4" />
+                          Share
+                          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Share Sheet</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => {
+                          window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(sheetTitle + ' - ' + window.location.href)}`)
+                        }}>
+                          <MessageCircle className="h-4 w-4 mr-2" />
+                          WhatsApp
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => {
+                          copyToClipboard(window.location.href)
+                          toast.success("Link copied to clipboard!")
+                        }}>
+                          {isCopied ? <Check className="h-4 w-4 mr-2 text-success" /> : <Copy className="h-4 w-4 mr-2" />}
+                          {isCopied ? "Copied" : "Copy Link"}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   }
                 />
               </div>

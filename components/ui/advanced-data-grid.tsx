@@ -21,8 +21,20 @@ import {
 } from "@/components/ui/data-grid/data-grid"
 import { DataGridTable } from "@/components/ui/data-grid/data-grid-table"
 import { DataGridPagination } from "@/components/ui/data-grid/data-grid-pagination"
-import { DataGridColumnFilter } from "@/components/ui/data-grid/data-grid-column-filter"
 import { DataGridColumnVisibility } from "@/components/ui/data-grid/data-grid-column-visibility"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
+import { Badge } from "@/components/ui/badge"
 import {
   InputGroup,
   InputGroupAddon,
@@ -30,7 +42,7 @@ import {
 } from "@/components/ui/input-group"
 import { Spinner } from "@/components/ui/spinner"
 import { Button } from "@/components/ui/button"
-import { SlidersHorizontal, Search } from "lucide-react"
+import { SlidersHorizontal, Search, Filter, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useDebounce } from "@/hooks/use-debounce"
 import { ExportDropdown } from "@/components/export-dropdown"
@@ -240,32 +252,102 @@ export function AdvancedDataGrid<TData extends object>({
               </InputGroup>
             )}
 
-            {/* Per-column filter buttons */}
-            {activeFilterDefs.map((filterDef) => {
-              const col = table.getColumn(filterDef.columnId)
-              if (!col) return null
-              // Map DataTableFilterOption → DataGridColumnFilter option shape
-              const opts = filterDef.options.map((o) => ({
-                label: o.label,
-                value: o.value,
-                // DataGridColumnFilter expects icon as ComponentType, so we skip
-                // the ReactNode icon here (the visuals still show via label)
-              }))
-              return (
-                <DataGridColumnFilter
-                  key={filterDef.columnId}
-                  column={
-                    col as Parameters<typeof DataGridColumnFilter>[0]["column"]
-                  }
-                  title={
-                    typeof col.columnDef.header === "string"
-                      ? col.columnDef.header
-                      : filterDef.columnId
-                  }
-                  options={opts}
-                />
-              )
-            })}
+            {/* Single Filters Button */}
+            {activeFilterDefs.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                    <Filter className="h-4 w-4" />
+                    Filters
+                    {table.getState().columnFilters.length > 0 && (
+                      <Badge variant="secondary" className="px-1 h-5 rounded-sm font-normal">
+                        {table.getState().columnFilters.length}
+                      </Badge>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56 max-h-[350px] overflow-y-auto">
+                  <DropdownMenuLabel>Filter By</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {activeFilterDefs.map((filterDef) => {
+                    const col = table.getColumn(filterDef.columnId)
+                    if (!col) return null
+                    const title =
+                      typeof col.columnDef.header === "string"
+                        ? col.columnDef.header
+                        : filterDef.columnId
+                    const selectedValues = new Set(
+                      (col.getFilterValue() as string[]) || []
+                    )
+
+                    return (
+                      <DropdownMenuSub key={filterDef.columnId}>
+                        <DropdownMenuSubTrigger className="gap-2">
+                          <span>{title}</span>
+                          {selectedValues.size > 0 && (
+                            <div className="ml-1.5 h-2 w-2 rounded-full bg-primary" />
+                          )}
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent className="max-h-[300px] overflow-y-auto">
+                          {filterDef.options.map((opt) => {
+                            const isSelected = selectedValues.has(opt.value)
+                            return (
+                              <DropdownMenuCheckboxItem
+                                key={opt.value}
+                                checked={isSelected}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    selectedValues.add(opt.value)
+                                  } else {
+                                    selectedValues.delete(opt.value)
+                                  }
+                                  const filterValues =
+                                    Array.from(selectedValues)
+                                  col.setFilterValue(
+                                    filterValues.length
+                                      ? filterValues
+                                      : undefined
+                                  )
+                                }}
+                              >
+                                {opt.label}
+                              </DropdownMenuCheckboxItem>
+                            )
+                          })}
+                          {selectedValues.size > 0 && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onSelect={(e) => {
+                                  e.preventDefault()
+                                  col.setFilterValue(undefined)
+                                }}
+                                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                              >
+                                <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                Clear filter
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                    )
+                  })}
+                  {table.getState().columnFilters.length > 0 && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onSelect={() => table.resetColumnFilters()}
+                        className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-2" />
+                        Clear all filters
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
 
             <div className="ml-auto flex items-center gap-2">
               {/* Export dropdown */}
