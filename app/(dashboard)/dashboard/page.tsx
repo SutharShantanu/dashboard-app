@@ -746,200 +746,201 @@ function DashboardPageContent() {
               TAB 0: ANALYTICS OVERVIEW
               ========================================================================= */}
         <TabsContent value="analytics" className="space-y-4">
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-4 lg:grid-cols-4">
-            <div className="col-span-1 md:col-span-4 grid gap-4 grid-cols-2 lg:grid-cols-4">
-            <Card className="border-l-4 border-l-primary bg-card hover:bg-muted/40 transition-colors shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Users
-                </CardTitle>
-                <Shield className="h-4 w-4 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-primary">
-                  <AnimatedNumber value={totalSystemUsers} />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Registered on platform
-                </p>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4 lg:grid-cols-4">
+            <div className="col-span-1 grid grid-cols-2 gap-4 md:col-span-4 lg:grid-cols-4">
+              <Card className="border-l-4 border-l-primary bg-card shadow-sm transition-colors hover:bg-muted/40">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Total Users
+                  </CardTitle>
+                  <Shield className="h-4 w-4 text-primary" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-primary">
+                    <AnimatedNumber value={totalSystemUsers} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Registered on platform
+                  </p>
+                </CardContent>
+              </Card>
 
-            <Card className="border-l-4 border-l-success bg-card hover:bg-muted/40 transition-colors shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Active Users
-                </CardTitle>
-                <Activity className="h-4 w-4 text-success" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-success">
-                  <AnimatedNumber value={activeSystemUsers} />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Currently active accounts
-                </p>
-              </CardContent>
-            </Card>
+              <Card className="border-l-4 border-l-success bg-card shadow-sm transition-colors hover:bg-muted/40">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Active Users
+                  </CardTitle>
+                  <Activity className="h-4 w-4 text-success" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-success">
+                    <AnimatedNumber value={activeSystemUsers} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Currently active accounts
+                  </p>
+                </CardContent>
+              </Card>
 
-            <Card className="border-l-4 border-l-sky bg-card hover:bg-muted/40 transition-colors shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Students
-                </CardTitle>
-                <Users className="h-4 w-4 text-sky" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-sky">
-                  <AnimatedNumber value={totalStudents} />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Across all batches
-                </p>
-              </CardContent>
-            </Card>
+              <Card className="border-l-4 border-l-sky bg-card shadow-sm transition-colors hover:bg-muted/40">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Total Students
+                  </CardTitle>
+                  <Users className="h-4 w-4 text-sky" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-sky">
+                    <AnimatedNumber value={totalStudents} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Across all batches
+                  </p>
+                </CardContent>
+              </Card>
 
-            <Card className="border-l-4 border-l-info bg-card hover:bg-muted/40 transition-colors shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Active Students
-                </CardTitle>
-                <CheckCircle2 className="h-4 w-4 text-info" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-info">
-                  <AnimatedNumber value={activeStudentsCount} />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Currently enrolled
-                </p>
-              </CardContent>
-            </Card>
+              <Card className="border-l-4 border-l-info bg-card shadow-sm transition-colors hover:bg-muted/40">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Active Students
+                  </CardTitle>
+                  <CheckCircle2 className="h-4 w-4 text-info" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-info">
+                    <AnimatedNumber value={activeStudentsCount} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Currently enrolled
+                  </p>
+                </CardContent>
+              </Card>
 
-            <Card className="border-l-4 border-l-warning bg-card hover:bg-muted/40 transition-colors shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Average Score
-                </CardTitle>
-                <TrendingUp className="h-4 w-4 text-warning" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-warning">
-                  <AnimatedNumber
-                    value={averageScore}
-                    format={{
-                      minimumFractionDigits: 1,
-                      maximumFractionDigits: 1,
-                    }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Mean performance
-                </p>
-              </CardContent>
-            </Card>
-
+              <Card className="border-l-4 border-l-warning bg-card shadow-sm transition-colors hover:bg-muted/40">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    Average Score
+                  </CardTitle>
+                  <TrendingUp className="h-4 w-4 text-warning" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-warning">
+                    <AnimatedNumber
+                      value={averageScore}
+                      format={{
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Mean performance
+                  </p>
+                </CardContent>
+              </Card>
             </div>
-          <div className="grid gap-4 md:grid-cols-4 lg:grid-cols-4 auto-rows-min col-span-1 md:col-span-4 lg:col-span-4">
-            <Card className="border-l-4 border-l-secondary bg-card hover:bg-muted/40 transition-colors shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Batches</CardTitle>
-                <FileSpreadsheet className="h-4 w-4 text-secondary-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-secondary-foreground">
-                  <AnimatedNumber value={batchChartData.length} />
-                </div>
-                <p className="text-xs text-muted-foreground">Active cohorts</p>
-              </CardContent>
-            </Card>
+            <div className="col-span-1 grid auto-rows-min gap-4 md:col-span-4 md:grid-cols-4 lg:col-span-4 lg:grid-cols-4">
+              <Card className="border-l-4 border-l-secondary bg-card shadow-sm transition-colors hover:bg-muted/40">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Batches</CardTitle>
+                  <FileSpreadsheet className="h-4 w-4 text-secondary-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-secondary-foreground">
+                    <AnimatedNumber value={batchChartData.length} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Active cohorts
+                  </p>
+                </CardContent>
+              </Card>
 
-            {/* 1. Area Chart (Timeline) */}
-            <Card className="col-span-1 md:col-span-2 lg:col-span-2 row-span-2 group hover:shadow-md transition-all duration-300 border-border hover:border-sky/50 flex flex-col">
-              <CardHeader>
-                <CardTitle>Platform Growth Over Time</CardTitle>
-                <CardDescription>
-                  Historical data for students and users
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ChartContainer
-                  config={chartConfig}
-                  className="h-[350px] w-full"
-                >
-                  <AreaChart
-                    data={timelineData}
-                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+              {/* 1. Area Chart (Timeline) */}
+              <Card className="group col-span-1 row-span-2 flex flex-col border-border transition-all duration-300 hover:border-sky/50 hover:shadow-md md:col-span-2 lg:col-span-2">
+                <CardHeader>
+                  <CardTitle>Platform Growth Over Time</CardTitle>
+                  <CardDescription>
+                    Historical data for students and users
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer
+                    config={chartConfig}
+                    className="h-[350px] w-full"
                   >
-                    <defs>
-                      <linearGradient
-                        id="colorStudents"
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop
-                          offset="5%"
-                          stopColor="var(--color-info)"
-                          stopOpacity={0.8}
-                        />
-                        <stop
-                          offset="95%"
-                          stopColor="var(--color-info)"
-                          stopOpacity={0}
-                        />
-                      </linearGradient>
-                      <linearGradient
-                        id="colorUsers"
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop
-                          offset="5%"
-                          stopColor="var(--color-sky)"
-                          stopOpacity={0.8}
-                        />
-                        <stop
-                          offset="95%"
-                          stopColor="var(--color-sky)"
-                          stopOpacity={0}
-                        />
-                      </linearGradient>
-                    </defs>
-                    <XAxis
-                      dataKey="month"
-                      tickLine={false}
-                      axisLine={false}
-                      tickMargin={8}
-                    />
-                    <YAxis tickLine={false} axisLine={false} tickMargin={8} />
-                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Area
-                      type="monotone"
-                      dataKey="students"
-                      stroke="var(--color-info)"
-                      fillOpacity={1}
-                      fill="url(#colorStudents)"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="users"
-                      stroke="var(--color-sky)"
-                      fillOpacity={1}
-                      fill="url(#colorUsers)"
-                    />
-                  </AreaChart>
-                </ChartContainer>
-              </CardContent>
-            </Card>
+                    <AreaChart
+                      data={timelineData}
+                      margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                    >
+                      <defs>
+                        <linearGradient
+                          id="colorStudents"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="5%"
+                            stopColor="var(--color-info)"
+                            stopOpacity={0.8}
+                          />
+                          <stop
+                            offset="95%"
+                            stopColor="var(--color-info)"
+                            stopOpacity={0}
+                          />
+                        </linearGradient>
+                        <linearGradient
+                          id="colorUsers"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="5%"
+                            stopColor="var(--color-sky)"
+                            stopOpacity={0.8}
+                          />
+                          <stop
+                            offset="95%"
+                            stopColor="var(--color-sky)"
+                            stopOpacity={0}
+                          />
+                        </linearGradient>
+                      </defs>
+                      <XAxis
+                        dataKey="month"
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                      />
+                      <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Area
+                        type="monotone"
+                        dataKey="students"
+                        stroke="var(--color-info)"
+                        fillOpacity={1}
+                        fill="url(#colorStudents)"
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="users"
+                        stroke="var(--color-sky)"
+                        fillOpacity={1}
+                        fill="url(#colorUsers)"
+                      />
+                    </AreaChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
 
-            {/* Grid of diverse charts inspired by reference */}
+              {/* Grid of diverse charts inspired by reference */}
               {/* 1. Bar Chart - Vertical */}
-              <Card className="col-span-1 group hover:shadow-md transition-all duration-300 border-border hover:border-sky/50">
+              <Card className="group col-span-1 border-border transition-all duration-300 hover:border-sky/50 hover:shadow-md">
                 <CardHeader>
                   <CardTitle>Score Distribution</CardTitle>
                   <CardDescription>Vertical Bar Chart</CardDescription>
@@ -977,7 +978,7 @@ function DashboardPageContent() {
               </Card>
 
               {/* 2. Line Chart */}
-              <Card className="col-span-1 md:col-span-2 lg:col-span-2 group hover:shadow-md transition-all duration-300 border-border hover:border-sky/50">
+              <Card className="group col-span-1 border-border transition-all duration-300 hover:border-sky/50 hover:shadow-md md:col-span-2 lg:col-span-2">
                 <CardHeader>
                   <CardTitle>Trend Analysis</CardTitle>
                   <CardDescription>Line Chart with Dots</CardDescription>
@@ -1021,7 +1022,7 @@ function DashboardPageContent() {
               </Card>
 
               {/* 3. Bar Chart - Horizontal */}
-              <Card className="col-span-1 md:col-span-2 lg:col-span-2 group hover:shadow-md transition-all duration-300 border-border hover:border-sky/50">
+              <Card className="group col-span-1 border-border transition-all duration-300 hover:border-sky/50 hover:shadow-md md:col-span-2 lg:col-span-2">
                 <CardHeader>
                   <CardTitle>Batch Sizes</CardTitle>
                   <CardDescription>Horizontal Bar Chart</CardDescription>
@@ -1057,7 +1058,7 @@ function DashboardPageContent() {
               </Card>
 
               {/* 4. Donut Chart */}
-              <Card className="col-span-1 group hover:shadow-md transition-all duration-300 border-border hover:border-sky/50">
+              <Card className="group col-span-1 border-border transition-all duration-300 hover:border-sky/50 hover:shadow-md">
                 <CardHeader>
                   <CardTitle>Status Breakdown</CardTitle>
                   <CardDescription>Donut Chart</CardDescription>
@@ -1092,7 +1093,7 @@ function DashboardPageContent() {
               </Card>
 
               {/* 5. Radar Chart */}
-              <Card className="col-span-1 md:col-span-2 lg:col-span-2 group hover:shadow-md transition-all duration-300 border-border hover:border-sky/50">
+              <Card className="group col-span-1 border-border transition-all duration-300 hover:border-sky/50 hover:shadow-md md:col-span-2 lg:col-span-2">
                 <CardHeader>
                   <CardTitle>Course Popularity</CardTitle>
                   <CardDescription>Radar Chart</CardDescription>
@@ -1132,7 +1133,7 @@ function DashboardPageContent() {
               </Card>
 
               {/* 6. Radial Bar Chart */}
-              <Card className="col-span-1 group hover:shadow-md transition-all duration-300 border-border hover:border-sky/50">
+              <Card className="group col-span-1 border-border transition-all duration-300 hover:border-sky/50 hover:shadow-md">
                 <CardHeader>
                   <CardTitle>Score Ranges</CardTitle>
                   <CardDescription>Radial Bar Chart</CardDescription>
@@ -1168,15 +1169,17 @@ function DashboardPageContent() {
                 </CardContent>
               </Card>
               {/* 7. Heatmap (Activity) */}
-              <Card className="col-span-1 md:col-span-4 lg:col-span-4 group hover:shadow-md transition-all duration-300 border-border hover:border-sky/50 overflow-hidden">
+              <Card className="group col-span-1 overflow-hidden border-border transition-all duration-300 hover:border-sky/50 hover:shadow-md md:col-span-4 lg:col-span-4">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-warning" />
                     Activity Heatmap
                   </CardTitle>
-                  <CardDescription>System interaction frequency mapped over the year</CardDescription>
+                  <CardDescription>
+                    System interaction frequency mapped over the year
+                  </CardDescription>
                 </CardHeader>
-                <CardContent className="flex justify-center p-6 overflow-x-auto">
+                <CardContent className="flex justify-center overflow-x-auto p-6">
                   <CalendarHeatmap
                     levelClassNames={[
                       "bg-muted",
@@ -1193,11 +1196,10 @@ function DashboardPageContent() {
                   />
                 </CardContent>
               </Card>
+            </div>
           </div>
 
-          </div>
-
-          <Card className="col-span-1 md:col-span-4 lg:col-span-4 border-border hover:border-sky/50 transition-all duration-300">
+          <Card className="col-span-1 border-border transition-all duration-300 hover:border-sky/50 md:col-span-4 lg:col-span-4">
             <CardHeader>
               <CardTitle>Batch Performance Breakdown</CardTitle>
               <CardDescription>Detailed metrics per batch</CardDescription>
@@ -1875,7 +1877,7 @@ function DashboardPageContent() {
               </Button>
               <Button type="submit" disabled={isSubmittingStudent}>
                 {isSubmittingStudent && (
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  <RefreshCw className="h-4 w-4 animate-spin" />
                 )}
                 Save Student
               </Button>

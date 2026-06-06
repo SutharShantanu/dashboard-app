@@ -157,7 +157,9 @@ function CellTooltip({
         }}
       >
         <TooltipTrigger asChild>
-          <div className="relative block h-full w-full min-w-full">{children}</div>
+          <div className="relative block h-full w-full min-w-full">
+            {children}
+          </div>
         </TooltipTrigger>
         {shouldShowTooltip &&
           (isLocked ? (
@@ -165,9 +167,11 @@ function CellTooltip({
               <p className="text-xs">Read-only field</p>
             </TooltipContent>
           ) : (
-            <TooltipContent className="z-60 w-fit flex-col items-start max-w-xs p-0">
-              <div className="border-b px-3 py-2 w-full border-background/20">
-                <span className="text-xs text-left font-semibold">Edit history</span>
+            <TooltipContent className="z-60 w-fit max-w-xs flex-col items-start p-0">
+              <div className="w-full border-b border-background/20 px-3 py-2">
+                <span className="text-left text-xs font-semibold">
+                  Edit history
+                </span>
               </div>
 
               <div className="p-3">
@@ -223,15 +227,29 @@ function CellTooltip({
                         <ItemDescription className="mt-0.5 text-xs break-words whitespace-normal">
                           {!data.logs[0].oldValue && data.logs[0].newValue ? (
                             <span>
-                              Added: <span className="text-success font-medium">"{data.logs[0].newValue}"</span>
+                              Added:{" "}
+                              <span className="font-medium text-success">
+                                "{data.logs[0].newValue}"
+                              </span>
                             </span>
-                          ) : data.logs[0].oldValue && !data.logs[0].newValue ? (
+                          ) : data.logs[0].oldValue &&
+                            !data.logs[0].newValue ? (
                             <span className="text-destructive">
-                              Deleted: <span className="font-medium line-through">"{data.logs[0].oldValue}"</span>
+                              Deleted:{" "}
+                              <span className="font-medium line-through">
+                                "{data.logs[0].oldValue}"
+                              </span>
                             </span>
                           ) : (
                             <span>
-                              Replaced: <span className="text-warning font-medium line-through">"{data.logs[0].oldValue}"</span> with <span className="text-success font-medium">"{data.logs[0].newValue}"</span>
+                              Replaced:{" "}
+                              <span className="font-medium text-warning line-through">
+                                "{data.logs[0].oldValue}"
+                              </span>{" "}
+                              with{" "}
+                              <span className="font-medium text-success">
+                                "{data.logs[0].newValue}"
+                              </span>
                             </span>
                           )}
                         </ItemDescription>
@@ -447,10 +465,22 @@ export default function SheetDetailPage() {
       await fetch("/api/presence/focus", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ focusedCell: `${studentId}:${col}` }),
+        body: JSON.stringify({ studentId, col }),
       })
     } catch (err) {
       console.error("Failed to send focus event:", err)
+    }
+  }
+
+  const handleBlur = async (studentId: string, col: string) => {
+    try {
+      await fetch("/api/presence/blur", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId, col }),
+      })
+    } catch (err) {
+      console.error("Failed to send blur event:", err)
     }
   }
 
@@ -492,9 +522,11 @@ export default function SheetDetailPage() {
       setSavingCell({ rowId: studentId, col, status: "success" })
 
       // Wait for success micro-animation before closing
-      await new Promise((resolve) => setTimeout(resolve, 800))
-      setEditingCell(null)
-      setSavingCell(null)
+      setTimeout(() => {
+        setSavingCell(null)
+        setEditingCell(null)
+        handleBlur(studentId, col)
+      }, 2000)
     } catch (err) {
       console.error("Failed to save data:", err)
       setSavingCell({ rowId: studentId, col, status: "error" })
@@ -700,6 +732,7 @@ export default function SheetDetailPage() {
                               handleSave(studentId, colName, editValue)
                             } else {
                               setEditingCell(null)
+                              handleBlur(studentId, colName)
                             }
                           }}
                           onKeyDown={(e) => {
@@ -791,7 +824,7 @@ export default function SheetDetailPage() {
                               handleFocus(studentId, colName)
                             }
                           }}
-                          className="flex-1 whitespace-nowrap border-none bg-transparent px-3 py-1.5 text-sm outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                          className="flex-1 border-none bg-transparent px-3 py-1.5 text-sm whitespace-nowrap outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
                         >
                           {String(value ?? "")}
                         </div>
@@ -894,8 +927,11 @@ export default function SheetDetailPage() {
   ])
 
   const columnFilters = useMemo(() => {
-    const filters: { columnId: string; options: { label: string; value: string }[] }[] = []
-    
+    const filters: {
+      columnId: string
+      options: { label: string; value: string }[]
+    }[] = []
+
     columns.forEach((col: string) => {
       // skip high cardinality or system columns
       if (
@@ -917,7 +953,7 @@ export default function SheetDetailPage() {
           uniqueValues.add(String(val))
         }
       })
-      
+
       // Create a filter if there are between 1 and 15 unique categorical values
       if (uniqueValues.size > 0 && uniqueValues.size <= 15) {
         filters.push({
@@ -1052,9 +1088,7 @@ export default function SheetDetailPage() {
             <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
               <div>
                 <CardTitle>Sheet Data</CardTitle>
-                <CardDescription>
-                  Total: {data.length} records
-                </CardDescription>
+                <CardDescription>Total: {data.length} records</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -1082,17 +1116,27 @@ export default function SheetDetailPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Share Sheet</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => {
-                          window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(sheetTitle + ' - ' + window.location.href)}`)
-                        }}>
-                          <MessageCircle className="h-4 w-4 mr-2" />
+                        <DropdownMenuItem
+                          onClick={() => {
+                            window.open(
+                              `https://api.whatsapp.com/send?text=${encodeURIComponent(sheetTitle + " - " + window.location.href)}`
+                            )
+                          }}
+                        >
+                          <MessageCircle className="h-4 w-4" />
                           WhatsApp
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => {
-                          copyToClipboard(window.location.href)
-                          toast.success("Link copied to clipboard!")
-                        }}>
-                          {isCopied ? <Check className="h-4 w-4 mr-2 text-success" /> : <Copy className="h-4 w-4 mr-2" />}
+                        <DropdownMenuItem
+                          onClick={() => {
+                            copyToClipboard(window.location.href)
+                            toast.success("Link copied to clipboard!")
+                          }}
+                        >
+                          {isCopied ? (
+                            <Check className="h-4 w-4 text-success" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
                           {isCopied ? "Copied" : "Copy Link"}
                         </DropdownMenuItem>
                       </DropdownMenuContent>

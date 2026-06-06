@@ -260,13 +260,18 @@ export function AdvancedDataGrid<TData extends object>({
                     <Filter className="h-4 w-4" />
                     Filters
                     {table.getState().columnFilters.length > 0 && (
-                      <Badge variant="secondary" className="px-1 h-5 rounded-sm font-normal">
+                      <Badge
+                        variant="secondary"
+                      >
                         {table.getState().columnFilters.length}
                       </Badge>
                     )}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56 max-h-[350px] overflow-y-auto">
+                <DropdownMenuContent
+                  align="start"
+                  className="max-h-[350px] w-56 overflow-y-auto"
+                >
                   <DropdownMenuLabel>Filter By</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {activeFilterDefs.map((filterDef) => {
@@ -324,7 +329,7 @@ export function AdvancedDataGrid<TData extends object>({
                                 }}
                                 className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                               >
-                                <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                <Trash2 className="h-3.5 w-3.5" />
                                 Clear filter
                               </DropdownMenuItem>
                             </>
@@ -340,7 +345,7 @@ export function AdvancedDataGrid<TData extends object>({
                         onSelect={() => table.resetColumnFilters()}
                         className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                       >
-                        <Trash2 className="h-3.5 w-3.5 mr-2" />
+                        <Trash2 className="h-3.5 w-3.5" />
                         Clear all filters
                       </DropdownMenuItem>
                     </>

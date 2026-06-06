@@ -6,7 +6,7 @@ import type { UserInterface } from "../sheets";
 
 export async function getUsers(): Promise<UserInterface[]> {
   await connectToDatabase();
-  const users = await User.find({});
+  const users = await User.find({}).lean();
   return users.map((u) => ({
     username: u.username,
     displayName: u.displayName,
@@ -15,15 +15,15 @@ export async function getUsers(): Promise<UserInterface[]> {
     role: u.role,
     allowedColumns: u.allowedColumns,
     permissionPreset: u.permissionPreset,
-    perSheetPermissions: u.perSheetPermissions
-      ? Object.fromEntries((u.perSheetPermissions as Map<string, string[]>).entries())
-      : undefined,
+    perSheetPermissions: u.perSheetPermissions && typeof (u.perSheetPermissions as any).entries === 'function'
+      ? Object.fromEntries((u.perSheetPermissions as any).entries())
+      : (u.perSheetPermissions as Record<string, string[]> | undefined),
     isActive: u.isActive,
-    createdAt: u.createdAt.toISOString(),
+    createdAt: u.createdAt instanceof Date ? u.createdAt.toISOString() : new Date(u.createdAt).toISOString(),
     createdBy: u.createdBy,
     gender: u.gender || "",
     otpCode: u.otpCode,
-    otpExpiry: u.otpExpiry ? u.otpExpiry.toISOString() : undefined,
+    otpExpiry: u.otpExpiry ? (u.otpExpiry instanceof Date ? u.otpExpiry.toISOString() : new Date(u.otpExpiry).toISOString()) : undefined,
   }));
 }
 
@@ -65,9 +65,9 @@ export async function updateUser(
     mongoUpdates.isActive = updates.isActive;
   }
 
-  const escaped = escapeRegex(username);
+  // Optimize: Use exact lowercase match to hit the unique index (O(1)) instead of an unindexed case-insensitive regex (O(n) COLLSCAN)
   await User.updateOne(
-    { username: { $regex: new RegExp(`^${escaped}$`, "i") } },
+    { username: username.trim().toLowerCase() },
     { $set: mongoUpdates }
   );
 
@@ -90,9 +90,9 @@ export async function deleteUser(
   ip: string = "127.0.0.1"
 ): Promise<void> {
   await connectToDatabase();
-  const escaped = escapeRegex(username);
+  // Optimize: Use exact lowercase match to hit the unique index (O(1)) instead of an unindexed case-insensitive regex (O(n) COLLSCAN)
   await User.deleteOne({
-    username: { $regex: new RegExp(`^${escaped}$`, "i") },
+    username: username.trim().toLowerCase(),
   });
 
   await appendAuditLog({

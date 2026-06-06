@@ -59,10 +59,12 @@ function deepEqual(a: unknown, b: unknown): boolean {
 function useDeepCompareMemoize(deps: DependencyList): DependencyList {
   const ref = useRef<DependencyList>(deps)
 
+  // eslint-disable-next-line react-hooks/refs
   if (!deepEqual(deps, ref.current)) {
     ref.current = deps
   }
 
+  // eslint-disable-next-line react-hooks/refs
   return ref.current
 }
 

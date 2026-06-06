@@ -1,9 +1,16 @@
 "use client"
 
+import { useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/page-header"
@@ -23,9 +30,11 @@ export default function LogsPage() {
   const router = useRouter()
   const user = session?.user as { role?: string } | undefined
 
-  if (status === "unauthenticated") {
-    router.push("/login")
-  }
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login")
+    }
+  }, [status, router])
 
   const {
     data: logs = [],
@@ -39,18 +48,34 @@ export default function LogsPage() {
 
   if (status === "loading" || isLoading) {
     return (
-      <div className="py-10 space-y-8 w-full">
+      <div className="w-full space-y-8 py-10">
         <div className="space-y-2">
-          <SkeletonBlock variant="rectangular" width={200} height={32} className="rounded-lg" />
-          <SkeletonBlock variant="rectangular" width={300} height={20} className="rounded-lg" />
+          <SkeletonBlock
+            variant="rectangular"
+            width={200}
+            height={32}
+            className="rounded-lg"
+          />
+          <SkeletonBlock
+            variant="rectangular"
+            width={300}
+            height={20}
+            className="rounded-lg"
+          />
         </div>
-        <SkeletonBlock variant="rectangular" width="100%" height={500} className="rounded-xl" showSpinner={true} />
+        <SkeletonBlock
+          variant="rectangular"
+          width="100%"
+          height={500}
+          className="rounded-xl"
+          showSpinner={true}
+        />
       </div>
     )
   }
 
   return (
-    <div className="space-y-4 w-full">
+    <div className="w-full space-y-4">
       <PageHeader
         subtitle="System Audit"
         title="Activity Logs"
@@ -68,13 +93,13 @@ export default function LogsPage() {
             </CardDescription>
           </div>
           <Button variant="outline" size="sm" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4 mr-2" />
+            <RefreshCw className="h-4 w-4" />
             Refresh
           </Button>
         </CardHeader>
         <CardContent>
           {logs.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-10 text-center border-2 border-dashed rounded-lg">
+            <p className="rounded-lg border-2 border-dashed py-10 text-center text-sm text-muted-foreground">
               No logs found.
             </p>
           ) : (

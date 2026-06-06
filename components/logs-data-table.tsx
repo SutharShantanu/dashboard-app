@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query"
 import { formatDateTime } from "@/lib/date"
 import { ColumnDef } from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ExportDropdown } from "@/components/export-dropdown"
 import { getAvatarUrl } from "@/lib/utils"
@@ -14,7 +15,7 @@ import {
   DataGridFilterOption,
 } from "@/components/ui/advanced-data-grid"
 
-import { Monitor, Smartphone, Tablet, MapPin, Globe } from "lucide-react"
+import { Monitor, Smartphone, Tablet, MapPin, Globe, ClockIcon } from "lucide-react"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -125,6 +126,9 @@ export function LogsDataTable({ logs }: LogsDataTableProps) {
             </Avatar>
             <div className="grid flex-1 text-left text-xs leading-tight">
               <span className="truncate font-medium text-foreground">{display}</span>
+              {email && email !== display && (
+                <span className="truncate text-tiny text-muted-foreground">{email}</span>
+              )}
               {displayRole && (
                 <span className="truncate text-tiny text-muted-foreground capitalize">
                   {displayRole}
@@ -177,12 +181,40 @@ export function LogsDataTable({ logs }: LogsDataTableProps) {
         }
 
         return (
-          <Badge
-            variant={variant}
-            className="uppercase"
-          >
-            {row.original.action || "unknown"}
-          </Badge>
+          <HoverCard>
+            <HoverCardTrigger asChild>
+              <div className="inline-block cursor-help">
+                <Badge
+                  variant={variant}
+                  className="uppercase cursor-help"
+                >
+                  {row.original.action || "unknown"}
+                </Badge>
+              </div>
+            </HoverCardTrigger>
+            <HoverCardContent className="w-80 space-y-2">
+              <div className="flex items-center justify-between space-x-4">
+                <div className="flex items-center space-x-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback>{(row.original.actorDisplayName || row.original.actor || "U").slice(0, 2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-semibold">{row.original.actorDisplayName || row.original.actor || "System"}</h4>
+                    <p className="text-xs text-muted-foreground">{row.original.action}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="grid gap-1 text-xs">
+                <div className="flex items-center gap-2">
+                  <ClockIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-muted-foreground">{formatDateTime(row.getValue("timestamp"))}</span>
+                </div>
+                <div className="text-muted-foreground mt-2 border-t pt-2">
+                  {row.original.details}
+                </div>
+              </div>
+            </HoverCardContent>
+          </HoverCard>
         )
       },
     },

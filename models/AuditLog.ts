@@ -54,6 +54,8 @@ const AuditLogSchema: Schema = new Schema({
 });
 
 AuditLogSchema.index({ timestamp: -1 });
+// Compound index for lightning-fast cell history queries
+AuditLogSchema.index({ targetRow: 1, columnChanged: 1, action: 1, timestamp: -1 });
 
 const AuditLog: Model<IAuditLog> = mongoose.models.AuditLog || mongoose.model<IAuditLog>('AuditLog', AuditLogSchema);
 

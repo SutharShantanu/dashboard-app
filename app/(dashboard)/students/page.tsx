@@ -77,11 +77,23 @@ import { FileDropzone } from "@/components/file-dropzone"
 import { z } from "zod"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Field, FieldLabel, FieldDescription, FieldError, FieldContent } from "@/components/ui/field"
+import {
+  Field,
+  FieldLabel,
+  FieldDescription,
+  FieldError,
+  FieldContent,
+} from "@/components/ui/field"
 import { InputGroup, InputGroupInput } from "@/components/ui/input-group"
 
 const importLinkSchema = z.object({
-  googleUrl: z.string().url("Please enter a valid URL").includes("docs.google.com/spreadsheets", { message: "Must be a valid Google Sheets URL" }).or(z.literal("")),
+  googleUrl: z
+    .string()
+    .url("Please enter a valid URL")
+    .includes("docs.google.com/spreadsheets", {
+      message: "Must be a valid Google Sheets URL",
+    })
+    .or(z.literal("")),
 })
 
 export default function StudentsDirectoryPage() {
@@ -101,7 +113,10 @@ export default function StudentsDirectoryPage() {
   const googleUrl = form.watch("googleUrl")
   const [progress, setProgress] = useState(0)
 
-  const [selectedStudent, setSelectedStudent] = useState<Record<string, unknown> | null>(null)
+  const [selectedStudent, setSelectedStudent] = useState<Record<
+    string,
+    unknown
+  > | null>(null)
   const [isSheetOpen, setIsSheetOpen] = useState(false)
 
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
@@ -189,7 +204,9 @@ export default function StudentsDirectoryPage() {
     const baseColumns = columns.map((col: string, index: number) => {
       const maxCharLength = Math.max(
         col ? col.length : 0,
-        ...data.map((row: Record<string, unknown>) => String(row[col] || "").length)
+        ...data.map(
+          (row: Record<string, unknown>) => String(row[col] || "").length
+        )
       )
       const minWidthCh = `${Math.max(maxCharLength + 4, 12)}ch`
 
@@ -231,19 +248,19 @@ export default function StudentsDirectoryPage() {
                     setIsSheetOpen(true)
                   }}
                 >
-                  <Eye className="mr-2 h-4 w-4" /> View Details
+                  <Eye className="h-4 w-4" /> View Details
                 </DropdownMenuItem>
                 <DropdownMenuItem>
-                  <Edit className="mr-2 h-4 w-4" /> Edit
+                  <Edit className="h-4 w-4" /> Edit
                 </DropdownMenuItem>
                 <DropdownMenuItem className="text-destructive">
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                  <Trash2 className="h-4 w-4" /> Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )
         },
-      }
+      },
     ]
   }, [columns, data])
 
@@ -251,7 +268,9 @@ export default function StudentsDirectoryPage() {
     let result = [...data]
 
     if (statusFilter) {
-      result = result.filter((row: Record<string, unknown>) => row.Status === statusFilter)
+      result = result.filter(
+        (row: Record<string, unknown>) => row.Status === statusFilter
+      )
     }
 
     if (sortConfig) {
@@ -278,16 +297,42 @@ export default function StudentsDirectoryPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-1 flex-col gap-6 py-8 w-full">
+      <div className="flex w-full flex-1 flex-col gap-6 py-8">
         <div className="flex items-center justify-between">
-          <SkeletonBlock variant="rectangular" width={300} height={40} className="rounded-lg" />
-          <SkeletonBlock variant="rectangular" width={200} height={36} className="rounded-md" />
+          <SkeletonBlock
+            variant="rectangular"
+            width={300}
+            height={40}
+            className="rounded-lg"
+          />
+          <SkeletonBlock
+            variant="rectangular"
+            width={200}
+            height={36}
+            className="rounded-md"
+          />
         </div>
         <div className="flex gap-4">
-          <SkeletonBlock variant="rectangular" width="100%" height={36} className="rounded-md max-w-sm" />
-          <SkeletonBlock variant="rectangular" width={120} height={36} className="rounded-md" />
+          <SkeletonBlock
+            variant="rectangular"
+            width="100%"
+            height={36}
+            className="max-w-sm rounded-md"
+          />
+          <SkeletonBlock
+            variant="rectangular"
+            width={120}
+            height={36}
+            className="rounded-md"
+          />
         </div>
-        <SkeletonBlock variant="rectangular" width="100%" height={400} className="rounded-xl flex-1" showSpinner={true} />
+        <SkeletonBlock
+          variant="rectangular"
+          width="100%"
+          height={400}
+          className="flex-1 rounded-xl"
+          showSpinner={true}
+        />
       </div>
     )
   }
@@ -473,9 +518,12 @@ export default function StudentsDirectoryPage() {
                         />
                       </InputGroup>
                       <FieldDescription>
-                        Ensure the sheet is accessible or shared with the service account.
+                        Ensure the sheet is accessible or shared with the
+                        service account.
                       </FieldDescription>
-                      {fieldState.error && <FieldError>{fieldState.error.message}</FieldError>}
+                      {fieldState.error && (
+                        <FieldError>{fieldState.error.message}</FieldError>
+                      )}
                     </FieldContent>
                   </Field>
                 )}
@@ -509,14 +557,17 @@ export default function StudentsDirectoryPage() {
               onClick={() => {
                 toast.promise(importMutation.mutateAsync(), {
                   loading: "Importing students...",
-                  success: (data: { message?: string }) => data.message || "Students imported successfully!",
-                  error: (err: Error) => err.message || "Failed to import students.",
+                  success: (data: { message?: string }) =>
+                    data.message || "Students imported successfully!",
+                  error: (err: Error) =>
+                    err.message || "Failed to import students.",
                 })
               }}
               disabled={
                 importMutation.isPending ||
                 (importTab === "file" && !uploadedFile) ||
-                (importTab === "link" && (!googleUrl || !!form.formState.errors.googleUrl))
+                (importTab === "link" &&
+                  (!googleUrl || !!form.formState.errors.googleUrl))
               }
             >
               {importMutation.isPending ? (
@@ -528,35 +579,37 @@ export default function StudentsDirectoryPage() {
         </DialogContent>
       </Dialog>
 
-
-      
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
+        <SheetContent className="w-[400px] overflow-y-auto sm:w-[540px]">
           <SheetHeader>
             <SheetTitle>Student Details</SheetTitle>
             <SheetDescription>
               View detailed information and recent activity for this student.
             </SheetDescription>
           </SheetHeader>
-          
+
           {selectedStudent && (
             <Tabs defaultValue="details" className="mt-6">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="details">Details</TabsTrigger>
                 <TabsTrigger value="activity">Recent Activity</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="details" className="mt-4 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   {Object.entries(selectedStudent).map(([key, value]) => (
                     <div key={key} className="space-y-1">
-                      <p className="text-xs font-medium text-muted-foreground">{key}</p>
-                      <p className="text-sm font-medium">{String(value || "N/A")}</p>
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {key}
+                      </p>
+                      <p className="text-sm font-medium">
+                        {String(value || "N/A")}
+                      </p>
                     </div>
                   ))}
                 </div>
               </TabsContent>
-              
+
               <TabsContent value="activity" className="mt-4">
                 <Timeline>
                   <TimelineItem step={1}>
@@ -575,7 +628,9 @@ export default function StudentsDirectoryPage() {
                       <TimelineDate>Last Week</TimelineDate>
                       <TimelineTitle>Enrolled in Course</TimelineTitle>
                     </TimelineHeader>
-                    <TimelineContent>Enrolled in GATE CS Booster.</TimelineContent>
+                    <TimelineContent>
+                      Enrolled in GATE CS Booster.
+                    </TimelineContent>
                   </TimelineItem>
                   <TimelineItem step={3}>
                     <TimelineIndicator />
@@ -594,4 +649,3 @@ export default function StudentsDirectoryPage() {
     </div>
   )
 }
-

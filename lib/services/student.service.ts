@@ -111,9 +111,9 @@ export async function getStudents(
   }
 
   if (targetSheetId === "all") {
-    rows = await SheetRow.find({});
+    rows = await SheetRow.find({}).lean();
   } else {
-    rows = await SheetRow.find({ sheetId: targetSheetId });
+    rows = await SheetRow.find({ sheetId: targetSheetId }).lean();
     // Explicit sync-on-read: only triggered when no cached rows exist for a real spreadsheetId
     if (rows.length === 0 && spreadsheetId && spreadsheetId !== "default") {
       try {
@@ -208,11 +208,24 @@ export async function updateStudentCell(
     return; // Do nothing if the value hasn't changed
   }
 
-  row.data[column] = newValue.trim();
-  row.lastModifiedBy = actor;
-  row.lastModifiedAt = new Date();
-  row.markModified("data");
-  await row.save();
+  const lastModifiedAt = new Date();
+  
+  const updateResult = await SheetRow.updateOne(
+    { rowId: id, sheetId: targetSheetId },
+    {
+      $set: {
+        [`data.${column}`]: newValue.trim(),
+        lastModifiedBy: actor,
+        lastModifiedAt: lastModifiedAt,
+      }
+    }
+  );
+
+  if (updateResult.modifiedCount === 0) {
+    // Check if the row exists
+    const exists = await SheetRow.exists({ rowId: id, sheetId: targetSheetId });
+    if (!exists) throw new Error("Student record not found");
+  }
 
   await appendAuditLog({
     timestamp: new Date().toISOString(),
@@ -237,7 +250,7 @@ export async function updateStudentCell(
       column,
       value: newValue,
       lastModifiedBy: actor,
-      lastModifiedAt: row.lastModifiedAt.toISOString(),
+      lastModifiedAt: lastModifiedAt.toISOString(),
     },
   });
 }

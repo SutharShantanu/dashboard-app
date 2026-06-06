@@ -18,12 +18,25 @@ export async function GET(request: Request) {
 
     await connectToDatabase();
 
+    const cacheKey = "analytics:dashboard:data";
+    let cached = null;
+    try {
+      // @ts-ignore - redis is typed as any in some places, it works
+      const { default: redis } = await import("../../../lib/redis");
+      cached = await redis.get(cacheKey);
+      if (cached) {
+        return NextResponse.json(JSON.parse(cached));
+      }
+    } catch (e) {
+      console.warn("[Redis] Failed to get cache:", e instanceof Error ? e.message : String(e));
+    }
+
     // User Stats
     const totalUsers = await User.countDocuments();
     const activeUsers = await User.countDocuments({ isActive: true });
 
-    // Student Stats
-    const students = await SheetRow.find({});
+    // Student Stats (Expensive Query)
+    const students = await SheetRow.find({}).lean();
     
     let totalStudents = students.length;
     let activeStudentsCount = 0;
@@ -42,7 +55,7 @@ export async function GET(request: Request) {
     };
 
     students.forEach((row) => {
-      const s = row.data;
+      const s = row.data as any;
       if (!s) return;
 
       const status = String(s.Status || "Unknown");
@@ -112,7 +125,7 @@ export async function GET(request: Request) {
       .limit(5)
       .lean();
 
-    return NextResponse.json({
+    const responsePayload = {
       totalUsers,
       activeUsers,
       totalStudents,
@@ -124,7 +137,17 @@ export async function GET(request: Request) {
       scoreChartData,
       timelineData,
       recentLogs,
-    });
+    };
+
+    try {
+      const { default: redis } = await import("../../../lib/redis");
+      // Cache analytics for 5 minutes since they don't need real-time precision and are very expensive to compute
+      await redis.set(cacheKey, JSON.stringify(responsePayload), "EX", 300);
+    } catch (e) {
+      console.warn("[Redis] Failed to set cache:", e instanceof Error ? e.message : String(e));
+    }
+
+    return NextResponse.json(responsePayload);
   } catch (error: any) {
     console.error("[GET /api/analytics] Error:", error);
     return NextResponse.json(

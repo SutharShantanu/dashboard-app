@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { Badge } from "@/components/ui/badge"
 
 interface DataGridPaginationProps {
   sizes?: number[]
@@ -42,7 +44,7 @@ function DataGridPagination(props: DataGridPaginationProps): React.JSX.Element {
     sizesSkeleton: <Skeleton className="h-8 w-44" />,
     moreLimit: 5,
     more: false,
-    info: "{from} - {to} of {count}",
+    info: "{from} - {to} / {count}",
     infoSkeleton: <Skeleton className="h-8 w-60" />,
     rowsPerPageLabel: "Rows per page",
     previousPageLabel: "Go to previous page",
@@ -84,24 +86,30 @@ function DataGridPagination(props: DataGridPaginationProps): React.JSX.Element {
     const buttons = []
     for (let i = currentGroupStart; i < currentGroupEnd; i++) {
       buttons.push(
-        <Button
+        <ToggleGroupItem
           key={i}
-          size="icon-sm"
-          variant="ghost"
-          className={cn(btnBaseClasses, "text-muted-foreground", {
-            "bg-accent text-accent-foreground": pageIndex === i,
-          })}
-          onClick={() => {
-            if (pageIndex !== i) {
-              table.setPageIndex(i)
-            }
-          }}
+          value={i.toString()}
+          className={cn(btnBaseClasses, "text-muted-foreground data-[state=on]:bg-accent data-[state=on]:text-accent-foreground")}
+          aria-label={`Go to page ${i + 1}`}
         >
           {i + 1}
-        </Button>
+        </ToggleGroupItem>
       )
     }
-    return buttons
+    return (
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        value={pageIndex.toString()}
+        onValueChange={(val) => {
+          if (val !== undefined && val !== "") {
+            table.setPageIndex(Number(val))
+          }
+        }}
+      >
+        {buttons}
+      </ToggleGroup>
+    )
   }
 
   // Render a "previous" ellipsis button if there are previous pages to show
@@ -111,7 +119,7 @@ function DataGridPagination(props: DataGridPaginationProps): React.JSX.Element {
         <Button
           size="icon-sm"
           className={btnBaseClasses}
-          variant="ghost"
+          variant="outline"
           onClick={() => table.setPageIndex(currentGroupStart - 1)}
         >
           {mergedProps.ellipsisText}
@@ -127,7 +135,7 @@ function DataGridPagination(props: DataGridPaginationProps): React.JSX.Element {
       return (
         <Button
           className={btnBaseClasses}
-          variant="ghost"
+          variant="outline"
           size="icon-sm"
           onClick={() => table.setPageIndex(currentGroupEnd)}
         >
@@ -180,14 +188,14 @@ function DataGridPagination(props: DataGridPaginationProps): React.JSX.Element {
           mergedProps?.infoSkeleton
         ) : (
           <>
-            <div className="order-2 text-xs text-nowrap text-muted-foreground sm:order-1">
+            <Badge variant="outline" className="order-2 text-xs font-normal text-muted-foreground sm:order-1">
               {paginationInfo}
-            </div>
+            </Badge>
             {pageCount > 1 && (
               <div className="order-1 flex items-center space-x-1 sm:order-2">
                 <Button
                   size="icon-sm"
-                  variant="ghost"
+                  variant="outline"
                   className={btnArrowClasses}
                   onClick={() => table.previousPage()}
                   disabled={!table.getCanPreviousPage()}
@@ -206,7 +214,7 @@ function DataGridPagination(props: DataGridPaginationProps): React.JSX.Element {
 
                 <Button
                   size="icon-sm"
-                  variant="ghost"
+                  variant="outline"
                   className={btnArrowClasses}
                   onClick={() => table.nextPage()}
                   disabled={!table.getCanNextPage()}
