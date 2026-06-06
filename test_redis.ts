@@ -6,7 +6,7 @@ async function test() {
     await redis.incr('test_key');
     console.log('Success');
   } catch (e) {
-    console.error('Error:', e.message);
+    console.error('Error:', e instanceof Error ? e.message : String(e));
   }
   process.exit();
 }

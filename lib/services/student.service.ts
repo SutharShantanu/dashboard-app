@@ -103,7 +103,7 @@ export async function getStudents(
   try {
     cached = await redis.get(cacheKey);
   } catch (e) {
-    console.warn("[Redis] Failed to get cache:", e.message);
+    console.warn("[Redis] Failed to get cache:", e instanceof Error ? e.message : String(e));
   }
 
   if (cached) {
@@ -146,7 +146,7 @@ export async function getStudents(
   try {
     await redis.set(cacheKey, JSON.stringify(result), "EX", 300); // cache for 5 minutes
   } catch (e) {
-    console.warn("[Redis] Failed to set cache:", e.message);
+    console.warn("[Redis] Failed to set cache:", e instanceof Error ? e.message : String(e));
   }
   return result;
 }
