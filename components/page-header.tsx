@@ -17,7 +17,7 @@ import { BadgeDot } from "@/components/ui/badge-dot"
 interface PageHeaderProps {
   subtitle: React.ReactNode
   title: React.ReactNode
-  description: React.ReactNode
+  description?: React.ReactNode
   pulse?: boolean
   className?: string
   children?: React.ReactNode
@@ -68,9 +68,11 @@ export function PageHeader({
                 {title}
               </CardTitle>
             </div>
-            <CardDescription className="text-sm text-muted-foreground/80 leading-relaxed">
-              {description}
-            </CardDescription>
+            {description && (
+              <CardDescription className="text-sm text-muted-foreground/80 leading-relaxed">
+                {description}
+              </CardDescription>
+            )}
           </div>
           {children && (
             <div className="flex shrink-0 items-center gap-3">

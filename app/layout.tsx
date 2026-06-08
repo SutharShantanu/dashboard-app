@@ -1,11 +1,14 @@
-import { Geist, Geist_Mono } from "next/font/google";
+import { Raleway, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { cn } from "@/lib/utils";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+const raleway = Raleway({
+  subsets: ["latin"],
+  variable: "--font-raleway",
+});
 
-const fontMono = Geist_Mono({
+const fontMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-mono",
 });
@@ -61,7 +64,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("antialiased", fontMono.variable, "font-sans", geist.variable)}
+      className={cn("antialiased", fontMono.variable, raleway.variable, "font-sans")}
     >
       <body>
         <Providers>{children}</Providers>
